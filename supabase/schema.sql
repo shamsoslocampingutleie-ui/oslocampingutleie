@@ -378,5 +378,10 @@ create policy "Admins can view all bookings"
   on public.bookings for select
   using (public.is_admin());
 
+-- 11) Instant booking: hosts can let renters book without approval.
+-- When true, new booking requests for this listing are created with
+-- status "accepted" right away instead of "pending".
+alter table public.listings add column if not exists instant_book boolean not null default false;
+
 -- Done. Example listings are inserted from the app itself (only if the
 -- table is empty), since they must reference an existing auth user.
