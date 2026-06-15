@@ -312,10 +312,18 @@ begin
       'to', v_host_email,
       'subject', 'Ny leieforespørsel: ' || v_listing_title,
       'html',
-        '<p>Hei ' || coalesce(v_host_name, '') || ',</p>' ||
-        '<p><strong>' || new.renter_name || '</strong> ønsker å leie <strong>' || v_listing_title || '</strong>' ||
-        ' fra ' || new.from_date || ' til ' || new.to_date || '.</p>' ||
-        '<p><a href="https://oslocampingutleie.no/">Logg inn og se forespørselen</a></p>'
+        '<div style="font-family:''Helvetica Neue'',Arial,sans-serif;max-width:480px;margin:0 auto;background:#F7F5F0;border-radius:16px;overflow:hidden">' ||
+          '<div style="background:#14512E;padding:28px 32px">' ||
+            '<p style="margin:0;color:#CFE3D5;font-size:12px;letter-spacing:.12em;text-transform:uppercase;font-weight:600">Oslo Camping Utleie</p>' ||
+            '<h1 style="margin:8px 0 0;color:#ffffff;font-size:22px;font-weight:700;font-family:inherit">Ny leieforespørsel</h1>' ||
+          '</div>' ||
+          '<div style="padding:28px 32px">' ||
+            '<p style="margin:0 0 16px;color:#15201A;font-size:16px;line-height:1.6">Hei ' || coalesce(v_host_name, '') || ',</p>' ||
+            '<p style="margin:0 0 24px;color:#15201A;font-size:16px;line-height:1.6"><strong>' || new.renter_name || '</strong> ønsker å leie <strong>' || v_listing_title || '</strong> fra <strong>' || new.from_date || '</strong> til <strong>' || new.to_date || '</strong>.</p>' ||
+            '<a href="https://oslocampingutleie.no/?view=requests" style="display:inline-block;padding:13px 28px;background:#14512E;color:#ffffff;text-decoration:none;border-radius:999px;font-weight:600;font-size:15px">Logg inn og se forespørselen</a>' ||
+            '<p style="margin:28px 0 0;color:#6B776E;font-size:13px;line-height:1.6">Denne e-posten kan ikke besvares. Logg inn på <a href="https://oslocampingutleie.no/" style="color:#14512E;text-decoration:underline">oslocampingutleie.no</a> for å se og administrere alt.</p>' ||
+          '</div>' ||
+        '</div>'
     )
   );
 
