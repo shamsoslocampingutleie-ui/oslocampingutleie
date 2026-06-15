@@ -396,5 +396,34 @@ create policy "Admins can update any booking"
 -- status "accepted" right away instead of "pending".
 alter table public.listings add column if not exists instant_book boolean not null default false;
 
+-- 12) Listing photos (Supabase Storage)
+alter table public.listings add column if not exists images jsonb not null default '[]'::jsonb;
+
+insert into storage.buckets (id, name, public)
+values ('listing-images', 'listing-images', true)
+on conflict (id) do nothing;
+
+-- Files are stored under <owner-uuid>/<filename>. Owners (and admins) can
+-- manage their own folder; anyone can view (bucket is public).
+drop policy if exists "Listing images are publicly accessible" on storage.objects;
+create policy "Listing images are publicly accessible"
+  on storage.objects for select
+  using (bucket_id = 'listing-images');
+
+drop policy if exists "Owners can upload listing images" on storage.objects;
+create policy "Owners can upload listing images"
+  on storage.objects for insert
+  with check (bucket_id = 'listing-images' and (auth.uid()::text = (storage.foldername(name))[1] or public.is_admin()));
+
+drop policy if exists "Owners can update listing images" on storage.objects;
+create policy "Owners can update listing images"
+  on storage.objects for update
+  using (bucket_id = 'listing-images' and (auth.uid()::text = (storage.foldername(name))[1] or public.is_admin()));
+
+drop policy if exists "Owners can delete listing images" on storage.objects;
+create policy "Owners can delete listing images"
+  on storage.objects for delete
+  using (bucket_id = 'listing-images' and (auth.uid()::text = (storage.foldername(name))[1] or public.is_admin()));
+
 -- Done. Example listings are inserted from the app itself (only if the
 -- table is empty), since they must reference an existing auth user.
