@@ -386,6 +386,11 @@ create policy "Admins can view all bookings"
   on public.bookings for select
   using (public.is_admin());
 
+drop policy if exists "Admins can update any booking" on public.bookings;
+create policy "Admins can update any booking"
+  on public.bookings for update
+  using (public.is_admin());
+
 -- 11) Instant booking: hosts can let renters book without approval.
 -- When true, new booking requests for this listing are created with
 -- status "accepted" right away instead of "pending".

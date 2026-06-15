@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="no">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Admin — Oslo Camping Utleie</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{--bg:#FBFAF7;--surface:#FFFFFF;--ink:#15201A;--ink-3:#6B776E;--line:#E3E6DD;--green:#14512E;--green-50:#EDF3ED;--amber:#B65A12;--amber-soft:#F7E9D8;--red:#B42318;--red-soft:#FBEAE7;--radius:14px}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:var(--bg);color:var(--ink)}
+  header{background:var(--green);color:#fff;padding:18px 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px}
+  header h1{margin:0;font-size:18px;font-weight:700}
+  header .sub{font-size:12px;color:#CFE3D5;margin-top:2px}
+  main{max-width:1000px;margin:0 auto;padding:24px 16px 60px}
+  .surface{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:20px;margin-bottom:20px}
+  .surface h2{margin:0 0 4px;font-size:18px}
+  .surface .sub{color:var(--ink-3);font-size:13px;margin:0 0 14px}
+  .stat-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-bottom:20px}
+  .stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px;text-align:center}
+  .stat .lbl{font-size:12px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.06em}
+  .stat .val{font-size:24px;font-weight:700;margin-top:4px}
+  .row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
+  .row:last-child{border-bottom:none}
+  .row .main{flex:1;min-width:0}
+  .row .title{font-weight:600;font-size:15px}
+  .row .meta{font-size:13px;color:var(--ink-3);margin-top:2px}
+  .actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  button{font-family:inherit;font-size:13px;font-weight:600;border-radius:999px;padding:8px 14px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer}
+  button.primary{background:var(--green);color:#fff;border-color:var(--green)}
+  button.danger{color:var(--red);border-color:var(--red-soft)}
+  button:hover{opacity:.85}
+  .badge{font-size:12px;font-weight:600;border-radius:999px;padding:3px 10px;white-space:nowrap}
+  .b-active,.b-accepted{background:var(--green-50);color:var(--green)}
+  .b-paused,.b-pending{background:var(--amber-soft);color:var(--amber)}
+  .b-declined{background:var(--red-soft);color:var(--red)}
+  .b-completed{background:#E1F0F8;color:#0369A1}
+  input,textarea,select{font-family:inherit;font-size:14px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;width:100%;background:#fff;color:var(--ink)}
+  label{display:block;font-size:12px;font-weight:600;color:var(--ink-3);margin-bottom:4px}
+  .field{margin-bottom:12px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .hidden{display:none!important}
+  .center{max-width:380px;margin:80px auto;text-align:center}
+  .err{color:var(--red);font-size:13px;margin-top:8px}
+  .ok{color:var(--green);font-size:13px;margin-top:8px}
+  .modal-bg{position:fixed;inset:0;background:rgba(20,30,25,.45);display:flex;align-items:center;justify-content:center;padding:16px;z-index:50}
+  .modal{background:#fff;border-radius:var(--radius);padding:24px;max-width:480px;width:100%;max-height:90vh;overflow:auto}
+  .modal h3{margin:0 0 14px}
+  .toplinks{font-size:13px}
+  .toplinks a{color:#CFE3D5}
+  .check{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:500;color:var(--ink)}
+  .check input{width:auto}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Oslo Camping Utleie</h1>
+    <div class="sub">Admin</div>
+  </div>
+  <div class="toplinks"><a href="/">← Til forsiden</a></div>
+</header>
+<main>
+
+  <div id="loading" class="center"><p>Laster…</p></div>
+
+  <div id="login" class="center hidden">
+    <h2>Logg inn som admin</h2>
+    <p style="color:var(--ink-3);font-size:14px">Skriv inn admin-e-posten for å få en innloggingslenke.</p>
+    <div class="field"><input id="loginEmail" type="email" placeholder="kundeservice@oslocampingutleie.no" value="kundeservice@oslocampingutleie.no" /></div>
+    <button class="primary" id="sendLink" style="width:100%">Send innloggingslenke</button>
+    <p id="loginMsg"></p>
+  </div>
+
+  <div id="noaccess" class="center hidden">
+    <h2>Ingen tilgang</h2>
+    <p style="color:var(--ink-3)">Denne kontoen har ikke admin-rettigheter.</p>
+    <button id="logoutNoAccess">Logg ut</button>
+  </div>
+
+  <div id="dashboard" class="hidden">
+    <div class="stat-cards" id="stats"></div>
+
+    <div class="surface">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div><h2>Annonser</h2><p class="sub">Pause, aktiver eller rediger annonser — også de plattformen eier.</p></div>
+        <button id="logoutBtn">Logg ut</button>
+      </div>
+      <div id="listings"></div>
+    </div>
+
+    <div class="surface">
+      <h2>Bookinger</h2>
+      <p class="sub">Godta eller avslå ventende forespørsler.</p>
+      <div id="bookings"></div>
+    </div>
+
+    <div class="surface">
+      <h2>Brukere</h2>
+      <div id="users"></div>
+    </div>
+  </div>
+
+  <div id="editModalBg" class="modal-bg hidden">
+    <div class="modal">
+      <h3>Rediger annonse</h3>
+      <div class="field"><label>Tittel</label><input id="edTitle" /></div>
+      <div class="field"><label>Sted</label><input id="edLoc" /></div>
+      <div class="grid2">
+        <div class="field"><label>Pris/dag (kr)</label><input id="edPrice" type="number" /></div>
+        <div class="field"><label>Rengjøringsgebyr (kr)</label><input id="edCleaning" type="number" /></div>
+      </div>
+      <div class="field"><label>Beskrivelse</label><textarea id="edDesc" rows="4"></textarea></div>
+      <div class="field"><label class="check"><input id="edInstant" type="checkbox" /> Bestilling uten godkjenning (direkte booking)</label></div>
+      <div class="actions">
+        <button class="primary" id="edSave">Lagre</button>
+        <button id="edCancel">Avbryt</button>
+      </div>
+      <p id="edMsg" class="err"></p>
+    </div>
+  </div>
+
+</main>
+<script>
+const SUPABASE_URL = "https://cglxodxiqpzrgwrfaqbr.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_yypSMj_dG7_yfOmJO9ZZmA_CrrnMmgW";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const $ = id => document.getElementById(id);
+const nok = n => Math.round(Number(n) || 0).toLocaleString("nb-NO");
+const CAT_NAME = {camping:"Campingvogn",mobil:"Bobil",car:"Bil",trailer:"Tilhenger",boat:"Båt",tool:"Verktøy"};
+const STATUS_LBL = {active:"Aktiv",paused:"Pauset",pending:"Venter",accepted:"Godkjent",declined:"Avslått",completed:"Fullført"};
+
+let LISTINGS = [], PROFILES = [], BOOKINGS = [];
+
+function badge(status){
+  return '<span class="badge b-'+status+'">'+(STATUS_LBL[status]||status)+'</span>';
+}
+
+async function init(){
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session){
+    $("loading").classList.add("hidden");
+    $("login").classList.remove("hidden");
+    return;
+  }
+  const { data: profile, error } = await sb.from("profiles").select("*").eq("id", session.user.id).maybeSingle();
+  if (error || !profile || profile.role !== "admin"){
+    $("loading").classList.add("hidden");
+    $("noaccess").classList.remove("hidden");
+    return;
+  }
+  await loadAll();
+  $("loading").classList.add("hidden");
+  $("dashboard").classList.remove("hidden");
+  render();
+}
+
+async function loadAll(){
+  const [l, p, b] = await Promise.all([
+    sb.from("listings").select("*").order("created_at", { ascending: true }),
+    sb.from("profiles").select("*"),
+    sb.from("bookings").select("*").order("created_at", { ascending: false }),
+  ]);
+  if (l.error) return alert("Kunne ikke laste annonser: " + l.error.message);
+  if (p.error) return alert("Kunne ikke laste brukere: " + p.error.message);
+  if (b.error) return alert("Kunne ikke laste bookinger: " + b.error.message);
+  LISTINGS = l.data || [];
+  PROFILES = p.data || [];
+  BOOKINGS = b.data || [];
+}
+
+function hostName(ownerId){
+  const p = PROFILES.find(p => p.id === ownerId);
+  return p ? (p.full_name || p.email) : "—";
+}
+
+function render(){
+  renderStats();
+  renderListings();
+  renderBookings();
+  renderUsers();
+}
+
+function renderStats(){
+  const commission = 0.07 * BOOKINGS
+    .filter(b => b.status === "accepted" || b.status === "completed")
+    .reduce((sum, b) => {
+      const l = LISTINGS.find(l => l.id === b.listing_id);
+      if (!l) return sum;
+      const nights = Math.max(1, Math.round((new Date(b.to_date) - new Date(b.from_date)) / 86400000));
+      return sum + Number(l.price_per_day) * nights;
+    }, 0);
+  const cards = [
+    ["Annonser", LISTINGS.length],
+    ["Brukere", PROFILES.length],
+    ["Bookinger", BOOKINGS.length],
+    ["Ventende", BOOKINGS.filter(b => b.status === "pending").length],
+    ["Provisjon", nok(commission) + " kr"],
+  ];
+  $("stats").innerHTML = cards.map(([lbl, val]) =>
+    '<div class="stat"><div class="lbl">' + lbl + '</div><div class="val">' + val + '</div></div>'
+  ).join("");
+}
+
+function renderListings(){
+  if (!LISTINGS.length){ $("listings").innerHTML = '<p style="color:var(--ink-3)">Ingen annonser.</p>'; return; }
+  $("listings").innerHTML = LISTINGS.map(l => `
+    <div class="row">
+      <div class="main">
+        <div class="title">${escapeHtml(l.title)}</div>
+        <div class="meta">${escapeHtml(hostName(l.owner))} · ${escapeHtml(l.location || "")} · ${nok(l.price_per_day)} kr/dag${l.instant_book ? " · Direkte booking" : ""}</div>
+      </div>
+      <div class="actions">
+        ${badge(l.status)}
+        <button data-edit="${l.id}">Rediger</button>
+        <button data-toggle="${l.id}">${l.status === "active" ? "Pause" : "Aktiver"}</button>
+      </div>
+    </div>
+  `).join("");
+
+  $("listings").querySelectorAll("[data-toggle]").forEach(btn => {
+    btn.onclick = async () => {
+      const l = LISTINGS.find(x => x.id === btn.dataset.toggle);
+      const newStatus = l.status === "active" ? "paused" : "active";
+      const { error } = await sb.from("listings").update({ status: newStatus }).eq("id", l.id);
+      if (error) return alert("Kunne ikke oppdatere: " + error.message);
+      l.status = newStatus;
+      render();
+    };
+  });
+  $("listings").querySelectorAll("[data-edit]").forEach(btn => {
+    btn.onclick = () => openEdit(btn.dataset.edit);
+  });
+}
+
+function renderBookings(){
+  if (!BOOKINGS.length){ $("bookings").innerHTML = '<p style="color:var(--ink-3)">Ingen bookinger.</p>'; return; }
+  $("bookings").innerHTML = BOOKINGS.map(b => {
+    const l = LISTINGS.find(x => x.id === b.listing_id);
+    return `
+      <div class="row">
+        <div class="main">
+          <div class="title">${escapeHtml(l ? l.title : "(slettet annonse)")}</div>
+          <div class="meta">${escapeHtml(b.renter_name)} → ${escapeHtml(l ? hostName(l.owner) : "—")} · ${b.from_date} – ${b.to_date}</div>
+        </div>
+        <div class="actions">
+          ${badge(b.status)}
+          ${b.status === "pending" ? `<button class="primary" data-accept="${b.id}">Godta</button><button class="danger" data-decline="${b.id}">Avslå</button>` : ""}
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  $("bookings").querySelectorAll("[data-accept]").forEach(btn => {
+    btn.onclick = async () => {
+      const { error } = await sb.from("bookings").update({ status: "accepted" }).eq("id", btn.dataset.accept);
+      if (error) return alert("Kunne ikke godta: " + error.message);
+      await loadAll(); render();
+    };
+  });
+  $("bookings").querySelectorAll("[data-decline]").forEach(btn => {
+    btn.onclick = async () => {
+      const { error } = await sb.from("bookings").update({ status: "declined" }).eq("id", btn.dataset.decline);
+      if (error) return alert("Kunne ikke avslå: " + error.message);
+      await loadAll(); render();
+    };
+  });
+}
+
+function renderUsers(){
+  if (!PROFILES.length){ $("users").innerHTML = '<p style="color:var(--ink-3)">Ingen brukere.</p>'; return; }
+  $("users").innerHTML = PROFILES.map(p => `
+    <div class="row">
+      <div class="main">
+        <div class="title">${escapeHtml(p.full_name || p.email)}</div>
+        <div class="meta">${escapeHtml(p.email)} · ${escapeHtml(p.role)}${p.mode ? " · " + escapeHtml(p.mode) : ""}</div>
+      </div>
+    </div>
+  `).join("");
+}
+
+let editingId = null;
+function openEdit(id){
+  const l = LISTINGS.find(x => x.id === id);
+  if (!l) return;
+  editingId = id;
+  $("edTitle").value = l.title || "";
+  $("edLoc").value = l.location || "";
+  $("edPrice").value = l.price_per_day || "";
+  $("edCleaning").value = l.cleaning_fee || 0;
+  $("edDesc").value = l.description || "";
+  $("edInstant").checked = !!l.instant_book;
+  $("edMsg").textContent = "";
+  $("editModalBg").classList.remove("hidden");
+}
+
+$("edCancel").onclick = () => $("editModalBg").classList.add("hidden");
+$("edSave").onclick = async () => {
+  const title = $("edTitle").value.trim();
+  const location = $("edLoc").value.trim();
+  const price = parseInt($("edPrice").value, 10);
+  if (!title){ $("edMsg").textContent = "Gi annonsen en tittel."; return; }
+  if (!location){ $("edMsg").textContent = "Legg til et sted."; return; }
+  if (!price || price < 1){ $("edMsg").textContent = "Sett en gyldig pris per dag."; return; }
+  const { error } = await sb.from("listings").update({
+    title, location,
+    price_per_day: price,
+    cleaning_fee: parseInt($("edCleaning").value, 10) || 0,
+    description: $("edDesc").value.trim(),
+    instant_book: $("edInstant").checked,
+  }).eq("id", editingId);
+  if (error){ $("edMsg").textContent = "Kunne ikke lagre: " + error.message; return; }
+  await loadAll();
+  $("editModalBg").classList.add("hidden");
+  render();
+};
+
+function escapeHtml(s){
+  return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+
+$("sendLink").onclick = async () => {
+  const email = $("loginEmail").value.trim();
+  if (!email) return;
+  $("sendLink").disabled = true;
+  const { error } = await sb.auth.signInWithOtp({
+    email,
+    options: { emailRedirectTo: location.origin + "/admin.html" },
+  });
+  $("sendLink").disabled = false;
+  $("loginMsg").className = error ? "err" : "ok";
+  $("loginMsg").textContent = error ? error.message : "Lenke sendt! Sjekk e-posten din.";
+};
+
+$("logoutBtn").onclick = async () => { await sb.auth.signOut(); location.reload(); };
+$("logoutNoAccess").onclick = async () => { await sb.auth.signOut(); location.reload(); };
+
+init();
+</script>
+</body>
+</html>
