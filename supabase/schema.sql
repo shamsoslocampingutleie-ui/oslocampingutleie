@@ -441,5 +441,38 @@ create policy "Admins can update any profile"
 create index if not exists messages_booking_id_idx on public.messages (booking_id);
 create index if not exists reviews_listing_id_idx on public.reviews (listing_id);
 
+-- 15) Prevent users from escalating their own privileges. The
+-- "Users can update own profile" policy lets any user update their own
+-- row, but has no column-level restriction — without this trigger a
+-- user could PATCH their own profile to set role=admin, suspended=false,
+-- or fake stripe_account_id/stripe_charges_enabled. Admins (checked via
+-- is_admin()) and the service role (used by edge functions) can still
+-- change these fields normally.
+create or replace function public.protect_profile_fields()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if auth.role() = 'service_role' then
+    return new;
+  end if;
+  if exists (select 1 from public.profiles where id = auth.uid() and role = 'admin') then
+    return new;
+  end if;
+  new.role := old.role;
+  new.suspended := old.suspended;
+  new.stripe_account_id := old.stripe_account_id;
+  new.stripe_charges_enabled := old.stripe_charges_enabled;
+  return new;
+end;
+$$;
+
+drop trigger if exists protect_profile_fields_trigger on public.profiles;
+create trigger protect_profile_fields_trigger
+  before update on public.profiles
+  for each row execute function public.protect_profile_fields();
+
 -- Done. Example listings are inserted from the app itself (only if the
 -- table is empty), since they must reference an existing auth user.
