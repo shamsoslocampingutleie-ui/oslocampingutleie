@@ -57,6 +57,7 @@ Deno.serve(async (req) => {
             payment_intent_id: piId || "",
             amount_total: amountTotal,
             platform_fee: platformFee,
+            stripe_customer_details: session.customer_details ?? null,
           })
           .eq("id", bookingId);
       }

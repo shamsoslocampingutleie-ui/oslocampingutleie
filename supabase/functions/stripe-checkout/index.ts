@@ -78,6 +78,19 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+    if (!booking.renter_phone?.trim() || !booking.renter_address?.trim()) {
+      return new Response(
+        JSON.stringify({
+          error: "MISSING_CONTACT_INFO",
+          message:
+            "Telefonnummer og adresse må fylles ut før betaling.",
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
 
     const { data: listing, error: listingErr } = await supabase
       .from("listings")
@@ -136,9 +149,21 @@ Deno.serve(async (req) => {
 
     const fallback = "https://oslocampingutleie.no/";
 
+    const renterIp = req.headers.get("x-forwarded-for")?.split(",")[0]
+      .trim() ||
+      req.headers.get("cf-connecting-ip") || "";
+    if (renterIp) {
+      await supabase
+        .from("bookings")
+        .update({ renter_ip: renterIp })
+        .eq("id", bookingId);
+    }
+
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       payment_method_types: ["card"],
+      phone_number_collection: { enabled: true },
+      billing_address_collection: "required",
       line_items: [
         {
           price_data: {

@@ -327,6 +327,7 @@ function renderBookings(){
         <div class="main">
           <div class="title">${escapeHtml(l ? l.title : "(slettet annonse)")}</div>
           <div class="meta">${escapeHtml(b.renter_name)} → ${escapeHtml(l ? hostName(l.owner) : "—")} · ${b.from_date} – ${b.to_date}</div>
+          ${b.renter_phone || b.renter_address ? `<div class="meta">${escapeHtml(b.renter_phone || "—")} · ${escapeHtml(b.renter_address || "—")}</div>` : ""}
         </div>
         <div class="actions">
           ${badge(b.status)}

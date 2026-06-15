@@ -498,5 +498,28 @@ create policy error_logs_read on public.error_logs for select using (public.is_a
 
 create index if not exists error_logs_created_at_idx on public.error_logs (created_at desc);
 
+-- 17) Tighten the (unused) "listing-photos" storage bucket to match
+-- "listing-images": only the owner of a per-user folder, or an admin, may
+-- upload into it.
+drop policy if exists photos_write on storage.objects;
+create policy photos_write on storage.objects for insert
+  with check (
+    bucket_id = 'listing-photos'
+    and (auth.uid()::text = (storage.foldername(name))[1] or public.is_admin())
+  );
+
+-- 18) Require renter contact details (phone, address) before payment, so
+-- bookings can be traced and hosts/admins can reach the renter. The values
+-- are snapshotted onto the booking (separate from the profile) so they
+-- remain even if the renter later edits their profile. The IP address at
+-- checkout time and Stripe's own verified billing details are stored for
+-- fraud prevention / dispute resolution (see privacy policy).
+alter table public.profiles add column if not exists address text not null default '';
+
+alter table public.bookings add column if not exists renter_phone text not null default '';
+alter table public.bookings add column if not exists renter_address text not null default '';
+alter table public.bookings add column if not exists renter_ip text not null default '';
+alter table public.bookings add column if not exists stripe_customer_details jsonb;
+
 -- Done. Example listings are inserted from the app itself (only if the
 -- table is empty), since they must reference an existing auth user.
