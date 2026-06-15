@@ -112,6 +112,13 @@
         <div class="field"><label>Rengjøringsgebyr (kr)</label><input id="edCleaning" type="number" /></div>
       </div>
       <div class="field"><label>Beskrivelse</label><textarea id="edDesc" rows="4"></textarea></div>
+      <div class="field"><label>Spesifikasjoner (kommaseparert)</label><textarea id="edSpecs" rows="2"></textarea></div>
+      <div class="field">
+        <label>Bilder</label>
+        <div id="edImgGrid" style="display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 2px"></div>
+        <button type="button" class="btn-ghost" id="edAddImg">+ Legg til bilder</button>
+        <input type="file" id="edFileInput" accept="image/*" multiple style="display:none" />
+      </div>
       <div class="field"><label class="check"><input id="edInstant" type="checkbox" /> Bestilling uten godkjenning (direkte booking)</label></div>
       <div class="actions">
         <button class="primary" id="edSave">Lagre</button>
@@ -132,7 +139,50 @@ const nok = n => Math.round(Number(n) || 0).toLocaleString("nb-NO");
 const CAT_NAME = {camping:"Campingvogn",mobil:"Bobil",car:"Bil",trailer:"Tilhenger",boat:"Båt",tool:"Verktøy"};
 const STATUS_LBL = {active:"Aktiv",paused:"Pauset",pending:"Venter",accepted:"Godkjent",declined:"Avslått",completed:"Fullført"};
 
-let LISTINGS = [], PROFILES = [], BOOKINGS = [];
+let LISTINGS = [], PROFILES = [], BOOKINGS = [], EDIT_IMAGES = [], currentUserId = null;
+
+function renderEditImages(){
+  const grid = $("edImgGrid");
+  grid.innerHTML = "";
+  EDIT_IMAGES.forEach((item, idx) => {
+    const cell = document.createElement("div");
+    cell.style.cssText = "position:relative;width:84px;height:84px;border-radius:10px;overflow:hidden;background:var(--bg)";
+    const img = document.createElement("img");
+    img.src = item.url || item.preview;
+    img.loading = "lazy";
+    img.style.cssText = "width:100%;height:100%;object-fit:cover";
+    const rm = document.createElement("button");
+    rm.type = "button";
+    rm.textContent = "✕";
+    rm.setAttribute("aria-label", "Fjern bilde");
+    rm.style.cssText = "position:absolute;top:3px;right:3px;width:22px;height:22px;border-radius:50%;background:rgba(20,32,26,.6);color:#fff;border:0;font-size:12px;line-height:1;cursor:pointer;padding:0";
+    rm.onclick = () => { EDIT_IMAGES.splice(idx, 1); renderEditImages(); };
+    cell.append(img, rm);
+    grid.appendChild(cell);
+  });
+}
+
+async function uploadEditImages(ownerId){
+  const out = [];
+  for (const item of EDIT_IMAGES){
+    if (item.url){ out.push(item.url); continue; }
+    const file = item.file;
+    const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
+    const path = ownerId + "/" + Date.now() + "-" + Math.random().toString(36).slice(2) + "." + ext;
+    const { error } = await sb.storage.from("listing-images").upload(path, file, { contentType: file.type || "image/jpeg" });
+    if (error) continue;
+    const { data } = sb.storage.from("listing-images").getPublicUrl(path);
+    out.push(data.publicUrl);
+  }
+  return out;
+}
+
+$("edAddImg").onclick = () => $("edFileInput").click();
+$("edFileInput").onchange = () => {
+  [...$("edFileInput").files].forEach(file => EDIT_IMAGES.push({ file, preview: URL.createObjectURL(file) }));
+  $("edFileInput").value = "";
+  renderEditImages();
+};
 
 function badge(status){
   return '<span class="badge b-'+status+'">'+(STATUS_LBL[status]||status)+'</span>';
@@ -151,6 +201,7 @@ async function init(){
     $("noaccess").classList.remove("hidden");
     return;
   }
+  currentUserId = session.user.id;
   await loadAll();
   $("loading").classList.add("hidden");
   $("dashboard").classList.remove("hidden");
@@ -216,6 +267,7 @@ function renderListings(){
         ${badge(l.status)}
         <button data-edit="${l.id}">Rediger</button>
         <button data-toggle="${l.id}">${l.status === "active" ? "Pause" : "Aktiver"}</button>
+        <button class="danger" data-delete="${l.id}">Slett</button>
       </div>
     </div>
   `).join("");
@@ -232,6 +284,17 @@ function renderListings(){
   });
   $("listings").querySelectorAll("[data-edit]").forEach(btn => {
     btn.onclick = () => openEdit(btn.dataset.edit);
+  });
+  $("listings").querySelectorAll("[data-delete]").forEach(btn => {
+    btn.onclick = async () => {
+      const l = LISTINGS.find(x => x.id === btn.dataset.delete);
+      if (!l) return;
+      if (!confirm('Slette annonsen "' + l.title + '"? Dette kan ikke angres.')) return;
+      const { error } = await sb.from("listings").delete().eq("id", l.id);
+      if (error) return alert("Kunne ikke slette: " + error.message);
+      await loadAll();
+      render();
+    };
   });
 }
 
@@ -275,10 +338,41 @@ function renderUsers(){
     <div class="row">
       <div class="main">
         <div class="title">${escapeHtml(p.full_name || p.email)}</div>
-        <div class="meta">${escapeHtml(p.email)} · ${escapeHtml(p.role)}${p.mode ? " · " + escapeHtml(p.mode) : ""}</div>
+        <div class="meta">${escapeHtml(p.email)} · ${escapeHtml(p.role)}${p.mode ? " · " + escapeHtml(p.mode) : ""}${p.suspended ? " · Suspendert" : ""}</div>
+      </div>
+      <div class="actions">
+        ${p.role !== "admin" ? `<button data-suspend="${p.id}">${p.suspended ? "Aktiver" : "Suspender"}</button>` : ""}
+        ${p.id !== currentUserId ? `<button class="danger" data-deluser="${p.id}">Slett</button>` : ""}
       </div>
     </div>
   `).join("");
+
+  $("users").querySelectorAll("[data-suspend]").forEach(btn => {
+    btn.onclick = async () => {
+      const p = PROFILES.find(x => x.id === btn.dataset.suspend);
+      const { error } = await sb.from("profiles").update({ suspended: !p.suspended }).eq("id", p.id);
+      if (error) return alert("Kunne ikke oppdatere: " + error.message);
+      p.suspended = !p.suspended;
+      render();
+    };
+  });
+  $("users").querySelectorAll("[data-deluser]").forEach(btn => {
+    btn.onclick = async () => {
+      const p = PROFILES.find(x => x.id === btn.dataset.deluser);
+      if (!p) return;
+      if (!confirm('Slette brukeren "' + (p.full_name || p.email) + '" permanent? Dette kan ikke angres.')) return;
+      const { data: s } = await sb.auth.getSession();
+      const res = await fetch(SUPABASE_URL + "/functions/v1/admin-delete-user", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + s.session.access_token, "apikey": SUPABASE_ANON_KEY },
+        body: JSON.stringify({ userId: p.id }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) return alert("Kunne ikke slette: " + (j.error || res.status));
+      await loadAll();
+      render();
+    };
+  });
 }
 
 let editingId = null;
@@ -291,8 +385,11 @@ function openEdit(id){
   $("edPrice").value = l.price_per_day || "";
   $("edCleaning").value = l.cleaning_fee || 0;
   $("edDesc").value = l.description || "";
+  $("edSpecs").value = (l.specs || []).join(", ");
   $("edInstant").checked = !!l.instant_book;
   $("edMsg").textContent = "";
+  EDIT_IMAGES = (l.images || []).map(u => ({ url: u }));
+  renderEditImages();
   $("editModalBg").classList.remove("hidden");
 }
 
@@ -304,13 +401,22 @@ $("edSave").onclick = async () => {
   if (!title){ $("edMsg").textContent = "Gi annonsen en tittel."; return; }
   if (!location){ $("edMsg").textContent = "Legg til et sted."; return; }
   if (!price || price < 1){ $("edMsg").textContent = "Sett en gyldig pris per dag."; return; }
+  const editingListing = LISTINGS.find(x => x.id === editingId);
+  $("edSave").disabled = true;
+  $("edMsg").className = "err";
+  $("edMsg").textContent = "Laster opp bilder…";
+  const images = await uploadEditImages(editingListing.owner);
   const { error } = await sb.from("listings").update({
     title, location,
     price_per_day: price,
     cleaning_fee: parseInt($("edCleaning").value, 10) || 0,
     description: $("edDesc").value.trim(),
+    specs: $("edSpecs").value.split(",").map(s => s.trim()).filter(Boolean),
     instant_book: $("edInstant").checked,
+    images,
   }).eq("id", editingId);
+  $("edSave").disabled = false;
+  $("edMsg").textContent = "";
   if (error){ $("edMsg").textContent = "Kunne ikke lagre: " + error.message; return; }
   await loadAll();
   $("editModalBg").classList.add("hidden");

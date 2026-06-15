@@ -425,5 +425,17 @@ create policy "Owners can delete listing images"
   on storage.objects for delete
   using (bucket_id = 'listing-images' and (auth.uid()::text = (storage.foldername(name))[1] or public.is_admin()));
 
+-- 13) Account suspension
+-- Suspended users keep their account/data but cannot log in or use the
+-- platform until an admin lifts the suspension. Hard deletion of a user
+-- (auth.users row) is handled by the "admin-delete-user" edge function,
+-- which cascades to profiles/listings/bookings via "on delete cascade".
+alter table public.profiles add column if not exists suspended boolean not null default false;
+
+drop policy if exists "Admins can update any profile" on public.profiles;
+create policy "Admins can update any profile"
+  on public.profiles for update
+  using (public.is_admin());
+
 -- Done. Example listings are inserted from the app itself (only if the
 -- table is empty), since they must reference an existing auth user.
