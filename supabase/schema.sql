@@ -474,5 +474,29 @@ create trigger protect_profile_fields_trigger
   before update on public.profiles
   for each row execute function public.protect_profile_fields();
 
+-- 16) Client-side error log, for basic error monitoring. Any client
+-- (including anonymous visitors) can report an error; only admins can
+-- read the log (visible in the admin dashboard).
+create table if not exists public.error_logs (
+  id bigint generated always as identity primary key,
+  created_at timestamptz not null default now(),
+  user_id uuid references public.profiles(id) on delete set null,
+  message text not null,
+  stack text,
+  url text,
+  user_agent text,
+  constraint error_logs_message_len check (char_length(message) <= 2000),
+  constraint error_logs_stack_len check (stack is null or char_length(stack) <= 4000)
+);
+alter table public.error_logs enable row level security;
+
+drop policy if exists error_logs_insert on public.error_logs;
+create policy error_logs_insert on public.error_logs for insert with check (true);
+
+drop policy if exists error_logs_read on public.error_logs;
+create policy error_logs_read on public.error_logs for select using (public.is_admin());
+
+create index if not exists error_logs_created_at_idx on public.error_logs (created_at desc);
+
 -- Done. Example listings are inserted from the app itself (only if the
 -- table is empty), since they must reference an existing auth user.

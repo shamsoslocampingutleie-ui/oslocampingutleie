@@ -100,6 +100,11 @@
       <h2>Brukere</h2>
       <div id="users"></div>
     </div>
+
+    <div class="surface">
+      <h2>Feillogg</h2>
+      <div id="errors"></div>
+    </div>
   </div>
 
   <div id="editModalBg" class="modal-bg hidden">
@@ -139,7 +144,7 @@ const nok = n => Math.round(Number(n) || 0).toLocaleString("nb-NO");
 const CAT_NAME = {camping:"Campingvogn",mobil:"Bobil",car:"Bil",trailer:"Tilhenger",boat:"Båt",tool:"Verktøy"};
 const STATUS_LBL = {active:"Aktiv",paused:"Pauset",pending:"Venter",accepted:"Godkjent",declined:"Avslått",completed:"Fullført"};
 
-let LISTINGS = [], PROFILES = [], BOOKINGS = [], EDIT_IMAGES = [], currentUserId = null;
+let LISTINGS = [], PROFILES = [], BOOKINGS = [], ERRORS = [], EDIT_IMAGES = [], currentUserId = null;
 
 function renderEditImages(){
   const grid = $("edImgGrid");
@@ -209,10 +214,11 @@ async function init(){
 }
 
 async function loadAll(){
-  const [l, p, b] = await Promise.all([
+  const [l, p, b, er] = await Promise.all([
     sb.from("listings").select("*").order("created_at", { ascending: true }),
     sb.from("profiles").select("*"),
     sb.from("bookings").select("*").order("created_at", { ascending: false }),
+    sb.from("error_logs").select("*").order("created_at", { ascending: false }).limit(50),
   ]);
   if (l.error) return alert("Kunne ikke laste annonser: " + l.error.message);
   if (p.error) return alert("Kunne ikke laste brukere: " + p.error.message);
@@ -220,6 +226,7 @@ async function loadAll(){
   LISTINGS = l.data || [];
   PROFILES = p.data || [];
   BOOKINGS = b.data || [];
+  ERRORS = er.data || [];
 }
 
 function hostName(ownerId){
@@ -232,6 +239,19 @@ function render(){
   renderListings();
   renderBookings();
   renderUsers();
+  renderErrors();
+}
+
+function renderErrors(){
+  if (!ERRORS.length){ $("errors").innerHTML = '<p style="color:var(--ink-3)">Ingen feil registrert.</p>'; return; }
+  $("errors").innerHTML = ERRORS.map(e => `
+    <div class="row">
+      <div class="main">
+        <div class="title">${escapeHtml(e.message)}</div>
+        <div class="meta">${new Date(e.created_at).toLocaleString("no-NO")}${e.url ? " · " + escapeHtml(e.url) : ""}</div>
+      </div>
+    </div>
+  `).join("");
 }
 
 function renderStats(){
