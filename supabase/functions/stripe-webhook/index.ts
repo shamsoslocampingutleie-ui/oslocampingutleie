@@ -46,17 +46,16 @@ Deno.serve(async (req) => {
       const bookingId = session.metadata?.booking_id;
       if (bookingId) {
         const piId = session.payment_intent as string | null;
-        let platformFee = 0;
-        if (piId) {
-          const pi = await stripe.paymentIntents.retrieve(piId);
-          platformFee = (pi.application_fee_amount ?? 0) / 100;
-        }
+        const amountTotal = (session.amount_total ?? 0) / 100;
+        const platformFee =
+          Number(session.metadata?.platform_fee_ore ?? session.amount_total ?? 0) /
+          100;
         await supabase
           .from("bookings")
           .update({
             paid: true,
             payment_intent_id: piId || "",
-            amount_total: (session.amount_total ?? 0) / 100,
+            amount_total: amountTotal,
             platform_fee: platformFee,
           })
           .eq("id", bookingId);

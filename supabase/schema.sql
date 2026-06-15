@@ -341,6 +341,12 @@ alter table public.bookings add column if not exists paid boolean not null defau
 alter table public.bookings add column if not exists amount_total numeric(10, 2);
 alter table public.bookings add column if not exists platform_fee numeric(10, 2);
 
+-- Funds are held by the platform until both host and renter confirm
+-- handover (host_confirmed_handover + renter_confirmed_handover). Only
+-- then is the host's share transferred out, via stripe-release-payout.
+alter table public.bookings add column if not exists payout_released boolean not null default false;
+alter table public.bookings add column if not exists transfer_id text not null default '';
+
 -- 10) Admin access (RLS bypass for role = 'admin')
 -- The admin panel lists/pauses ALL listings and views ALL bookings,
 -- but the policies above only let owners/renters see or change their own

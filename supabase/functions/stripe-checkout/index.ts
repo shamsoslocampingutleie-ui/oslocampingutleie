@@ -96,9 +96,14 @@ Deno.serve(async (req) => {
       .select("stripe_account_id, stripe_charges_enabled")
       .eq("id", listing.owner)
       .single();
-    if (
-      hostErr || !host?.stripe_account_id || !host.stripe_charges_enabled
-    ) {
+    if (hostErr || !host) {
+      return new Response(JSON.stringify({ error: "Host not found" }), {
+        status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const hasConnectedAccount = !!host.stripe_account_id;
+    if (hasConnectedAccount && !host.stripe_charges_enabled) {
       return new Response(
         JSON.stringify({
           error:
@@ -122,7 +127,12 @@ Deno.serve(async (req) => {
     const platformFee = serviceFee + Math.round(rent * 0.07);
 
     const amountTotalOre = Math.round(amountTotal * 100);
-    const platformFeeOre = Math.round(platformFee * 100);
+    // The platform always receives the full payment up front. The host's
+    // share (amountTotal - platformFee) is only transferred out later, once
+    // both parties confirm handover (see stripe-release-payout).
+    const platformFeeOre = hasConnectedAccount
+      ? Math.round(platformFee * 100)
+      : amountTotalOre;
 
     const fallback = "https://oslocampingutleie.no/";
 
@@ -139,12 +149,11 @@ Deno.serve(async (req) => {
           quantity: 1,
         },
       ],
-      payment_intent_data: {
-        application_fee_amount: platformFeeOre,
-        transfer_data: { destination: host.stripe_account_id },
-        metadata: { booking_id: bookingId },
+      payment_intent_data: { metadata: { booking_id: bookingId } },
+      metadata: {
+        booking_id: bookingId,
+        platform_fee_ore: String(platformFeeOre),
       },
-      metadata: { booking_id: bookingId },
       success_url: successUrl || fallback,
       cancel_url: cancelUrl || fallback,
     });
