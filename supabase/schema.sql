@@ -437,5 +437,9 @@ create policy "Admins can update any profile"
   on public.profiles for update
   using (public.is_admin());
 
+-- 14) Indexes for messages/reviews lookups (tables created separately)
+create index if not exists messages_booking_id_idx on public.messages (booking_id);
+create index if not exists reviews_listing_id_idx on public.reviews (listing_id);
+
 -- Done. Example listings are inserted from the app itself (only if the
 -- table is empty), since they must reference an existing auth user.
