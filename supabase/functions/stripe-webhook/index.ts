@@ -10,6 +10,7 @@ const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY")!, {
   apiVersion: "2024-06-20",
 });
 const webhookSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET")!;
+const webhookSecretConnect = Deno.env.get("STRIPE_WEBHOOK_SECRET_CONNECT")!;
 
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL")!,
@@ -28,7 +29,15 @@ Deno.serve(async (req) => {
       webhookSecret,
     );
   } catch (err) {
-    return new Response(`Webhook signature error: ${err}`, { status: 400 });
+    try {
+      event = await stripe.webhooks.constructEventAsync(
+        body,
+        signature!,
+        webhookSecretConnect,
+      );
+    } catch {
+      return new Response(`Webhook signature error: ${err}`, { status: 400 });
+    }
   }
 
   switch (event.type) {
