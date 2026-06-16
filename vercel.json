@@ -1,5 +1,5 @@
 {
-  "rewrites": [{ "source": "/((?!assets|favicon|app\\.html|robots\\.txt|sitemap\\.xml|leie-campingvogn-oslo|leie-bobil-oslo|faq|lei-ut-campingvogn).*)", "destination": "/" }],
+  "rewrites": [{ "source": "/((?!assets|favicon|app\\.html|robots\\.txt|sitemap\\.xml|leie-campingvogn-oslo|leie-bobil-oslo|faq|lei-ut-campingvogn|bli-utleier).*)", "destination": "/" }],
   "headers": [
     {
       "source": "/(.*)",
