@@ -1,5 +1,4 @@
 import { useEffect, useRef } from "react";
-import appHtml from "./app.html?raw";
 import "./App.css";
 
 export default function App() {
@@ -21,18 +20,28 @@ export default function App() {
     }
     window.addEventListener("popstate", onPop);
 
+    function onLoad() {
+      const initialView = window.location.pathname.replace(/^\//, "") || "home";
+      if (initialView !== "home") {
+        ref.current?.contentWindow?.postMessage({ type: "route", view: initialView }, "*");
+      }
+    }
+    const iframe = ref.current;
+    iframe?.addEventListener("load", onLoad);
+
     return () => {
       window.removeEventListener("message", onMessage);
       window.removeEventListener("popstate", onPop);
+      iframe?.removeEventListener("load", onLoad);
     };
   }, []);
 
   return (
     <iframe
       ref={ref}
+      src="/app.html"
       className="app-frame"
       title="Oslo Camping Utleie"
-      srcDoc={appHtml}
       allow="geolocation; clipboard-write"
     />
   );
