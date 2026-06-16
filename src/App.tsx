@@ -6,12 +6,25 @@ export default function App() {
   const ref = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {
+    function onMessage(e: MessageEvent) {
+      if (e.data?.type === "_ocuNav") {
+        const view = e.data.view as string;
+        const path = "/" + (view === "home" ? "" : view);
+        window.history.pushState({ view }, "", path);
+      }
+    }
+    window.addEventListener("message", onMessage);
+
     function onPop() {
       const view = window.location.pathname.replace(/^\//, "") || "home";
       ref.current?.contentWindow?.postMessage({ type: "route", view }, "*");
     }
     window.addEventListener("popstate", onPop);
-    return () => window.removeEventListener("popstate", onPop);
+
+    return () => {
+      window.removeEventListener("message", onMessage);
+      window.removeEventListener("popstate", onPop);
+    };
   }, []);
 
   return (
