@@ -1,11 +1,22 @@
-// Oslo Camping Utleie — the whole app lives in src/app.html and is loaded here.
-// "?raw" imports the file as plain text (so its inline <script> regex etc. stay intact).
+import { useEffect, useRef } from "react";
 import appHtml from "./app.html?raw";
 import "./App.css";
 
 export default function App() {
+  const ref = useRef<HTMLIFrameElement>(null);
+
+  useEffect(() => {
+    function onPop() {
+      const view = window.location.pathname.replace(/^\//, "") || "home";
+      ref.current?.contentWindow?.postMessage({ type: "route", view }, "*");
+    }
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
   return (
     <iframe
+      ref={ref}
       className="app-frame"
       title="Oslo Camping Utleie"
       srcDoc={appHtml}
