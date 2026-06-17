@@ -582,5 +582,80 @@ create policy messages_select on public.messages for select
 
 create index if not exists messages_booking_id_idx2 on public.messages (booking_id);
 
+-- 22) Reviews — persisted ratings from renters after completed bookings.
+create table if not exists public.reviews (
+  id bigint generated always as identity primary key,
+  booking_id uuid not null references public.bookings(id) on delete cascade,
+  listing_id uuid not null references public.listings(id) on delete cascade,
+  reviewer_id uuid not null references public.profiles(id) on delete cascade,
+  reviewer_name text not null default '',
+  rating smallint not null check (rating >= 1 and rating <= 5),
+  text text not null default '',
+  created_at timestamptz not null default now()
+);
+alter table public.reviews enable row level security;
+
+drop policy if exists reviews_insert on public.reviews;
+create policy reviews_insert on public.reviews for insert
+  with check (
+    reviewer_id = auth.uid()
+    and exists (
+      select 1 from public.bookings b
+      where b.id = booking_id and b.renter = auth.uid() and b.status = 'completed'
+    )
+  );
+
+drop policy if exists reviews_select on public.reviews;
+create policy reviews_select on public.reviews for select using (true);
+
+create index if not exists reviews_listing_id_idx2 on public.reviews (listing_id);
+create index if not exists reviews_booking_id_idx on public.reviews (booking_id);
+
+-- reviewed flag on bookings — set true once a review is submitted
+alter table public.bookings add column if not exists reviewed boolean not null default false;
+
+-- 23) Analytics — real-time active visitors and event tracking.
+create table if not exists public.active_visitors (
+  session_id text primary key,
+  country text not null default '',
+  city text not null default '',
+  flag text not null default '',
+  current_page text not null default 'home',
+  user_id uuid references public.profiles(id) on delete set null,
+  user_name text,
+  last_seen timestamptz not null default now()
+);
+alter table public.active_visitors enable row level security;
+
+drop policy if exists active_visitors_upsert on public.active_visitors;
+create policy active_visitors_upsert on public.active_visitors for all
+  using (true) with check (true);
+
+drop policy if exists active_visitors_read on public.active_visitors;
+create policy active_visitors_read on public.active_visitors for select
+  using (public.is_admin() or session_id = current_setting('app.session_id', true));
+
+create table if not exists public.analytics_events (
+  id bigint generated always as identity primary key,
+  session_id text not null,
+  event_type text not null,
+  event_data jsonb,
+  country text not null default '',
+  city text not null default '',
+  flag text not null default '',
+  user_id uuid references public.profiles(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+alter table public.analytics_events enable row level security;
+
+drop policy if exists analytics_events_insert on public.analytics_events;
+create policy analytics_events_insert on public.analytics_events for insert with check (true);
+
+drop policy if exists analytics_events_read on public.analytics_events;
+create policy analytics_events_read on public.analytics_events for select using (public.is_admin());
+
+create index if not exists analytics_events_type_idx on public.analytics_events (event_type, created_at desc);
+create index if not exists active_visitors_last_seen_idx on public.active_visitors (last_seen desc);
+
 -- Done. Example listings are inserted from the app itself (only if the
 -- table is empty), since they must reference an existing auth user.
