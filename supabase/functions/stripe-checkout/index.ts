@@ -38,7 +38,7 @@ Deno.serve(async (req) => {
     }
     const userId = userData.user.id;
 
-    const { bookingId, successUrl, cancelUrl, discountCode } = await req.json();
+    const { bookingId, successUrl, cancelUrl, discountCode, transportFee: reqTransportFee } = await req.json();
     if (!bookingId) {
       return new Response(JSON.stringify({ error: "bookingId required" }), {
         status: 400,
@@ -151,7 +151,11 @@ Deno.serve(async (req) => {
     const deposit = listing.deposit_mode !== "incident"
       ? Number(listing.deposit || 0)
       : 0;
-    const amountTotal = rentAfterDiscount + serviceFee + cleaningFee + deposit;
+    // Transport fee: from request body (frontend validates against booking.wants_transport)
+    const transportFeeAmount = booking.wants_transport && reqTransportFee && reqTransportFee > 0
+      ? Math.round(Number(reqTransportFee))
+      : 0;
+    const amountTotal = rentAfterDiscount + serviceFee + cleaningFee + deposit + transportFeeAmount;
     const platformFee = serviceFee + Math.round(rentAfterDiscount * 0.07);
 
     const amountTotalOre = Math.round(amountTotal * 100);
@@ -174,9 +178,14 @@ Deno.serve(async (req) => {
         .eq("id", bookingId);
     }
 
-    const productName = discountPct > 0
-      ? `${listing.title} (${discountPct}% rabatt)`
-      : listing.title;
+    let productName = listing.title;
+    if (discountPct > 0 && transportFeeAmount > 0) {
+      productName = `${listing.title} (${discountPct}% rabatt + levering)`;
+    } else if (discountPct > 0) {
+      productName = `${listing.title} (${discountPct}% rabatt)`;
+    } else if (transportFeeAmount > 0) {
+      productName = `${listing.title} (inkl. levering)`;
+    }
 
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
@@ -199,6 +208,7 @@ Deno.serve(async (req) => {
         platform_fee_ore: String(platformFeeOre),
         discount_code: discountCode ?? "",
         discount_pct: String(discountPct),
+        transport_fee: String(transportFeeAmount),
       },
       success_url: successUrl || fallback,
       cancel_url: cancelUrl || fallback,

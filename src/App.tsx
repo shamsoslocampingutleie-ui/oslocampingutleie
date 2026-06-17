@@ -1,5 +1,4 @@
 import { useEffect, useRef } from "react";
-import appHtml from "./app.html?raw";
 import "./App.css";
 
 export default function App() {
@@ -40,7 +39,7 @@ export default function App() {
   return (
     <iframe
       ref={ref}
-      srcDoc={appHtml}
+      src="/app.html"
       className="app-frame"
       title="Oslo Camping Utleie"
       allow="geolocation; clipboard-write"
