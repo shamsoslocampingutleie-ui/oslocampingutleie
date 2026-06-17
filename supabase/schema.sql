@@ -657,5 +657,9 @@ create policy analytics_events_read on public.analytics_events for select using 
 create index if not exists analytics_events_type_idx on public.analytics_events (event_type, created_at desc);
 create index if not exists active_visitors_last_seen_idx on public.active_visitors (last_seen desc);
 
+-- 24) Featured listings — admin can mark listings as featured so they
+--     appear first in the grid and show a highlighted badge.
+alter table public.listings add column if not exists featured boolean not null default false;
+
 -- Done. Example listings are inserted from the app itself (only if the
 -- table is empty), since they must reference an existing auth user.
