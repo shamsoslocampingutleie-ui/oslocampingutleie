@@ -521,5 +521,66 @@ alter table public.bookings add column if not exists renter_address text not nul
 alter table public.bookings add column if not exists renter_ip text not null default '';
 alter table public.bookings add column if not exists stripe_customer_details jsonb;
 
+-- 19) Listing cancellation policy, transport delivery fee, and transport description.
+--     Also fixes the category constraint to include 'tent' and 'maskiner'
+--     which are offered in the app but were missing from the check.
+alter table public.listings add column if not exists cancel_policy text not null default 'host';
+alter table public.listings add column if not exists transport_fee numeric(10,2) not null default 0 check (transport_fee >= 0);
+alter table public.listings add column if not exists transport_desc text not null default '';
+
+-- Drop and re-create the category constraint to add tent + maskiner
+alter table public.listings drop constraint if exists listings_category_check;
+alter table public.listings add constraint listings_category_check
+  check (category in ('camping','mobil','car','boat','trailer','tool','tent','maskiner'));
+
+-- 20) Transport opt-in and post-rental extra charges on bookings.
+alter table public.bookings add column if not exists wants_transport boolean not null default false;
+alter table public.bookings add column if not exists extra_charges jsonb not null default '{}'::jsonb;
+
+-- 21) Persistent chat messages between host and renter (off-platform
+--     contact detection + admin oversight happen in the app layer).
+create table if not exists public.messages (
+  id bigint generated always as identity primary key,
+  booking_id uuid not null references public.bookings(id) on delete cascade,
+  sender_id uuid not null references public.profiles(id) on delete cascade,
+  sender_name text not null default '',
+  sender_role text not null default 'renter',
+  text text not null,
+  flagged boolean not null default false,
+  flag_reason text,
+  created_at timestamptz not null default now()
+);
+alter table public.messages enable row level security;
+
+drop policy if exists messages_insert on public.messages;
+create policy messages_insert on public.messages for insert
+  with check (
+    sender_id = auth.uid()
+    and exists (
+      select 1 from public.bookings b
+      where b.id = booking_id
+        and (
+          b.renter = auth.uid()
+          or exists (select 1 from public.listings l where l.id = b.listing_id and l.owner = auth.uid())
+        )
+    )
+  );
+
+drop policy if exists messages_select on public.messages;
+create policy messages_select on public.messages for select
+  using (
+    public.is_admin()
+    or exists (
+      select 1 from public.bookings b
+      where b.id = booking_id
+        and (
+          b.renter = auth.uid()
+          or exists (select 1 from public.listings l where l.id = b.listing_id and l.owner = auth.uid())
+        )
+    )
+  );
+
+create index if not exists messages_booking_id_idx2 on public.messages (booking_id);
+
 -- Done. Example listings are inserted from the app itself (only if the
 -- table is empty), since they must reference an existing auth user.
