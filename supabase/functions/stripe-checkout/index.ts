@@ -38,7 +38,7 @@ Deno.serve(async (req) => {
     }
     const userId = userData.user.id;
 
-    const { bookingId, successUrl, cancelUrl } = await req.json();
+    const { bookingId, successUrl, cancelUrl, discountCode } = await req.json();
     if (!bookingId) {
       return new Response(JSON.stringify({ error: "bookingId required" }), {
         status: 400,
@@ -131,13 +131,28 @@ Deno.serve(async (req) => {
 
     const n = nights(booking.from_date, booking.to_date);
     const rent = Number(listing.price_per_day) * n;
-    const serviceFee = Math.round(rent * 0.03);
+
+    // Validate and apply discount code (format: OCU-XXXXXX-N, max 20%)
+    let discountPct = 0;
+    if (discountCode && typeof discountCode === "string") {
+      const m = discountCode.trim().toUpperCase().match(/^OCU-[A-Z0-9]{6}-(\d+)$/);
+      if (m) {
+        const pct = parseInt(m[1], 10);
+        if (pct >= 1 && pct <= 20) discountPct = pct;
+      }
+    }
+    const rentAfterDiscount = discountPct > 0
+      ? Math.round(rent * (1 - discountPct / 100))
+      : rent;
+    const discountAmount = rent - rentAfterDiscount;
+
+    const serviceFee = Math.round(rentAfterDiscount * 0.03);
     const cleaningFee = Number(listing.cleaning_fee || 0);
     const deposit = listing.deposit_mode !== "incident"
       ? Number(listing.deposit || 0)
       : 0;
-    const amountTotal = rent + serviceFee + cleaningFee + deposit;
-    const platformFee = serviceFee + Math.round(rent * 0.07);
+    const amountTotal = rentAfterDiscount + serviceFee + cleaningFee + deposit;
+    const platformFee = serviceFee + Math.round(rentAfterDiscount * 0.07);
 
     const amountTotalOre = Math.round(amountTotal * 100);
     // The platform always receives the full payment up front. The host's
@@ -159,6 +174,10 @@ Deno.serve(async (req) => {
         .eq("id", bookingId);
     }
 
+    const productName = discountPct > 0
+      ? `${listing.title} (${discountPct}% rabatt)`
+      : listing.title;
+
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       payment_method_types: ["card"],
@@ -168,7 +187,7 @@ Deno.serve(async (req) => {
         {
           price_data: {
             currency: "nok",
-            product_data: { name: listing.title },
+            product_data: { name: productName },
             unit_amount: amountTotalOre,
           },
           quantity: 1,
@@ -178,6 +197,8 @@ Deno.serve(async (req) => {
       metadata: {
         booking_id: bookingId,
         platform_fee_ore: String(platformFeeOre),
+        discount_code: discountCode ?? "",
+        discount_pct: String(discountPct),
       },
       success_url: successUrl || fallback,
       cancel_url: cancelUrl || fallback,
