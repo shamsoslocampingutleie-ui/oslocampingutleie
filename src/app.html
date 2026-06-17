@@ -236,8 +236,8 @@ select.fchip{appearance:auto;font-family:inherit;font-weight:600;color:var(--ink
   <div class="foot-col">
     <h4>For leietakere</h4>
     <ul>
-      <li><a onclick="route('home');document.getElementById('discover')?.scrollIntoView({behavior:'smooth'})">Søk etter utstyr</a></li>
-      <li><a onclick="document.getElementById('how-it-works')?.scrollIntoView({behavior:'smooth'})||route('home')">Slik fungerer det</a></li>
+      <li><a onclick="route('home');setTimeout(function(){var el=document.getElementById('discover');if(el)el.scrollIntoView({behavior:'smooth'});},100)">Søk etter utstyr</a></li>
+      <li><a onclick="route('home');setTimeout(function(){var el=document.getElementById('how-it-works');if(el)el.scrollIntoView({behavior:'smooth'});},100)">Slik fungerer det</a></li>
       <li><a onclick="openAuth()">Opprett gratis konto</a></li>
       <li><a onclick="route('terms')">Sikkerhet og trygghet</a></li>
       <li><a onclick="route('privacy')">Personvern</a></li>
@@ -248,7 +248,7 @@ select.fchip{appearance:auto;font-family:inherit;font-weight:600;color:var(--ink
   <div class="foot-col">
     <h4>For utleiere</h4>
     <ul>
-      <li><a onclick="document.getElementById('becomehost')?.scrollIntoView({behavior:'smooth'})||route('home')">Bli utleier</a></li>
+      <li><a onclick="route('home');setTimeout(function(){var el=document.getElementById('becomehost');if(el)el.scrollIntoView({behavior:'smooth'});},100)">Bli utleier</a></li>
       <li><a onclick="route('host')">Utleier-dashbord</a></li>
       <li><a onclick="route('terms')">Utleiervilkår og gebyr</a></li>
       <li><a onclick="route('disclaimer')">Forsikring og ansvar</a></li>
