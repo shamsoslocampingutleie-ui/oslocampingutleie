@@ -10,6 +10,7 @@
 import Stripe from "npm:stripe@17";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
+import { sendEmail, emailLayout } from "../_shared/email.ts";
 
 const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY")!, {
   apiVersion: "2024-06-20",
@@ -27,16 +28,24 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    const { data: userData, error: userErr } = await supabase.auth.getUser(
-      authHeader.replace("Bearer ", ""),
-    );
-    if (userErr || !userData?.user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    // Allow internal cron calls (service role) to bypass user JWT check
+    const isInternalCron = req.headers.get("x-internal-cron") === "1";
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    const isServiceRole = authHeader.replace("Bearer ", "") === serviceKey;
+
+    let userId: string | null = null;
+    if (!isInternalCron && !isServiceRole) {
+      const { data: userData, error: userErr } = await supabase.auth.getUser(
+        authHeader.replace("Bearer ", ""),
+      );
+      if (userErr || !userData?.user) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      userId = userData.user.id;
     }
-    const userId = userData.user.id;
 
     const { bookingId } = await req.json();
     if (!bookingId) {
@@ -70,7 +79,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    if (booking.renter !== userId && listing.owner !== userId) {
+    if (!isInternalCron && !isServiceRole && booking.renter !== userId && listing.owner !== userId) {
       return new Response(JSON.stringify({ error: "Forbidden" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -131,6 +140,48 @@ Deno.serve(async (req) => {
       .from("bookings")
       .update({ payout_released: true, transfer_id: transfer.id })
       .eq("id", bookingId);
+
+    // Send payout confirmation email to host
+    try {
+      const { data: bookingFull } = await supabase
+        .from("bookings")
+        .select("renter, host_id, listing_id, from_date, to_date")
+        .eq("id", bookingId)
+        .single();
+      if (bookingFull) {
+        const { data: listing } = await supabase
+          .from("listings")
+          .select("title")
+          .eq("id", bookingFull.listing_id)
+          .single();
+        const hostAuth = await supabase.auth.admin.getUserById(bookingFull.host_id);
+        const hostEmail = hostAuth.data?.user?.email;
+        const title = listing?.title ?? "leieforholdet";
+        const payoutKr = (payoutAmount / 100).toLocaleString("nb-NO") + " kr";
+        const fromFmt = new Date(bookingFull.from_date).toLocaleDateString("nb-NO", { day: "numeric", month: "long", year: "numeric" });
+        const toFmt = new Date(bookingFull.to_date).toLocaleDateString("nb-NO", { day: "numeric", month: "long", year: "numeric" });
+
+        if (hostEmail) {
+          await sendEmail(
+            hostEmail,
+            `Utbetaling frigitt — ${title}`,
+            emailLayout(
+              "Utbetaling er på vei til deg ✓",
+              `<p>Begge parter har bekreftet overlevering. Din utbetaling for <strong>${title}</strong> er nå frigitt og overføres til din Stripe-konto.</p>
+              <div class="info-box">
+                <p><strong>Utstyr:</strong> ${title}</p>
+                <p><strong>Periode:</strong> ${fromFmt} – ${toFmt}</p>
+                <p><strong>Utbetaling:</strong> <strong style="color:#14512E">${payoutKr}</strong></p>
+              </div>
+              <p>Beløpet vil vises på din bankkonto innen 3–5 virkedager via Stripe.</p>
+              <a href="https://oslocampingutleie.no" class="btn">Gå til Mine bookinger →</a>`,
+            ),
+          );
+        }
+      }
+    } catch (emailErr) {
+      console.error("[payout] Email send failed:", emailErr);
+    }
 
     return new Response(
       JSON.stringify({ released: true, transferred: payoutAmount }),
