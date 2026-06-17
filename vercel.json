@@ -1,5 +1,5 @@
 {
-  "rewrites": [{ "source": "/((?!assets|favicon|app\\.html|robots\\.txt|sitemap\\.xml|leie-campingvogn-oslo|leie-bobil-oslo|faq|lei-ut-campingvogn|bli-utleier|leie-campingvogn-jessheim|leie-campingvogn-gardermoen).*)", "destination": "/" }],
+  "rewrites": [{ "source": "/((?!assets|favicon|app\\.html|robots\\.txt|sitemap\\.xml|leie-campingvogn-oslo|leie-bobil-oslo|faq|lei-ut-campingvogn|bli-utleier|leie-campingvogn-jessheim|leie-campingvogn-gardermoen|leie-bobil-jessheim|leie-bobil-gardermoen).*)", "destination": "/" }],
   "headers": [
     {
       "source": "/(.*)",
