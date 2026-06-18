@@ -4,9 +4,7 @@ import Stripe from "npm:stripe@17";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 
-const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY")!, {
-  apiVersion: "2024-06-20",
-});
+const STRIPE_SECRET_KEY = Deno.env.get("STRIPE_SECRET_KEY");
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -14,6 +12,15 @@ Deno.serve(async (req) => {
   }
 
   try {
+    if (!STRIPE_SECRET_KEY) {
+      return new Response(
+        JSON.stringify({ error: "STRIPE_SECRET_KEY er ikke konfigurert i Supabase Edge Function secrets. Legg til nøkkelen i Supabase Dashboard → Project Settings → Edge Functions." }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+    const stripe = new Stripe(STRIPE_SECRET_KEY, {
+      apiVersion: "2024-06-20",
+    });
     const authHeader = req.headers.get("Authorization") ?? "";
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
