@@ -661,5 +661,30 @@ create index if not exists active_visitors_last_seen_idx on public.active_visito
 --     appear first in the grid and show a highlighted badge.
 alter table public.listings add column if not exists featured boolean not null default false;
 
+-- 25) Boosted listings — paid or admin-granted time-limited boost.
+--     boosted_until: timestamp until which the listing is boosted.
+--     Separate from featured (permanent admin highlight).
+alter table public.listings add column if not exists boosted_until timestamptz;
+
+-- 26) Cancellation & refund tracking on bookings.
+alter table public.bookings add column if not exists cancelled_by text;
+alter table public.bookings add column if not exists cancelled_at timestamptz;
+alter table public.bookings add column if not exists refund_id text not null default '';
+alter table public.bookings add column if not exists refund_amount numeric(10, 2);
+
+-- 27) Auto-release cron: run send-handover-reminder daily at 09:00.
+--     Sends handover reminders and auto-confirms + releases payout after 7 days.
+--     Run once in Supabase SQL editor (replace <project-ref> and <service_role_key>):
+--
+--   select cron.schedule(
+--     'send-handover-reminder',
+--     '0 9 * * *',
+--     $$select net.http_post(
+--       url:='https://<project-ref>.supabase.co/functions/v1/send-handover-reminder',
+--       headers:='{"Authorization":"Bearer <service_role_key>","Content-Type":"application/json"}'::jsonb,
+--       body:='{}'::jsonb
+--     ) as request_id$$
+--   );
+
 -- Done. Example listings are inserted from the app itself (only if the
 -- table is empty), since they must reference an existing auth user.
