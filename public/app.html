@@ -620,26 +620,32 @@ function _fmtDesc(raw){
   const wrap=document.createElement('div');
   wrap.style.cssText='color:var(--ink-2);font-size:15px;line-height:1.7;display:grid;gap:10px;margin-top:4px';
   if(!raw){wrap.className='muted';wrap.textContent='Ingen beskrivelse.';return wrap;}
-  // Split on newlines, or on bullet char ▪ / • preceded by space
-  const lines=raw.replace(/\s*[▪•]\s*/g,'\n▪ ').split(/\n+/).map(l=>l.trim()).filter(Boolean);
-  let curSection=null;
+  // Step 1: insert newlines before ▪/• bullets
+  let text=raw.replace(/\s*[▪•]\s*/g,'\n▪ ');
+  // Step 2: insert newlines before section headers embedded mid-text
+  // Pattern: 1-4 words (incl. & and space) followed by colon + space, starting with capital
+  text=text.replace(/\s+([A-ZÆØÅ][A-Za-zÆØÅæøå]{1,12}(?:[\s&][A-Za-zÆØÅæøå]{1,12}){0,3}:)\s+(?=[A-ZÆØÅ\d])/g,'\n\n$1\n');
+  // Step 3: also split on sentence endings before a known header pattern (fallback)
+  text=text.replace(/([.!?])\s+([A-ZÆØÅ][A-Za-zÆØÅæøå &]{3,25}:)\s/g,'$1\n\n$2\n');
+  const lines=text.split(/\n+/).map(l=>l.trim()).filter(Boolean);
   let curList=null;
   function flushList(){if(curList){wrap.appendChild(curList);curList=null;}}
   lines.forEach(line=>{
-    // Section header: ends with colon, or is all-caps word(s)
-    const isHeader=/^[A-ZÆØÅ][^a-zæøå]{2,}:?\s*$/.test(line)||/^[A-ZÆØÅ][A-Za-zÆØÅæøå ]{1,30}:\s*$/.test(line);
+    // Header: short line (≤5 words) ending with optional colon, starts with capital
+    const wordCount=(line.match(/\S+/g)||[]).length;
+    const isHeader=wordCount<=5&&/^[A-ZÆØÅ]/.test(line)&&/[A-Za-zÆØÅæøå]/.test(line)&&(line.endsWith(':')||wordCount<=3);
     const isBullet=/^[▪•\-–]\s/.test(line);
     if(isHeader){
       flushList();
       const h=document.createElement('div');
-      h.style.cssText='font-weight:700;font-size:14px;letter-spacing:.06em;text-transform:uppercase;color:var(--green);margin-top:6px';
+      h.style.cssText='font-weight:700;font-size:13.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--green);margin-top:4px;padding-top:4px;border-top:1px solid var(--line)';
       h.textContent=line.replace(/:$/,'');
       wrap.appendChild(h);
     } else if(isBullet){
-      if(!curList){curList=document.createElement('ul');curList.style.cssText='list-style:none;padding:0;margin:0;display:grid;gap:5px';}
+      if(!curList){curList=document.createElement('ul');curList.style.cssText='list-style:none;padding:0;margin:0;display:grid;gap:4px';}
       const li=document.createElement('li');
       li.style.cssText='display:flex;gap:8px;align-items:flex-start';
-      li.innerHTML='<span style="color:var(--green);flex:none;margin-top:3px">▸</span><span>'+_escH(line.replace(/^[▪•\-–]\s*/,''))+'</span>';
+      li.innerHTML='<span style="color:var(--green);flex:none;margin-top:2px;font-size:12px">▸</span><span>'+_escH(line.replace(/^[▪•\-–]\s*/,''))+'</span>';
       curList.appendChild(li);
     } else {
       flushList();
