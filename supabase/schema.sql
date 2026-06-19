@@ -686,5 +686,19 @@ alter table public.bookings add column if not exists refund_amount numeric(10, 2
 --     ) as request_id$$
 --   );
 
+-- 28) REGISTRATION LOG — persistent, survives account deletion (no FK to auth.users)
+--     Stores name, email, phone at registration time for fraud/security tracing.
+create table if not exists public.registration_log (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid,                          -- stored as uuid but no FK constraint
+  email text not null,
+  full_name text,
+  phone text,
+  registered_at timestamptz not null default now()
+);
+
+-- Only service_role can read/write — no public access
+alter table public.registration_log enable row level security;
+
 -- Done. Example listings are inserted from the app itself (only if the
 -- table is empty), since they must reference an existing auth user.
