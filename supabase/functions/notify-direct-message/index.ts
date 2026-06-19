@@ -33,15 +33,15 @@ Deno.serve(async (req) => {
       if (hostEmail) {
         await sendEmail(
           hostEmail,
-          "Ny melding fra Oslo Camping Utleie",
+          "Ny melding fra Leieplattform",
           emailLayout(
             "Du har fått en melding 📬",
-            `<p>Du har mottatt en direktemelding fra <strong>Oslo Camping Utleie</strong>:</p>
+            `<p>Du har mottatt en direktemelding fra <strong>Leieplattform</strong>:</p>
             <div class="info-box">
               <p style="font-style:italic">"${messageText}"</p>
             </div>
             <p>Logg inn for å svare direkte i meldingssystemet.</p>
-            <a href="https://oslocampingutleie.no" class="btn">Gå til Meldinger →</a>`,
+            <a href="https://leieplattform.no" class="btn">Gå til Meldinger →</a>`,
           ),
         );
       }
@@ -58,14 +58,14 @@ Deno.serve(async (req) => {
         if (adminEmail) {
           await sendEmail(
             adminEmail,
-            `Svar fra ${senderName} — Oslo Camping Utleie`,
+            `Svar fra ${senderName} — Leieplattform`,
             emailLayout(
               "Ny melding fra utleier 📬",
               `<p><strong>${senderName}</strong> har svart på din direktemelding:</p>
               <div class="info-box">
                 <p style="font-style:italic">"${messageText}"</p>
               </div>
-              <a href="https://oslocampingutleie.no" class="btn">Gå til Admin → Meldinger</a>`,
+              <a href="https://leieplattform.no" class="btn">Gå til Admin → Meldinger</a>`,
             ),
           );
         }

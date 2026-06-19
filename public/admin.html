@@ -83,10 +83,31 @@
     <div class="stat-cards" id="stats"></div>
 
     <div class="surface">
-      <div style="display:flex;justify-content:space-between;align-items:center">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
         <div><h2>Annonser</h2><p class="sub">Pause, aktiver eller rediger annonser — også de plattformen eier.</p></div>
         <button id="logoutBtn">Logg ut</button>
       </div>
+      <div style="display:flex;gap:10px;margin:12px 0;flex-wrap:wrap">
+        <input id="listingSearch" placeholder="Søk tittel, sted eller utleier…" style="flex:1;min-width:180px" oninput="renderListings()" />
+        <select id="listingCatFilter" style="width:auto" onchange="renderListings()">
+          <option value="">Alle kategorier</option>
+          <option value="camping">Campingvogn</option>
+          <option value="mobil">Bobil</option>
+          <option value="car">Bil</option>
+          <option value="trailer">Tilhenger</option>
+          <option value="boat">Båt</option>
+          <option value="tool">Verktøy</option>
+          <option value="tent">Taktelt</option>
+          <option value="maskiner">Maskiner</option>
+          <option value="fritid">Fritidsutstyr</option>
+        </select>
+        <select id="listingStatusFilter" style="width:auto" onchange="renderListings()">
+          <option value="">Alle statuser</option>
+          <option value="active">Aktiv</option>
+          <option value="paused">Pauset</option>
+        </select>
+      </div>
+      <div id="listingCount" style="font-size:13px;color:var(--ink-3);margin-bottom:8px"></div>
       <div id="listings"></div>
     </div>
 
@@ -110,6 +131,17 @@
   <div id="editModalBg" class="modal-bg hidden">
     <div class="modal">
       <h3>Rediger annonse</h3>
+      <div class="field"><label>Kategori</label><select id="edCat">
+        <option value="camping">Campingvogn</option>
+        <option value="mobil">Bobil</option>
+        <option value="car">Bil</option>
+        <option value="trailer">Tilhenger</option>
+        <option value="boat">Båt</option>
+        <option value="tool">Verktøy</option>
+        <option value="tent">Taktelt</option>
+        <option value="maskiner">Maskiner</option>
+        <option value="fritid">Fritidsutstyr</option>
+      </select></div>
       <div class="field"><label>Tittel</label><input id="edTitle" /></div>
       <div class="field"><label>Sted</label><input id="edLoc" /></div>
       <div class="grid2">
@@ -141,7 +173,7 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const $ = id => document.getElementById(id);
 const nok = n => Math.round(Number(n) || 0).toLocaleString("nb-NO");
-const CAT_NAME = {camping:"Campingvogn",mobil:"Bobil",car:"Bil",trailer:"Tilhenger",boat:"Båt",tool:"Verktøy"};
+const CAT_NAME = {camping:"Campingvogn",mobil:"Bobil",car:"Bil",trailer:"Tilhenger",boat:"Båt",tool:"Verktøy",tent:"Taktelt",maskiner:"Maskiner",fritid:"Fritidsutstyr"};
 const STATUS_LBL = {active:"Aktiv",paused:"Pauset",pending:"Venter",accepted:"Godkjent",declined:"Avslått",completed:"Fullført"};
 
 let LISTINGS = [], PROFILES = [], BOOKINGS = [], ERRORS = [], EDIT_IMAGES = [], currentUserId = null;
@@ -277,11 +309,25 @@ function renderStats(){
 
 function renderListings(){
   if (!LISTINGS.length){ $("listings").innerHTML = '<p style="color:var(--ink-3)">Ingen annonser.</p>'; return; }
-  $("listings").innerHTML = LISTINGS.map(l => `
+  const q = ($("listingSearch").value || "").toLowerCase();
+  const cat = $("listingCatFilter").value;
+  const st = $("listingStatusFilter").value;
+  const filtered = LISTINGS.filter(l => {
+    if (cat && l.category !== cat) return false;
+    if (st && l.status !== st) return false;
+    if (q) {
+      const haystack = [l.title, l.location, hostName(l.owner)].join(" ").toLowerCase();
+      if (!haystack.includes(q)) return false;
+    }
+    return true;
+  });
+  $("listingCount").textContent = filtered.length + " av " + LISTINGS.length + " annonser";
+  if (!filtered.length){ $("listings").innerHTML = '<p style="color:var(--ink-3)">Ingen annonser matcher filteret.</p>'; return; }
+  $("listings").innerHTML = filtered.map(l => `
     <div class="row">
       <div class="main">
         <div class="title">${escapeHtml(l.title)}</div>
-        <div class="meta">${escapeHtml(hostName(l.owner))} · ${escapeHtml(l.location || "")} · ${nok(l.price_per_day)} kr/dag${l.instant_book ? " · Direkte booking" : ""}</div>
+        <div class="meta">${escapeHtml(CAT_NAME[l.category] || l.category || "—")} · ${escapeHtml(hostName(l.owner))} · ${escapeHtml(l.location || "")} · ${nok(l.price_per_day)} kr/dag${l.instant_book ? " · Direkte booking" : ""}</div>
       </div>
       <div class="actions">
         ${badge(l.status)}
@@ -401,6 +447,7 @@ function openEdit(id){
   const l = LISTINGS.find(x => x.id === id);
   if (!l) return;
   editingId = id;
+  $("edCat").value = l.category || "camping";
   $("edTitle").value = l.title || "";
   $("edLoc").value = l.location || "";
   $("edPrice").value = l.price_per_day || "";
@@ -430,6 +477,7 @@ $("edSave").onclick = async () => {
   const { error } = await sb.from("listings").update({
     title, location,
     price_per_day: price,
+    category: $("edCat").value,
     cleaning_fee: parseInt($("edCleaning").value, 10) || 0,
     description: $("edDesc").value.trim(),
     specs: $("edSpecs").value.split(",").map(s => s.trim()).filter(Boolean),

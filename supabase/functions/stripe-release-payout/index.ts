@@ -174,7 +174,7 @@ Deno.serve(async (req) => {
                 <p><strong>Utbetaling:</strong> <strong style="color:#14512E">${payoutKr}</strong></p>
               </div>
               <p>Beløpet vil vises på din bankkonto innen 3–5 virkedager via Stripe.</p>
-              <a href="https://oslocampingutleie.no" class="btn">Gå til Mine bookinger →</a>`,
+              <a href="https://leieplattform.no" class="btn">Gå til Mine bookinger →</a>`,
             ),
           );
         }

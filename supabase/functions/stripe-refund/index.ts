@@ -89,7 +89,7 @@ Deno.serve(async (req) => {
 
     if (booking.payout_released) {
       return new Response(
-        JSON.stringify({ error: "Utbetaling er allerede frigitt — kontakt oss på kundeservice@oslocampingutleie.no" }),
+        JSON.stringify({ error: "Utbetaling er allerede frigitt — kontakt oss på kundeservice@leieplattform.no" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
@@ -119,7 +119,7 @@ Deno.serve(async (req) => {
     if (daysUntilStart < 0) {
       return new Response(
         JSON.stringify({
-          error: "Leieperioden er allerede startet. Kontakt oss på kundeservice@oslocampingutleie.no for hjelp.",
+          error: "Leieperioden er allerede startet. Kontakt oss på kundeservice@leieplattform.no for hjelp.",
         }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
@@ -129,7 +129,7 @@ Deno.serve(async (req) => {
     if (daysUntilStart < 1) {
       return new Response(
         JSON.stringify({
-          error: "Avbestilling mindre enn 24 timer før oppstart gir ikke automatisk refusjon. Kontakt oss på kundeservice@oslocampingutleie.no.",
+          error: "Avbestilling mindre enn 24 timer før oppstart gir ikke automatisk refusjon. Kontakt oss på kundeservice@leieplattform.no.",
         }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
@@ -190,7 +190,7 @@ Deno.serve(async (req) => {
               <p><strong>Refusjon:</strong> ${refundAmount.toLocaleString("nb-NO")} kr (${refundPct}%)</p>
               <p>Beløpet tilbakeføres til ditt betalingskort innen 5–10 virkedager via Stripe.</p>
             </div>
-            <a href="https://oslocampingutleie.no" class="btn">Finn et annet tilbud →</a>`,
+            <a href="https://leieplattform.no" class="btn">Finn et annet tilbud →</a>`,
           ),
         );
       }
@@ -206,7 +206,7 @@ Deno.serve(async (req) => {
               <p>Dine datoer er nå ledige igjen for nye bookinger.</p>
               <p>Ingen utbetaling skjer for denne bookingen.</p>
             </div>
-            <a href="https://oslocampingutleie.no" class="btn">Se mine annonser →</a>`,
+            <a href="https://leieplattform.no" class="btn">Se mine annonser →</a>`,
           ),
         );
       }

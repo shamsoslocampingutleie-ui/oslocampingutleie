@@ -166,7 +166,7 @@ Deno.serve(async (req) => {
       ? Math.round(platformFee * 100)
       : amountTotalOre;
 
-    const fallback = "https://oslocampingutleie.no/";
+    const fallback = "https://leieplattform.no/";
 
     const renterIp = req.headers.get("x-forwarded-for")?.split(",")[0]
       .trim() ||

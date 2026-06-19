@@ -63,14 +63,14 @@ async function sendPaymentConfirmationEmails(bookingId: string, amountTotal: num
         `Betaling bekreftet — ${title}`,
         emailLayout(
           "Betaling bekreftet ✓",
-          `<p>Takk! Betalingen din er mottatt og pengene holdes trygt av Oslo Camping Utleie til begge parter har bekreftet overlevering.</p>
+          `<p>Takk! Betalingen din er mottatt og pengene holdes trygt av Leieplattform til begge parter har bekreftet overlevering.</p>
           <div class="info-box">
             <p><strong>Hva du leier:</strong> ${title}</p>
             <p><strong>Periode:</strong> ${fmt(booking.from_date)} – ${fmt(booking.to_date)}</p>
             <p><strong>Betalt totalt:</strong> ${nok(amountTotal)}</p>
           </div>
           <p><strong>Viktig:</strong> Etter at du har hentet og returnert utstyret må du bekrefte dette i appen. Depositumet frigjøres etter begge parters bekreftelse.</p>
-          <a href="https://oslocampingutleie.no" class="btn">Gå til Mine bookinger →</a>
+          <a href="https://leieplattform.no" class="btn">Gå til Mine bookinger →</a>
           <div class="info-box">
             <p>Pengene overføres til utleier <strong>kun</strong> etter at dere begge har bekreftet overlevering i appen. Ingen betaling skjer uten din bekreftelse.</p>
           </div>`,
@@ -85,7 +85,7 @@ async function sendPaymentConfirmationEmails(bookingId: string, amountTotal: num
         `Ny betalt booking — ${title}`,
         emailLayout(
           "En booking er betalt og klar",
-          `<p>En leietaker har betalt for <strong>${title}</strong>. Pengene holdes trygt av Oslo Camping Utleie inntil dere begge bekrefter overlevering.</p>
+          `<p>En leietaker har betalt for <strong>${title}</strong>. Pengene holdes trygt av Leieplattform inntil dere begge bekrefter overlevering.</p>
           <div class="info-box">
             <p><strong>Utstyr:</strong> ${title}</p>
             <p><strong>Periode:</strong> ${fmt(booking.from_date)} – ${fmt(booking.to_date)}</p>
@@ -97,7 +97,7 @@ async function sendPaymentConfirmationEmails(bookingId: string, amountTotal: num
             <li>Klikk <strong>"Bekreft utlevering"</strong> i appen</li>
             <li>Etter at leietaker også bekrefter mottak → pengene utbetales til din Stripe-konto</li>
           </ol>
-          <a href="https://oslocampingutleie.no" class="btn">Gå til Mine bookinger →</a>
+          <a href="https://leieplattform.no" class="btn">Gå til Mine bookinger →</a>
           <div class="info-box">
             <p>Har ingen av dere bekreftet innen 7 dager etter leieperiodens slutt, frigis utbetalingen automatisk.</p>
           </div>`,
@@ -135,6 +135,21 @@ Deno.serve(async (req) => {
   switch (event.type) {
     case "checkout.session.completed": {
       const session = event.data.object as Stripe.Checkout.Session;
+
+      // Listing boost payment
+      if (session.metadata?.boost_type === "listing_boost") {
+        const listingId = session.metadata.listing_id;
+        const days = parseInt(session.metadata.boost_days || "7", 10);
+        if (listingId) {
+          const boostedUntil = new Date(Date.now() + days * 86400000).toISOString();
+          await supabase
+            .from("listings")
+            .update({ boosted_until: boostedUntil })
+            .eq("id", listingId);
+        }
+        break;
+      }
+
       const bookingId = session.metadata?.booking_id;
       if (bookingId) {
         const piId = session.payment_intent as string | null;

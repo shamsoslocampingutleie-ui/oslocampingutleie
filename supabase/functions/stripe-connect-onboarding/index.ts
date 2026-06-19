@@ -39,7 +39,7 @@ Deno.serve(async (req) => {
     const userId = userData.user.id;
 
     const { returnUrl, refreshUrl } = await req.json().catch(() => ({}));
-    const fallback = "https://oslocampingutleie.no/";
+    const fallback = "https://leieplattform.no/";
 
     const { data: profile, error: profileErr } = await supabase
       .from("profiles")

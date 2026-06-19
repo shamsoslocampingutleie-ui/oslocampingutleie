@@ -2,7 +2,7 @@
 // Set RESEND_API_KEY and FROM_EMAIL in Supabase secrets.
 // If RESEND_API_KEY is missing, emails are logged only (dev/test mode).
 
-const FROM = Deno.env.get("FROM_EMAIL") ?? "Oslo Camping Utleie <noreply@oslocampingutleie.no>";
+const FROM = Deno.env.get("FROM_EMAIL") ?? "Leieplattform <noreply@leieplattform.no>";
 const RESEND_KEY = Deno.env.get("RESEND_API_KEY") ?? "";
 
 export async function sendEmail(
@@ -51,14 +51,14 @@ export function emailLayout(title: string, body: string): string {
 </head>
 <body>
 <div class="wrap">
-  <div class="hdr"><a href="https://oslocampingutleie.no">Oslo Camping Utleie</a></div>
+  <div class="hdr"><a href="https://leieplattform.no">Leieplattform</a></div>
   <div class="body">
     <h1>${title}</h1>
     ${body}
   </div>
   <div class="ftr">
-    <p>Oslo Camping Utleie · <a href="https://oslocampingutleie.no">oslocampingutleie.no</a></p>
-    <p style="margin-top:4px">Spørsmål? Svar på denne e-posten eller kontakt oss på <a href="mailto:kundeservice@oslocampingutleie.no">kundeservice@oslocampingutleie.no</a></p>
+    <p>Leieplattform · <a href="https://leieplattform.no">leieplattform.no</a></p>
+    <p style="margin-top:4px">Spørsmål? Svar på denne e-posten eller kontakt oss på <a href="mailto:kundeservice@leieplattform.no">kundeservice@leieplattform.no</a></p>
   </div>
 </div>
 </body></html>`;
