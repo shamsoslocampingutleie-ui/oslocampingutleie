@@ -435,10 +435,10 @@ row.style.cssText="display:flex;align-items:center;gap:12px;padding:10px 0;borde
 row.onclick=()=>{if(String(bookingId).startsWith('direct-')){const hId=bookingId.replace('direct-','');openDirectChat(hId,hostOf(hId)?.name||'Bruker');}else openChat(bookingId);};
 const icon=el("div",null);
 icon.style.cssText="width:36px;height:36px;border-radius:50%;background:"+(flagged.length?"#FEF9C3":"var(--bg)")+";display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px";
-icon.textContent=flagged.length?"⚠️":"\U0001f4ac";
+icon.textContent=flagged.length?"⚠️":"💬";
 row.appendChild(icon);
 const body=el("div",null);body.style.cssText="flex:1;min-width:0";
-const titleEl=el("b",null,(li?li.title:"Booking")+(bk?" · "+bk.renterName:""));
+const _isDirect=String(bookingId).startsWith("direct-");const _dHost=_isDirect?hostOf(bookingId.replace("direct-",""))?.name||"Bruker":null;const titleEl=el("b",null,_isDirect?"💬 Direktemelding · "+_dHost:(li?li.title:"Booking")+(bk?" · "+bk.renterName:""));
 titleEl.style.cssText="font-size:13px;display:block";
 body.appendChild(titleEl);
 const lastMsg=bMsgs[0];
