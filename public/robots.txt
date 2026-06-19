@@ -2,4 +2,4 @@ User-agent: *
 Allow: /
 Disallow: /admin
 
-Sitemap: https://oslocampingutleie.no/sitemap.xml
+Sitemap: https://leieplattform.no/sitemap.xml
