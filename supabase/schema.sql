@@ -774,3 +774,20 @@ $$;
 -- Rydd opp utløpte rate limit entries med pg_cron (valgfritt)
 -- select cron.schedule('cleanup-rate-limits', '*/5 * * * *',
 --   $$delete from public.rate_limits where expires_at < now()$$);
+
+-- 32) PUSH SUBSCRIPTIONS — Web Push (VAPID)
+create table if not exists public.push_subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  endpoint text not null unique,
+  p256dh text not null,
+  auth text not null,
+  created_at timestamptz not null default now()
+);
+alter table public.push_subscriptions enable row level security;
+do $$ begin
+  if not exists (select 1 from pg_policies where tablename='push_subscriptions' and policyname='push_subs_own') then
+    create policy "push_subs_own" on public.push_subscriptions for all using (auth.uid() = user_id);
+  end if;
+end $$;
+create index if not exists push_subs_user on public.push_subscriptions (user_id);

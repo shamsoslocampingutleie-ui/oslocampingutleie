@@ -49,3 +49,25 @@ self.addEventListener('fetch', e => {
     );
   }
 });
+
+self.addEventListener('push', e => {
+  const data = e.data?.json() ?? {};
+  e.waitUntil(self.registration.showNotification(data.title ?? 'Leieplattform', {
+    body: data.body ?? '',
+    icon: '/icon-192.png',
+    badge: '/icon-192.png',
+    data: { url: data.url ?? '/' },
+    tag: data.tag ?? 'lp-notif',
+    renotify: true,
+  }));
+});
+
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  const url = e.notification.data?.url ?? '/';
+  e.waitUntil(clients.matchAll({ type: 'window', includeUncontrolled: true }).then(cs => {
+    const c = cs.find(w => w.url.includes(self.location.origin));
+    if (c) { c.focus(); return c.navigate(url); }
+    return clients.openWindow(url);
+  }));
+});

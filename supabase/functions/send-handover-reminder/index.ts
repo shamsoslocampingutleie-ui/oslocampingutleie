@@ -26,6 +26,17 @@ const supabase = createClient(
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
 );
 
+function firePush(userId: string, title: string, body: string, url = "/") {
+  fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-push`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+    },
+    body: JSON.stringify({ userId, title, body, url }),
+  }).catch((e) => console.warn("[push]", e));
+}
+
 const STRIPE_RELEASE_URL =
   `${Deno.env.get("SUPABASE_URL")}/functions/v1/stripe-release-payout-internal`;
 
@@ -211,10 +222,10 @@ Deno.serve(async (req) => {
         results.remindersHost++;
       }
       if (b.host_id) {
-        await insertNotification(supabase, b.host_id, "reminder",
-          `Påminnelse: Bekreft utlevering`,
-          `Leieperioden for ${title} er ferdig — bekreft utlevering for å motta betaling.`,
-          { bookingId: b.id });
+        const ht = `Påminnelse: Bekreft utlevering`;
+        const hb = `Leieperioden for ${title} er ferdig — bekreft utlevering for å motta betaling.`;
+        await insertNotification(supabase, b.host_id, "reminder", ht, hb, { bookingId: b.id });
+        firePush(b.host_id, ht, hb);
       }
     }
 
@@ -237,10 +248,10 @@ Deno.serve(async (req) => {
         results.remindersRenter++;
       }
       if (b.renter) {
-        await insertNotification(supabase, b.renter, "reminder",
-          `Påminnelse: Bekreft mottak`,
-          `Leieperioden for ${title} er ferdig — bekreft mottak for å frigjøre depositumet ditt.`,
-          { bookingId: b.id });
+        const rt = `Påminnelse: Bekreft mottak`;
+        const rb = `Leieperioden for ${title} er ferdig — bekreft mottak for å frigjøre depositumet ditt.`;
+        await insertNotification(supabase, b.renter, "reminder", rt, rb, { bookingId: b.id });
+        firePush(b.renter, rt, rb);
       }
     }
   }
