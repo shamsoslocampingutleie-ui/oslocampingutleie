@@ -41,7 +41,31 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Validate that the listing has the game feature enabled by the host
+    const { data: listing, error: listingErr } = await supabase
+      .from("listings")
+      .select("spin_enabled, egg_enabled")
+      .eq("id", lid)
+      .single();
+    if (listingErr || !listing) {
+      return new Response(JSON.stringify({ error: "Annonse ikke funnet" }), {
+        status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     const isEgg = type === "egg";
+    if (isEgg && !listing.egg_enabled) {
+      return new Response(
+        JSON.stringify({ error: "Egg-spillet er ikke aktivert for denne annonsen" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+    if (!isEgg && !listing.spin_enabled) {
+      return new Response(
+        JSON.stringify({ error: "Lykkehjulet er ikke aktivert for denne annonsen" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
     const amountOre = isEgg ? 1900 : 2900;
     const productName = isEgg
       ? "🥚 Egg-knekking — bonus rabatt"
