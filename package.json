@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "node scripts/validate-app-html.mjs && vite build",
+    "build": "cp src/app.html public/app.html && node scripts/validate-app-html.mjs && vite build",
     "validate": "node scripts/validate-app-html.mjs",
     "preview": "vite preview"
   },
