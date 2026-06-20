@@ -460,6 +460,22 @@ const meta=el("div",null);meta.style.cssText="text-align:right;flex-shrink:0";
 const cnt=el("span",null,bMsgs.length+" meld.");cnt.style.cssText="font-size:11px;color:var(--ink-3);display:block";
 meta.appendChild(cnt);
 if(flagged.length>0){const fl=el("span",null,"\U0001f6a9 "+flagged.length);fl.style.cssText="font-size:11px;color:#854D0E;font-weight:700";meta.appendChild(fl);}
+// Delete button for this conversation
+const delBtn=el("button",null,"🗑");
+delBtn.title="Slett samtale";
+delBtn.style.cssText="background:none;border:none;cursor:pointer;font-size:16px;padding:6px;color:var(--ink-3);flex-shrink:0;border-radius:6px;line-height:1";
+delBtn.onmouseenter=()=>{delBtn.style.color="var(--red)";};
+delBtn.onmouseleave=()=>{delBtn.style.color="var(--ink-3)";};
+delBtn.onclick=(ev)=>{
+  ev.stopPropagation();
+  if(!confirm("Slette hele samtalen ("+bMsgs.length+" meldinger)? Dette kan ikke angres."))return;
+  sb.from("messages").delete().eq("booking_id",bookingId).then(({error})=>{
+    if(error)return toast("Kunne ikke slette: "+error.message,"error");
+    toast("Samtale slettet","success");
+    row.remove();
+  });
+};
+row.appendChild(delBtn);
 row.appendChild(meta);
 surf.appendChild(row);});
 p.appendChild(surf);}
