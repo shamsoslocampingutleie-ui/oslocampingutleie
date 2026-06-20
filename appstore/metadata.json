@@ -1,0 +1,28 @@
+{
+  "app": {
+    "name": "Leieplattform",
+    "bundle_id": "no.leieplattform.app",
+    "sku": "leieplattform-ios-001",
+    "primary_category": "SHOPPING",
+    "secondary_category": "TRAVEL",
+    "content_rights": "Does not contain third-party content",
+    "age_rating": "4+"
+  },
+  "localizations": {
+    "nb": {
+      "name": "Leieplattform",
+      "subtitle": "Lei campingvogn og bobil",
+      "description": "Lei ut det du eier. Lei det du trenger.\n\nLeieplattform er Norges markedsplass for utleie av campingvogner, bobiler, taktelt, tilhengere og utstyr — direkte fra private eiere.\n\n✓ TRYGG BETALING — Stripe håndterer betaling og depositum\n✓ DIGITAL KONTRAKT — Begge parter signerer digitalt\n✓ VERIFISERTE PROFILER — ID-bekreftet ved utleie\n✓ LANDSDEKKENDE — Tusenvis av annonser over hele Norge\n✓ PUSH-VARSLER — Bli varslet om forespørsler og meldinger\n\nSLIK FUNGERER DET:\n1. Søk på dato, sted og kategori\n2. Send forespørsel direkte til utleier\n3. Signer digital leieavtale\n4. Betal trygt via app\n\nFOR UTLEIERE:\nTjen penger på utstyr som ellers står ubrukt. Last opp annonse gratis — betal kun en liten provisjon når du leier ut.\n\nSpørsmål? support@leieplattform.no",
+      "keywords": "campingvogn, bobil, utleie, camping, leie, teltplass, taktelt, tilhenger, hytte, ferie",
+      "promotional_text": "Norges markedsplass for campingutstyr — lei ut eller finn noe å leie i dag!",
+      "support_url": "https://leieplattform.no/faq",
+      "marketing_url": "https://leieplattform.no",
+      "privacy_url": "https://leieplattform.no/personvern",
+      "whats_new": "Første versjon av Leieplattform iOS-appen. Søk, reserver og betal trygt for campingvogn og bobil direkte fra private utleiere."
+    }
+  },
+  "pricing": {
+    "price_tier": 0,
+    "availability": ["NO", "SE", "DK", "FI"]
+  }
+}
