@@ -9,13 +9,11 @@ workflows:
       node: 22
       groups:
         - App Store Connect
+        - iOS Signing
       vars:
         BUNDLE_ID: no.leieplattform.app
         XCODE_PROJECT: ios/App/App.xcodeproj
         XCODE_SCHEME: App
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: no.leieplattform.app
 
     triggering:
       events:
@@ -34,6 +32,22 @@ workflows:
 
       - name: Capacitor sync
         script: npx cap sync ios
+
+      - name: Install certificate and profile
+        script: |
+          # Import certificate into keychain
+          echo $CM_CERTIFICATE | base64 --decode > /tmp/cert.p12
+          security create-keychain -p "" build.keychain
+          security set-keychain-settings -lut 7200 build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "" build.keychain
+          security import /tmp/cert.p12 -k build.keychain -P $CM_CERTIFICATE_PASSWORD \
+            -T /usr/bin/codesign -T /usr/bin/security
+          security set-key-partition-list -S apple-tool:,apple: -s -k "" build.keychain
+
+          # Install provisioning profile
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          echo $CM_PROVISIONING_PROFILE | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision
 
       - name: Set build number
         script: |
