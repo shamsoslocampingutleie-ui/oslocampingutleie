@@ -77,11 +77,15 @@ alter table public.listings add column if not exists blocked_dates jsonb not nul
 alter table public.listings add column if not exists updated_at timestamptz not null default now();
 
 do $$ begin
+  -- Drop and recreate category check to include all supported categories
+  alter table public.listings drop constraint if exists listings_category_check;
+  alter table public.listings add constraint listings_category_check
+    check (category in ('camping', 'mobil', 'car', 'boat', 'trailer', 'tool', 'tent', 'maskiner', 'fritid', 'stillas', 'diverse'));
   if not exists (
     select 1 from pg_constraint where conname = 'listings_category_check'
   ) then
     alter table public.listings add constraint listings_category_check
-      check (category in ('camping', 'mobil', 'car', 'boat', 'trailer', 'tool'));
+      check (category in ('camping', 'mobil', 'car', 'boat', 'trailer', 'tool', 'tent', 'maskiner', 'fritid', 'stillas', 'diverse'));
   end if;
   if not exists (
     select 1 from pg_constraint where conname = 'listings_deposit_mode_check'
