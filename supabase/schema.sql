@@ -723,8 +723,8 @@ do $$ begin
     create policy "notifications_own_update" on public.notifications for update using (auth.uid() = user_id);
   end if;
 end $$;
--- Aktiver Realtime for notifications (kjør én gang i Supabase Dashboard → Database → Replication)
--- alter publication supabase_realtime add table public.notifications;
+-- Aktiver Realtime for notifications
+alter publication supabase_realtime add table public.notifications;
 
 -- 30) BOOKING REMINDERS — påminnelser for ventende handlinger
 -- Håndteres av send-handover-reminder edge function (cron 09:00 daglig)
@@ -732,3 +732,45 @@ end $$;
 
 -- Indeks for raske oppslag
 create index if not exists notifications_user_unread on public.notifications (user_id, read, created_at desc);
+
+-- 31) RATE LIMITING — global rate limit via Supabase
+create table if not exists public.rate_limits (
+  key text primary key,
+  count integer not null default 0,
+  expires_at timestamptz not null
+);
+alter table public.rate_limits enable row level security;
+
+create or replace function public.increment_rate_limit(
+  p_key text,
+  p_limit integer,
+  p_ttl_seconds integer
+) returns boolean
+language plpgsql security definer
+as $$
+declare
+  v_count integer;
+  v_now timestamptz := now();
+begin
+  insert into public.rate_limits(key, count, expires_at)
+    values (p_key, 1, v_now + (p_ttl_seconds || ' seconds')::interval)
+  on conflict (key) do update
+    set count = case
+      when public.rate_limits.expires_at < v_now
+        then 1
+      else public.rate_limits.count + 1
+    end,
+    expires_at = case
+      when public.rate_limits.expires_at < v_now
+        then v_now + (p_ttl_seconds || ' seconds')::interval
+      else public.rate_limits.expires_at
+    end
+  returning count into v_count;
+
+  return v_count <= p_limit;
+end;
+$$;
+
+-- Rydd opp utløpte rate limit entries med pg_cron (valgfritt)
+-- select cron.schedule('cleanup-rate-limits', '*/5 * * * *',
+--   $$delete from public.rate_limits where expires_at < now()$$);

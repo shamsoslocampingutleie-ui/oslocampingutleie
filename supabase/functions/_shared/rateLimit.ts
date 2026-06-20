@@ -1,23 +1,37 @@
-const store = new Map<string, { count: number; reset: number }>();
+import { createClient } from "npm:@supabase/supabase-js@2";
 
-export function checkRateLimit(
+const supabase = createClient(
+  Deno.env.get("SUPABASE_URL")!,
+  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+);
+
+export async function checkRateLimit(
   req: Request,
   limit = 10,
   windowMs = 60_000,
-): boolean {
+): Promise<boolean> {
   const ip =
     req.headers.get("x-forwarded-for")?.split(",")[0].trim() ??
     req.headers.get("x-real-ip") ??
     "unknown";
-  const now = Date.now();
-  const entry = store.get(ip);
-  if (!entry || now > entry.reset) {
-    store.set(ip, { count: 1, reset: now + windowMs });
+
+  const windowSec = Math.floor(windowMs / 1000);
+  const windowKey = Math.floor(Date.now() / windowMs);
+  const key = `${ip}:${windowKey}`;
+
+  const { data, error } = await supabase.rpc("increment_rate_limit", {
+    p_key: key,
+    p_limit: limit,
+    p_ttl_seconds: windowSec,
+  });
+
+  if (error) {
+    // If the RPC doesn't exist yet, fail open (don't block requests)
+    console.warn("[rateLimit] RPC not available, failing open:", error.message);
     return true;
   }
-  if (entry.count >= limit) return false;
-  entry.count++;
-  return true;
+
+  return data === true;
 }
 
 export function rateLimitResponse(): Response {

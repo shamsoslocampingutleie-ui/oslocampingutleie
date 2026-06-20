@@ -40,47 +40,58 @@ Deno.serve(async (req) => {
     });
   }
 
-  const results = { deletedOld: 0, deletedDuplicates: 0 };
+  try {
+    const results = { deletedOld: 0, deletedDuplicates: 0 };
 
-  // 1. Delete errors older than 14 days
-  const cutoff = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
-  const { count: oldCount } = await supabase
-    .from("error_logs")
-    .delete({ count: "exact" })
-    .lt("created_at", cutoff);
-  results.deletedOld = oldCount ?? 0;
+    // 1. Delete errors older than 14 days
+    const cutoff = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
+    const { count: oldCount, error: e1 } = await supabase
+      .from("error_logs")
+      .delete({ count: "exact" })
+      .lt("created_at", cutoff);
+    if (e1) throw e1;
+    results.deletedOld = oldCount ?? 0;
 
-  // 2. Deduplicate: for each unique message, keep only the newest row
-  const { data: all } = await supabase
-    .from("error_logs")
-    .select("id, message, created_at")
-    .order("created_at", { ascending: false });
+    // 2. Deduplicate: for each unique message, keep only the newest row
+    const { data: all, error: e2 } = await supabase
+      .from("error_logs")
+      .select("id, message, created_at")
+      .order("created_at", { ascending: false });
+    if (e2) throw e2;
 
-  if (all && all.length > 0) {
-    const seen = new Set<string>();
-    const toDelete: string[] = [];
-    for (const row of all) {
-      const key = String(row.message).slice(0, 120);
-      if (seen.has(key)) {
-        toDelete.push(row.id);
-      } else {
-        seen.add(key);
+    if (all && all.length > 0) {
+      const seen = new Set<string>();
+      const toDelete: string[] = [];
+      for (const row of all) {
+        const key = String(row.message).slice(0, 120);
+        if (seen.has(key)) {
+          toDelete.push(row.id);
+        } else {
+          seen.add(key);
+        }
+      }
+      if (toDelete.length > 0) {
+        const CHUNK = 100;
+        for (let i = 0; i < toDelete.length; i += CHUNK) {
+          const { error: e3 } = await supabase
+            .from("error_logs")
+            .delete()
+            .in("id", toDelete.slice(i, i + CHUNK));
+          if (e3) throw e3;
+        }
+        results.deletedDuplicates = toDelete.length;
       }
     }
-    if (toDelete.length > 0) {
-      const CHUNK = 100;
-      for (let i = 0; i < toDelete.length; i += CHUNK) {
-        await supabase
-          .from("error_logs")
-          .delete()
-          .in("id", toDelete.slice(i, i + CHUNK));
-      }
-      results.deletedDuplicates = toDelete.length;
-    }
+
+    console.log("[auto-clean-errors]", results);
+    return new Response(JSON.stringify(results), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  } catch (err) {
+    console.error("[auto-clean-errors] error:", err);
+    return new Response(JSON.stringify({ error: String(err) }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
-
-  console.log("[auto-clean-errors]", results);
-  return new Response(JSON.stringify(results), {
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
 });
