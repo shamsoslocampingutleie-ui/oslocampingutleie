@@ -7,6 +7,8 @@ workflows:
     environment:
       xcode: 26.1
       node: 22
+      groups:
+        - App Store Connect
       vars:
         BUNDLE_ID: no.leieplattform.app
         XCODE_PROJECT: ios/App/App.xcodeproj
