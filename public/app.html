@@ -698,8 +698,10 @@ _fab.onmouseleave=function(){_fab.style.transform='';};
 _fab.onclick=function(){startNewListing();};
 document.body.appendChild(_fab);
 function _updateFab(){
+  if(!window._fab)return;
   if(session&&session.role==='user'){
     _fab.style.display='flex';
+    _fab.onclick=function(){startNewListing();};
   }else if(!session){
     _fab.style.display='flex';
     _fab.onclick=function(){openAuth();};
