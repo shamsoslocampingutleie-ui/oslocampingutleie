@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "node scripts/validate-app-html.mjs && vite build",
+    "validate": "node scripts/validate-app-html.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
