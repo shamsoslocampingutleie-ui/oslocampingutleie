@@ -1,0 +1,70 @@
+workflows:
+  ios-app-store:
+    name: iOS — App Store
+    max_build_duration: 90
+    instance_type: mac_mini_m2
+
+    environment:
+      xcode: 26.1
+      node: 22
+      vars:
+        BUNDLE_ID: no.leieplattform.app
+        XCODE_PROJECT: ios/App/App.xcodeproj
+        XCODE_SCHEME: App
+      app_store_connect:
+        api_key: $APP_STORE_CONNECT_PRIVATE_KEY
+        key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
+        issuer_id: $APP_STORE_CONNECT_ISSUER_ID
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: no.leieplattform.app
+
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+      cancel_previous_builds: true
+
+    scripts:
+      - name: Install Node dependencies
+        script: npm ci
+
+      - name: Build web app
+        script: npm run build
+
+      - name: Capacitor sync
+        script: npx cap sync ios
+
+      - name: Set build number
+        script: |
+          BUILD_NUM=$(($(app-store-connect get-latest-testflight-build-number "$BUNDLE_ID") + 1))
+          agvtool new-version -all $BUILD_NUM
+        working_directory: ios/App
+
+      - name: Build ipa
+        script: |
+          xcode-project build-ipa \
+            --project "$XCODE_PROJECT" \
+            --scheme "$XCODE_SCHEME" \
+            --config Release
+
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
+
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        beta_groups:
+          - App Store Connect Users
+        submit_to_app_store: false
+      email:
+        recipients:
+          - shams.noor@eidsvoll.kommune.no
+        notify:
+          success: true
+          failure: true
