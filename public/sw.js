@@ -1,4 +1,4 @@
-const CACHE = 'lp-v2';
+const CACHE = 'lp-v3';
 const STATIC = ['/app.html', '/manifest.json', '/favicon.svg', '/supabase.min.js'];
 
 self.addEventListener('install', e => {
