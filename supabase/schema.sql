@@ -312,20 +312,20 @@ begin
       'Content-Type', 'application/json'
     ),
     body := jsonb_build_object(
-      'from', 'Oslo Camping Utleie <varsler@oslocampingutleie.no>',
+      'from', 'Leieplattform <varsler@leieplattform.no>',
       'to', v_host_email,
       'subject', 'Ny leieforespørsel: ' || v_listing_title,
       'html',
         '<div style="font-family:''Helvetica Neue'',Arial,sans-serif;max-width:480px;margin:0 auto;background:#F7F5F0;border-radius:16px;overflow:hidden">' ||
           '<div style="background:#14512E;padding:28px 32px">' ||
-            '<p style="margin:0;color:#CFE3D5;font-size:12px;letter-spacing:.12em;text-transform:uppercase;font-weight:600">Oslo Camping Utleie</p>' ||
+            '<p style="margin:0;color:#CFE3D5;font-size:12px;letter-spacing:.12em;text-transform:uppercase;font-weight:600">Leieplattform</p>' ||
             '<h1 style="margin:8px 0 0;color:#ffffff;font-size:22px;font-weight:700;font-family:inherit">Ny leieforespørsel</h1>' ||
           '</div>' ||
           '<div style="padding:28px 32px">' ||
             '<p style="margin:0 0 16px;color:#15201A;font-size:16px;line-height:1.6">Hei ' || coalesce(v_host_name, '') || ',</p>' ||
             '<p style="margin:0 0 24px;color:#15201A;font-size:16px;line-height:1.6"><strong>' || new.renter_name || '</strong> ønsker å leie <strong>' || v_listing_title || '</strong> fra <strong>' || new.from_date || '</strong> til <strong>' || new.to_date || '</strong>.</p>' ||
-            '<a href="https://oslocampingutleie.no/?view=requests" style="display:inline-block;padding:13px 28px;background:#14512E;color:#ffffff;text-decoration:none;border-radius:999px;font-weight:600;font-size:15px">Logg inn og se forespørselen</a>' ||
-            '<p style="margin:28px 0 0;color:#6B776E;font-size:13px;line-height:1.6">Denne e-posten kan ikke besvares. Logg inn på <a href="https://oslocampingutleie.no/" style="color:#14512E;text-decoration:underline">oslocampingutleie.no</a> for å se og administrere alt.</p>' ||
+            '<a href="https://leieplattform.no/?view=requests" style="display:inline-block;padding:13px 28px;background:#14512E;color:#ffffff;text-decoration:none;border-radius:999px;font-weight:600;font-size:15px">Logg inn og se forespørselen</a>' ||
+            '<p style="margin:28px 0 0;color:#6B776E;font-size:13px;line-height:1.6">Denne e-posten kan ikke besvares. Logg inn på <a href="https://leieplattform.no/" style="color:#14512E;text-decoration:underline">leieplattform.no</a> for å se og administrere alt.</p>' ||
           '</div>' ||
         '</div>'
     )
@@ -532,10 +532,10 @@ alter table public.listings add column if not exists cancel_policy text not null
 alter table public.listings add column if not exists transport_fee numeric(10,2) not null default 0 check (transport_fee >= 0);
 alter table public.listings add column if not exists transport_desc text not null default '';
 
--- Drop and re-create the category constraint to add tent + maskiner
+-- Drop and re-create the category constraint (all 11 supported categories)
 alter table public.listings drop constraint if exists listings_category_check;
 alter table public.listings add constraint listings_category_check
-  check (category in ('camping','mobil','car','boat','trailer','tool','tent','maskiner'));
+  check (category in ('camping','mobil','car','boat','trailer','tool','tent','maskiner','fritid','stillas','diverse'));
 
 -- 20) Transport opt-in and post-rental extra charges on bookings.
 alter table public.bookings add column if not exists wants_transport boolean not null default false;
@@ -795,3 +795,16 @@ do $$ begin
   end if;
 end $$;
 create index if not exists push_subs_user on public.push_subscriptions (user_id);
+
+-- 33) Performance indexes for common query patterns at scale
+-- listings: boosted/featured sorting used in home feed
+create index if not exists listings_boosted_idx on public.listings (boosted_until desc nulls last) where status = 'active';
+create index if not exists listings_featured_idx on public.listings (featured, created_at desc) where status = 'active';
+-- bookings: host dashboard looks up bookings by listing owner (via listing_id join)
+create index if not exists bookings_listing_status_idx on public.bookings (listing_id, status);
+-- messages: unread count per booking
+create index if not exists messages_created_at_idx on public.messages (booking_id, created_at desc);
+-- analytics: cleanup of old events
+create index if not exists analytics_events_created_idx on public.analytics_events (created_at desc);
+-- active_visitors cleanup
+create index if not exists active_visitors_session_seen_idx on public.active_visitors (session_id, last_seen desc);
