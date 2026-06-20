@@ -11,10 +11,6 @@ workflows:
         BUNDLE_ID: no.leieplattform.app
         XCODE_PROJECT: ios/App/App.xcodeproj
         XCODE_SCHEME: App
-      app_store_connect:
-        api_key: $APP_STORE_CONNECT_PRIVATE_KEY
-        key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
-        issuer_id: $APP_STORE_CONNECT_ISSUER_ID
       ios_signing:
         distribution_type: app_store
         bundle_identifier: no.leieplattform.app
@@ -57,7 +53,9 @@ workflows:
 
     publishing:
       app_store_connect:
-        auth: integration
+        api_key: $APP_STORE_CONNECT_PRIVATE_KEY
+        key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
+        issuer_id: $APP_STORE_CONNECT_ISSUER_ID
         submit_to_testflight: true
         beta_groups:
           - App Store Connect Users
