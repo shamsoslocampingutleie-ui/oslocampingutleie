@@ -6,6 +6,7 @@ export default function App() {
 
   useEffect(() => {
     function onMessage(e: MessageEvent) {
+      if (e.origin !== window.location.origin) return;
       if (e.data?.type === "_ocuNav") {
         const view = e.data.view as string;
         const path = "/" + (view === "home" ? "" : view);
@@ -16,7 +17,7 @@ export default function App() {
 
     function onPop() {
       const view = window.location.pathname.replace(/^\//, "") || "home";
-      ref.current?.contentWindow?.postMessage({ type: "route", view }, "*");
+      ref.current?.contentWindow?.postMessage({ type: "route", view }, window.location.origin);
     }
     window.addEventListener("popstate", onPop);
 

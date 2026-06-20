@@ -19,6 +19,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { sendEmail, emailLayout } from "../_shared/email.ts";
 import { corsHeaders } from "../_shared/cors.ts";
+import { insertNotification } from "../_shared/notify.ts";
 
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL")!,
@@ -209,6 +210,12 @@ Deno.serve(async (req) => {
         );
         results.remindersHost++;
       }
+      if (b.host_id) {
+        await insertNotification(supabase, b.host_id, "reminder",
+          `Påminnelse: Bekreft utlevering`,
+          `Leieperioden for ${title} er ferdig — bekreft utlevering for å motta betaling.`,
+          { bookingId: b.id });
+      }
     }
 
     if (!b.renter_confirmed_handover) {
@@ -228,6 +235,12 @@ Deno.serve(async (req) => {
           ),
         );
         results.remindersRenter++;
+      }
+      if (b.renter) {
+        await insertNotification(supabase, b.renter, "reminder",
+          `Påminnelse: Bekreft mottak`,
+          `Leieperioden for ${title} er ferdig — bekreft mottak for å frigjøre depositumet ditt.`,
+          { bookingId: b.id });
       }
     }
   }

@@ -1,6 +1,8 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 import { sendEmail, emailLayout } from "../_shared/email.ts";
+import { insertNotification } from "../_shared/notify.ts";
+import { checkRateLimit, rateLimitResponse } from "../_shared/rateLimit.ts";
 
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL")!,
@@ -11,6 +13,8 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
+
+  if (!checkRateLimit(req, 20, 60_000)) return rateLimitResponse();
 
   try {
     const authHeader = req.headers.get("Authorization") ?? "";
@@ -26,6 +30,13 @@ Deno.serve(async (req) => {
 
     const { bookingId, messageText, senderName, senderRole, event } =
       await req.json();
+
+    if (messageText && messageText.length > 2000) {
+      return new Response(JSON.stringify({ error: "Message too long" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // --- CHAT MESSAGE (renter ↔ host) ---
     if (event === "chat_message" || !event) {
@@ -72,6 +83,12 @@ Deno.serve(async (req) => {
             ),
           );
         }
+        if (listing?.owner) {
+          await insertNotification(supabase, listing.owner, "chat_message",
+            `Ny melding fra ${senderName}`,
+            `"${preview.slice(0, 80)}"`,
+            { bookingId, listingTitle: listing.title });
+        }
       } else {
         // Host sent → notify renter
         const renterEmail = booking.renter_email;
@@ -90,6 +107,12 @@ Deno.serve(async (req) => {
               <a href="${appUrl}" class="btn">Gå til samtale →</a>`,
             ),
           );
+        }
+        if (booking.renter) {
+          await insertNotification(supabase, booking.renter, "chat_message",
+            `Ny melding fra utleier`,
+            `${listing?.title ?? "booking"}: "${preview.slice(0, 80)}"`,
+            { bookingId, listingTitle: listing?.title });
         }
       }
     }
@@ -131,6 +154,12 @@ Deno.serve(async (req) => {
           ),
         );
       }
+      if (listing?.owner) {
+        await insertNotification(supabase, listing.owner, "booking_request",
+          `Ny leieforespørsel`,
+          `${booking?.renter_name} ønsker å leie ${listing?.title ?? "annonsen din"} (${from} → ${to})`,
+          { bookingId, listingTitle: listing.title });
+      }
     }
 
     // --- BOOKING ACCEPTED → varsle leietaker ---
@@ -163,6 +192,12 @@ Deno.serve(async (req) => {
           ),
         );
       }
+      if (booking?.renter) {
+        await insertNotification(supabase, booking.renter, "booking_accepted",
+          `Forespørsel godkjent ✅`,
+          `${listing?.title ?? "Booking"} er godkjent! (${booking.from_date} → ${booking.to_date})`,
+          { bookingId, listingTitle: listing?.title });
+      }
     }
 
     // --- BOOKING REJECTED → varsle leietaker ---
@@ -193,6 +228,12 @@ Deno.serve(async (req) => {
             <a href="https://leieplattform.no" class="btn">Se andre annonser →</a>`,
           ),
         );
+      }
+      if (booking?.renter) {
+        await insertNotification(supabase, booking.renter, "booking_rejected",
+          `Forespørsel avslått`,
+          `Din forespørsel for ${listing?.title ?? "annonsen"} ble ikke godkjent. Se etter andre annonser.`,
+          { bookingId, listingTitle: listing?.title });
       }
     }
 
