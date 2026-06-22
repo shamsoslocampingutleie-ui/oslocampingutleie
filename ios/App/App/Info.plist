@@ -30,7 +30,7 @@
 	<string>Main</string>
 	<key>UIRequiredDeviceCapabilities</key>
 	<array>
-		<string>armv7</string>
+		<string>arm64</string>
 	</array>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
@@ -57,9 +57,7 @@
 	<string>Leieplattform kan lagre bilder til ditt fotobibliotek.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Leieplattform bruker din posisjon til å vise nærliggende utstyr for utleie.</string>
-	<key>NSContactsUsageDescription</key>
-	<string>Leieplattform bruker ikke kontakter.</string>
-	<key>ITSAppUsesNonExemptEncryption</key>
+<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>NSAppTransportSecurity</key>
 	<dict>
