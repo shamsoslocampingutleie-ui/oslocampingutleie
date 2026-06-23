@@ -1,8 +1,8 @@
 // Creates a Stripe Checkout Session for a booking.
 // Fee structure:
 //   - Renter pays: rent + 7% service fee + cleaning fee + deposit + transport
-//   - Platform keeps: 7% service fee (from renter) + 7% platform fee (from host) = 14% of rent
-//   - Host receives: 93% of rent + cleaning fee + deposit + transport (paid out after handover)
+//   - Platform keeps: 7% service fee (from renter) + 10% platform fee (from host) = 17% of rent
+//   - Host receives: 90% of rent + cleaning fee + deposit + transport (paid out after handover)
 import Stripe from "npm:stripe@17";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
@@ -157,8 +157,8 @@ Deno.serve(async (req) => {
       ? Math.round(Number(reqTransportFee))
       : 0;
     const amountTotal = rentAfterDiscount + serviceFee + cleaningFee + deposit + transportFeeAmount;
-    // Platform fee = 7% from renter + 7% from host = 14% of rent. Host gets 93%.
-    const platformFee = serviceFee + Math.round(rentAfterDiscount * 0.07);
+    // Platform fee = 7% from renter + 10% from host = 17% of rent. Host gets 90%.
+    const platformFee = serviceFee + Math.round(rentAfterDiscount * 0.10);
 
     const amountTotalOre = Math.round(amountTotal * 100);
     // The platform always receives the full payment up front. The host's
