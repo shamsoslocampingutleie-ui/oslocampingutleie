@@ -656,7 +656,7 @@ async function openLicenseUploadModal(){
   a.style.cssText='display:flex;flex-direction:column;max-height:90vh;padding:0;overflow:hidden;border-radius:18px;width:min(500px,96vw)';
   const top=el('div','modal-top');top.style.cssText='flex-shrink:0;padding:14px 20px;border-bottom:1px solid var(--line)';
   const h2=el('h2',null,'Førerkort — obligatorisk');h2.style.margin='0';
-  const cx=el('button','x','✕');cx.setAttribute('aria-label','Lukk');cx.onclick=()=>{a.style.cssText='';closeAll();};
+  const cx=el('button','x','✕');cx.setAttribute('aria-label','Lukk');cx.onclick=()=>{if(window._licPollTimer)clearInterval(window._licPollTimer);a.style.cssText='';closeAll();};
   top.append(h2,cx);a.appendChild(top);
   const body=document.createElement('div');body.style.cssText='flex:1;overflow-y:auto;padding:20px';
   const info=el('p',null,'Last opp forsiden av ditt europeiske førerkort. AI sjekker automatisk at det er gyldig — kun europeiske førerkort godtas.');
@@ -666,6 +666,38 @@ async function openLicenseUploadModal(){
   statusBox.id='licVerifyStatus';
   statusBox.style.display='none';
   body.appendChild(statusBox);
+
+  // QR section — only on desktop
+  if(window.innerWidth>=640&&session){
+    const qrBox=document.createElement('div');
+    qrBox.style.cssText='background:#f0fdf4;border:1px solid #bbf7d0;border-radius:14px;padding:16px;margin-bottom:18px;text-align:center';
+    qrBox.innerHTML='<p style="font-size:13px;font-weight:700;color:#166534;margin:0 0 10px">📱 Enklere fra mobil — skann QR-koden</p><div id="_qrImg" style="display:flex;align-items:center;justify-content:center;height:170px"><div style="width:28px;height:28px;border:3px solid #16a34a;border-top-color:transparent;border-radius:50%;animation:spin 1s linear infinite"></div></div><p id="_qrHint" style="font-size:12px;color:#4b7a5c;margin:8px 0 0">Genererer QR-kode…</p>';
+    body.appendChild(qrBox);
+    (async()=>{
+      const{data:sess,error}=await sb.from('upload_sessions').insert({user_id:session.id,expires_at:new Date(Date.now()+15*60*1000).toISOString()}).select().single();
+      if(error||!sess){document.getElementById('_qrImg').innerHTML='<span style="font-size:12px;color:#888">QR utilgjengelig</span>';return;}
+      const uploadUrl=location.origin+'/app.html#upload/'+sess.token;
+      const qrSrc='https://api.qrserver.com/v1/create-qr-code/?size=160x160&data='+encodeURIComponent(uploadUrl)+'&bgcolor=f0fdf4&color=0a3d1f&margin=2';
+      document.getElementById('_qrImg').innerHTML='<img src="'+qrSrc+'" style="border-radius:8px;width:160px;height:160px" alt="QR-kode for mobilopplasting">';
+      document.getElementById('_qrHint').textContent='Skann med mobilen → ta bilde → bildet dukker opp her automatisk';
+      if(window._licPollTimer)clearInterval(window._licPollTimer);
+      window._licPollTimer=setInterval(async()=>{
+        const{data:upd}=await sb.from('upload_sessions').select('image_url').eq('id',sess.id).single();
+        if(upd&&upd.image_url){
+          clearInterval(window._licPollTimer);window._licPollTimer=null;
+          session.licFront=upd.image_url;
+          await sb.from('profiles').update({drivers_license_front:upd.image_url}).eq('id',session.id);
+          qrBox.style.background='#D1FAE5';qrBox.style.borderColor='#6EE7B7';
+          document.getElementById('_qrHint').innerHTML='<b style="color:#065F46">✓ Bilde mottatt! Verifiserer med AI…</b>';
+          await _verifyLicenseImage(upd.image_url);
+        }
+      },2500);
+    })();
+    const sep=el('p',null,'— eller last opp fra denne enheten —');
+    sep.style.cssText='text-align:center;font-size:12px;color:var(--ink-3);margin:0 0 14px';
+    body.appendChild(sep);
+  }
+
   ['Forside','Bakside'].forEach((label,idx)=>{
     const wrap=el('div','field');wrap.style.marginBottom='16px';
     const lbl=el('label',null,'Førerkort — '+label+(idx===0?' (påkrevd)':' (valgfritt)'));lbl.style.display='block';lbl.style.marginBottom='6px';
@@ -700,6 +732,7 @@ async function openLicenseUploadModal(){
   saveBtn.onclick=()=>{
     if(!session.licFront){toast('Last opp forside av førerkort','warn');return;}
     if(!session.licVerified){toast('Venter på AI-verifisering','warn');return;}
+    if(window._licPollTimer){clearInterval(window._licPollTimer);window._licPollTimer=null;}
     a.style.cssText='';closeAll();
     toast('Førerkort godkjent ✓ Du kan nå betale.','success');
   };
@@ -1012,5 +1045,42 @@ var _appInited=false;
 function _appInit(){if(_appInited)return;_appInited=true;_buildFilterBar();_buildFaq();_initCookie();_initScrollTop();}
 function isFav(lid){try{return JSON.parse(localStorage.getItem('_ocu_favs')||'[]').includes(lid);}catch(e){return false;}}
 function toggleFav(lid){var favs=[];try{favs=JSON.parse(localStorage.getItem('_ocu_favs')||'[]');}catch(e){}var i=favs.indexOf(lid);if(i===-1){favs.push(lid);toast('♥ Lagt til i favoritter','success');}else{favs.splice(i,1);toast('Fjernet fra favoritter','info');}localStorage.setItem('_ocu_favs',JSON.stringify(favs));document.querySelectorAll('[data-fav-id="'+lid+'"]').forEach(function(b){b.classList.toggle('heart-on',isFav(lid));});if(session){if(i===-1){WISHLISTS.push(lid);sb.from('wishlists').insert({user_id:session.id,listing_id:lid}).catch(()=>{});}else{WISHLISTS.splice(WISHLISTS.indexOf(lid),1);sb.from('wishlists').delete().eq('user_id',session.id).eq('listing_id',lid).catch(()=>{});}}}
+function _checkMobileUpload(){
+  const hash=location.hash;
+  if(!hash.startsWith('#upload/'))return;
+  const token=hash.slice(8).split('?')[0];
+  if(!token||token.length<10)return;
+  document.body.style.cssText='margin:0;padding:0;background:#0a2e16;min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,sans-serif';
+  document.body.innerHTML='<div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px"><div style="background:#fff;border-radius:20px;padding:28px 20px;width:min(400px,100%);text-align:center"><div style="font-size:14px;font-weight:700;color:#14512E;letter-spacing:.06em;text-transform:uppercase;margin-bottom:16px">leieplattform.no</div><div style="font-size:40px;margin-bottom:12px">📷</div><h2 style="margin:0 0 8px;font-size:20px;color:#1a1a1a">Last opp førerkort</h2><p style="font-size:14px;color:#64748b;margin:0 0 20px;line-height:1.6">Ta et klart bilde av <b>forsiden</b> av ditt europeiske førerkort. Pass på god belysning.</p><input type="file" id="_mfInput" accept="image/*" capture="environment" style="display:none"><button id="_mfBtn" onclick="document.getElementById(\'_mfInput\').click()" style="width:100%;padding:14px;background:#166534;color:#fff;border:0;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;margin-bottom:12px">Ta bilde med kamera</button><div id="_mfStatus" style="font-size:13px;color:#64748b;min-height:20px"></div></div></div>';
+  document.getElementById('_mfInput').onchange=async function(ev){
+    const f=ev.target.files[0];if(!f)return;
+    const btn=document.getElementById('_mfBtn');
+    const st=document.getElementById('_mfStatus');
+    btn.disabled=true;btn.textContent='Laster opp…';st.textContent='';
+    const reader=new FileReader();
+    reader.onload=async function(e2){
+      try{
+        const res=await fetch('https://cglxodxiqpzrgwrfaqbr.supabase.co/functions/v1/mobile-upload',{
+          method:'POST',
+          headers:{'Content-Type':'application/json','apikey':'sb_publishable_yypSMj_dG7_yfOmJO9ZZmA_CrrnMmgW'},
+          body:JSON.stringify({token,imageData:e2.target.result,mimeType:f.type})
+        });
+        const data=await res.json();
+        if(data.success){
+          document.body.innerHTML='<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0a2e16"><div style="background:#fff;border-radius:20px;padding:32px 24px;text-align:center;width:min(380px,92vw)"><div style="font-size:52px;margin-bottom:12px">✅</div><h2 style="color:#166534;margin:0 0 8px;font-size:22px">Bilde sendt!</h2><p style="color:#64748b;font-size:15px;line-height:1.6;margin:0">Gå tilbake til PC-en.<br>Bildet verifiseres automatisk.</p></div></div>';
+        } else {
+          st.textContent='Feil: '+(data.error||'Prøv igjen');
+          btn.disabled=false;btn.textContent='Ta bilde med kamera';
+        }
+      }catch(err){
+        st.textContent='Opplasting feilet. Sjekk nettforbindelsen og prøv igjen.';
+        btn.disabled=false;btn.textContent='Ta bilde med kamera';
+      }
+    };
+    reader.readAsDataURL(f);
+  };
+}
+_checkMobileUpload();
+
 </script>
 </body></html>
