@@ -176,17 +176,17 @@ select.fchip{appearance:auto;font-family:inherit;font-weight:600;color:var(--ink
     <p style="font-size:13px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.55);margin:0 0 10px">For utleiere</p>
     <h2 style="font-size:clamp(24px,4vw,36px);margin:0 0 14px;color:#fff">Det du eier kan jobbe for deg i dag</h2>
     <p style="font-size:17px;color:rgba(255,255,255,.75);max-width:520px;margin:0 auto 28px;line-height:1.6">Campingvogn? Minigraver? El-sykkel? Trailer? Telt? Lei det ut og tjen penger mens det ellers bare tar plass. Gratis å komme i gang.</p>
-    <div style="display:flex;gap:16px;flex-wrap:wrap;justify-content:center;margin-bottom:32px">
-      <div style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:14px;padding:18px 22px;min-width:160px;text-align:center">
-        <div style="font-size:28px;font-weight:800;color:#4ade80">0 kr</div>
-        <div style="font-size:13px;color:rgba(255,255,255,.65);margin-top:4px">Gratis å registrere</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:32px">
+      <div style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:14px;padding:14px 10px;text-align:center">
+        <div style="font-size:26px;font-weight:800;color:#4ade80">0 kr</div>
+        <div style="font-size:12px;color:rgba(255,255,255,.65);margin-top:4px">Gratis å registrere</div>
       </div>
-      <div style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:14px;padding:18px 22px;min-width:160px;text-align:center">
-        <div style="font-size:28px;font-weight:800;color:#4ade80">5 min</div>
-        <div style="font-size:13px;color:rgba(255,255,255,.65);margin-top:4px">Publiser første annonse</div>
+      <div style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:14px;padding:14px 10px;text-align:center">
+        <div style="font-size:26px;font-weight:800;color:#4ade80">5 min</div>
+        <div style="font-size:12px;color:rgba(255,255,255,.65);margin-top:4px">Publiser første annonse</div>
       </div>
-      <div style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:14px;padding:18px 22px;min-width:160px;text-align:center">
-        <div style="font-size:28px;font-weight:800;color:#4ade80">90%</div>
+      <div style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:14px;padding:14px 10px;text-align:center">
+        <div style="font-size:26px;font-weight:800;color:#4ade80">90%</div>
         <div style="font-size:13px;color:rgba(255,255,255,.65);margin-top:4px">Av inntekten til deg</div>
       </div>
     </div>
@@ -922,7 +922,7 @@ function _updateHeroStats(){
   var real=(BOOKINGS||[]).filter(function(b){return b&&b.status&&b.status!=='declined';}).length;
   var shown=real<4?[4,5,3,5,4,6,5,4,3,5][new Date().getDate()%10]:real;
   var dot='<svg width="8" height="8" viewBox="0 0 24 24" fill="#4ade80"><circle cx="12" cy="12" r="10"/></svg>';
-  el_.innerHTML=dot+' '+actv+' aktive annonser · '+shown+' bookinger siste 7 dager · ★ 4,9 Google';
+  var _mob=window.innerWidth<600;el_.innerHTML=dot+' '+actv+(_mob?' annonser':' aktive annonser')+' · '+shown+(_mob?' bookinger':' bookinger siste 7 dager')+' · ★ 4,9 Google';
 }
 function init(){buildCats(),renderGrid(),buildNav(),attachLocAC("sLoc");
   var _lp=new URLSearchParams(location.search).get('listing');
