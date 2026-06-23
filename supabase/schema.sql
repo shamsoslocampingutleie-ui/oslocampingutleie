@@ -817,7 +817,8 @@ create index if not exists active_visitors_session_seen_idx on public.active_vis
 alter table public.profiles
   add column if not exists drivers_license_front text default null,
   add column if not exists drivers_license_back  text default null,
-  add column if not exists drivers_license_verified boolean not null default false;
+  add column if not exists drivers_license_verified boolean not null default false,
+  add column if not exists drivers_license_country  text default null;
 
 -- 2) Booking-dokumenter (før/etter-bilder, førerkort knyttet til booking)
 create table if not exists public.booking_documents (
