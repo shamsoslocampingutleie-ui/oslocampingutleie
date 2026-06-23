@@ -89,11 +89,20 @@ workflows:
 
       - name: Build ipa
         script: |
-          xcode-project build-ipa \
-            --project "$XCODE_PROJECT" \
-            --scheme "$XCODE_SCHEME" \
-            --config Release \
-            --export-options-path /Users/builder/export_options.plist
+          xcodebuild archive \
+            -project "$XCODE_PROJECT" \
+            -scheme "$XCODE_SCHEME" \
+            -configuration Release \
+            -archivePath "/tmp/App.xcarchive" \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="iPhone Distribution" \
+            DEVELOPMENT_TEAM="9L8XF547T2" \
+            OTHER_CODE_SIGN_FLAGS="--keychain build.keychain"
+
+          xcodebuild -exportArchive \
+            -archivePath "/tmp/App.xcarchive" \
+            -exportPath "build/ios/ipa" \
+            -exportOptionsPlist /Users/builder/export_options.plist
 
     artifacts:
       - build/ios/ipa/*.ipa
