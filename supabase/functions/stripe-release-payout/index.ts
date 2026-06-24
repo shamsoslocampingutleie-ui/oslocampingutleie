@@ -29,12 +29,13 @@ Deno.serve(async (req) => {
     );
 
     // Allow internal cron calls (service role) to bypass user JWT check
-    const isInternalCron = req.headers.get("x-internal-cron") === "1";
+    // isInternalCron header is not used for auth — service role key is the real gate
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
     const isServiceRole = authHeader.replace("Bearer ", "") === serviceKey;
+    const isInternalCron = isServiceRole; // alias for readability
 
     let userId: string | null = null;
-    if (!isInternalCron && !isServiceRole) {
+    if (!isServiceRole) {
       const { data: userData, error: userErr } = await supabase.auth.getUser(
         authHeader.replace("Bearer ", ""),
       );

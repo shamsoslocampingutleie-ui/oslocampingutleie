@@ -42,6 +42,13 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Enforce 10MB limit on base64 payload (~7.5MB raw)
+    if (imageData.length > 14_000_000) {
+      return new Response(JSON.stringify({ error: "Bilde for stort (maks 10 MB)" }), {
+        status: 413,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     const base64 = imageData.replace(/^data:[^;]+;base64,/, "");
     const binary = atob(base64);
     const bytes = new Uint8Array(binary.length);

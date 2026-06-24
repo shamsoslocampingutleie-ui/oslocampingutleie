@@ -158,6 +158,14 @@ Deno.serve(async (req) => {
           Number(session.metadata?.platform_fee_ore ?? session.amount_total ?? 0) /
           100;
 
+        // Check if already paid to prevent duplicate email sends on webhook replay
+        const { data: existingBooking } = await supabase
+          .from("bookings")
+          .select("paid")
+          .eq("id", bookingId)
+          .single();
+        const alreadyPaid = existingBooking?.paid === true;
+
         await supabase
           .from("bookings")
           .update({
@@ -169,8 +177,10 @@ Deno.serve(async (req) => {
           })
           .eq("id", bookingId);
 
-        // Send confirmation emails to both parties
-        await sendPaymentConfirmationEmails(bookingId, amountTotal, platformFee);
+        // Only send emails once — guard against webhook replay
+        if (!alreadyPaid) {
+          await sendPaymentConfirmationEmails(bookingId, amountTotal, platformFee);
+        }
       }
       break;
     }
