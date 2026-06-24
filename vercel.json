@@ -1,7 +1,11 @@
 {
   "rewrites": [
     {
-      "source": "/((?!assets|favicon|app\\.html|sw\\.js|supabase\\.min\\.js|leaflet\\.min\\.js|leaflet\\.min\\.css|images|manifest\\.json|robots\\.txt|sitemap\\.xml|leie-campingvogn-oslo|leie-campingvogn-bergen|leie-campingvogn-trondheim|leie-campingvogn-stavanger|leie-campingvogn-kristiansand|leie-campingvogn-jessheim|leie-campingvogn-gardermoen|leie-bobil-oslo|leie-bobil-bergen|leie-bobil-stavanger|leie-bobil-jessheim|leie-bobil-gardermoen|faq|lei-ut-campingvogn|bli-utleier|personvern).*)",
+      "source": "/listing/:id",
+      "destination": "/api/og?id=:id"
+    },
+    {
+      "source": "/((?!assets|favicon|app\\.html|sw\\.js|supabase\\.min\\.js|leaflet\\.min\\.js|leaflet\\.min\\.css|images|manifest\\.json|robots\\.txt|sitemap\\.xml|api|listing|leie-campingvogn-oslo|leie-campingvogn-bergen|leie-campingvogn-trondheim|leie-campingvogn-stavanger|leie-campingvogn-kristiansand|leie-campingvogn-jessheim|leie-campingvogn-gardermoen|leie-bobil-oslo|leie-bobil-bergen|leie-bobil-stavanger|leie-bobil-jessheim|leie-bobil-gardermoen|faq|lei-ut-campingvogn|bli-utleier|personvern).*)",
       "destination": "/"
     }
   ],
