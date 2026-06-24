@@ -38,7 +38,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { imageUrl } = await req.json();
+    const { imageUrl, type = "license" } = await req.json();
     if (!imageUrl || typeof imageUrl !== "string") {
       return new Response(JSON.stringify({ error: "imageUrl required" }), {
         status: 400,
@@ -46,7 +46,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Fetch the image and convert to base64
     const imgRes = await fetch(imageUrl);
     if (!imgRes.ok) {
       return new Response(JSON.stringify({ error: "Could not fetch image" }), {
@@ -60,7 +59,39 @@ Deno.serve(async (req) => {
     const buffer = await imgRes.arrayBuffer();
     const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
 
-    // Ask Claude to verify the license
+    const isIdentityCheck = type === "identity";
+
+    const prompt = isIdentityCheck
+      ? `Du er et dokumentverifiseringssystem. Analyser dette bildet og avgjør om det er et gyldig identitetsdokument.
+
+Godkjente dokumenter:
+- Nasjonalt ID-kort (fra hvilket som helst land)
+- Pass
+- Offisielt brev eller dokument som inneholder personens fulle navn og adresse (f.eks. bankbrev, offentlig brev, fakturaer fra offentlige etater)
+- Oppholdstillatelse eller annet offentlig ID-dokument
+
+IKKE godkjent: bilder av personer, selfies, tilfeldige bilder, kvitteringer, uoffisielle dokumenter.
+
+Svar KUN med gyldig JSON — ingen markdown, ingen forklaring:
+{
+  "isValid": true or false,
+  "documentType": "kort type beskrivelse på norsk, eller null",
+  "confidence": "high", "medium", or "low",
+  "reason": "én setning på norsk som forklarer avgjørelsen"
+}`
+      : `You are a document verification system. Analyze this image and determine if it is a valid European driver's license.
+
+European countries include all EU member states plus Norway, Iceland, Liechtenstein, Switzerland, United Kingdom, Serbia, Montenegro, Albania, North Macedonia, Bosnia and Herzegovina, Moldova, and other European nations.
+
+Respond ONLY with valid JSON — no markdown, no explanation:
+{
+  "isDriversLicense": true or false,
+  "isEuropean": true or false,
+  "country": "country name in Norwegian, or null",
+  "confidence": "high", "medium", or "low",
+  "reason": "one sentence in Norwegian explaining the decision"
+}`;
+
     const message = await anthropic.messages.create({
       model: "claude-sonnet-4-6",
       max_tokens: 300,
@@ -76,34 +107,14 @@ Deno.serve(async (req) => {
                 data: base64,
               },
             },
-            {
-              type: "text",
-              text: `You are a document verification system. Analyze this image and determine if it is a valid European driver's license.
-
-European countries include all EU member states (Austria, Belgium, Bulgaria, Croatia, Cyprus, Czech Republic, Denmark, Estonia, Finland, France, Germany, Greece, Hungary, Ireland, Italy, Latvia, Lithuania, Luxembourg, Malta, Netherlands, Poland, Portugal, Romania, Slovakia, Slovenia, Spain, Sweden), plus Norway, Iceland, Liechtenstein, Switzerland, United Kingdom, Serbia, Montenegro, Albania, North Macedonia, Bosnia and Herzegovina, Moldova, and other European nations.
-
-Respond ONLY with valid JSON — no markdown, no explanation:
-{
-  "isDriversLicense": true or false,
-  "isEuropean": true or false,
-  "country": "country name in Norwegian, or null",
-  "confidence": "high", "medium", or "low",
-  "reason": "one sentence in Norwegian explaining the decision"
-}`,
-            },
+            { type: "text", text: prompt },
           ],
         },
       ],
     });
 
     const rawText = message.content[0].type === "text" ? message.content[0].text.trim() : "";
-    let result: {
-      isDriversLicense: boolean;
-      isEuropean: boolean;
-      country: string | null;
-      confidence: string;
-      reason: string;
-    };
+    let result: Record<string, unknown>;
     try {
       result = JSON.parse(rawText);
     } catch {
@@ -114,19 +125,25 @@ Respond ONLY with valid JSON — no markdown, no explanation:
       );
     }
 
-    const verified = result.isDriversLicense === true && result.isEuropean === true &&
-      (result.confidence === "high" || result.confidence === "medium");
+    let verified: boolean;
+    if (isIdentityCheck) {
+      verified = result.isValid === true &&
+        (result.confidence === "high" || result.confidence === "medium");
+    } else {
+      verified = result.isDriversLicense === true && result.isEuropean === true &&
+        (result.confidence === "high" || result.confidence === "medium");
+    }
 
-    // Update profile
     await supabase.from("profiles").update({
       drivers_license_verified: verified,
-      drivers_license_country: result.country ?? null,
+      drivers_license_country: (result.country ?? result.documentType ?? null) as string | null,
     }).eq("id", user.id);
 
     return new Response(
       JSON.stringify({
         verified,
-        country: result.country,
+        country: result.country ?? null,
+        documentType: result.documentType ?? null,
         reason: result.reason,
         confidence: result.confidence,
       }),

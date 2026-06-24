@@ -660,8 +660,19 @@ if(session){
       e.appendChild(_lw);
     } else if(!session.licVerified){
       const _lw=el("div");_lw.style.cssText="margin-top:14px;padding:13px 16px;background:#FEF3C7;border:1.5px solid #F59E0B;border-radius:14px;display:flex;gap:10px;align-items:flex-start";
-      _lw.innerHTML='<span style="font-size:22px">⏳</span><div><b style="font-size:13px;color:#92400E;display:block;margin-bottom:3px">Verifisering pågår</b><span style="font-size:12px;color:#78350F;line-height:1.5">Førerkortet er lastet opp og behandles. Du får beskjed så snart det er godkjent — vanligvis innen noen minutter.</span></div>';
+      _lw.innerHTML='<span style="font-size:22px">🔍</span><div><b style="font-size:13px;color:#92400E;display:block;margin-bottom:3px">Verifiserer automatisk…</b><span style="font-size:12px;color:#78350F;line-height:1.5">AI-verifisering av førerkortet pågår — tar noen sekunder.</span></div>';
       e.appendChild(_lw);
+      (async()=>{
+        await _verifyLicenseImage(session.licFront,'license');
+        if(session.licVerified){
+          _lw.style.cssText="margin-top:8px;padding:8px 14px;background:#D1FAE5;border:1px solid #6EE7B7;border-radius:10px;font-size:13px;color:#065F46;font-weight:600;display:flex;align-items:center;gap:8px";
+          _lw.innerHTML='<span>✅</span><span>Europeisk førerkort verifisert</span>';
+          setTimeout(()=>{const bp=document.getElementById('bookBtn');if(bp)bp.disabled=false;},100);
+        } else {
+          _lw.style.cssText="margin-top:14px;padding:12px 14px;background:#FEF2F2;border:1.5px solid #FECACA;border-radius:14px;font-size:13px;color:#991B1B";
+          _lw.innerHTML='<b>✗ Ikke godkjent.</b> Last opp et gyldig europeisk førerkort.';
+        }
+      })();
     } else {
       const _lw=el("div");_lw.style.cssText="margin-top:8px;padding:8px 14px;background:#D1FAE5;border:1px solid #6EE7B7;border-radius:10px;font-size:13px;color:#065F46;font-weight:600;display:flex;align-items:center;gap:8px";
       _lw.innerHTML='<span>✅</span><span>Europeisk førerkort verifisert</span>';
@@ -675,13 +686,24 @@ if(session){
       // Build button via DOM (avoids quote conflicts in innerHTML)
       const _idBtn=el("button",null,"📷 Verifiser ID-kortet ditt");
       _idBtn.style.cssText="width:100%;padding:12px;background:#14512E;color:#fff;border:0;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;letter-spacing:.01em";
-      _idBtn.onclick=()=>openLicenseUploadModal({label:"ID-kort",hint:"Ta bilde av forsiden av ditt nasjonale ID-kort. Bildet behandles kryptert og slettes automatisk etter verifisering. Aldri delt med utleier."});
+      _idBtn.onclick=()=>openLicenseUploadModal({label:"ID-dokument",hint:"Last opp nasjonalt ID-kort, pass eller et offisielt brev med navn og adresse. Bildet behandles kryptert og slettes automatisk etter verifisering.",type:"identity"});
       const _idBtnWrap=_lw.querySelector("#_idBtnWrap");if(_idBtnWrap)_idBtnWrap.appendChild(_idBtn);
       e.appendChild(_lw);
     } else if(!session.licVerified){
       const _lw=el("div");_lw.style.cssText="margin-top:14px;padding:13px 16px;background:#F0FDF4;border:1.5px solid #86EFAC;border-radius:14px;display:flex;gap:10px;align-items:flex-start";
-      _lw.innerHTML='<span style="font-size:22px">⏳</span><div><b style="font-size:13px;color:#166534;display:block;margin-bottom:3px">ID-verifisering pågår</b><span style="font-size:12px;color:#15803D;line-height:1.5">ID-kortet er lastet opp og behandles trygt. Du får beskjed så snart det er godkjent — vanligvis innen noen minutter.</span></div>';
+      _lw.innerHTML='<span style="font-size:22px">🔍</span><div><b style="font-size:13px;color:#166534;display:block;margin-bottom:3px">Verifiserer automatisk…</b><span style="font-size:12px;color:#15803D;line-height:1.5">AI-verifisering av ID-dokumentet pågår — tar noen sekunder.</span></div>';
       e.appendChild(_lw);
+      (async()=>{
+        await _verifyLicenseImage(session.licFront,'identity');
+        if(session.licVerified){
+          _lw.style.cssText="margin-top:8px;padding:8px 14px;background:#D1FAE5;border:1px solid #6EE7B7;border-radius:10px;font-size:13px;color:#065F46;font-weight:600;display:flex;align-items:center;gap:8px";
+          _lw.innerHTML='<span>✅</span><span>Identitet verifisert</span>';
+          setTimeout(()=>{const bp=document.getElementById('bookBtn');if(bp)bp.disabled=false;},100);
+        } else {
+          _lw.style.cssText="margin-top:14px;padding:12px 14px;background:#FEF2F2;border:1.5px solid #FECACA;border-radius:14px;font-size:13px;color:#991B1B";
+          _lw.innerHTML='<b>✗ Ikke godkjent.</b> Last opp nasjonalt ID-kort, pass eller et offisielt brev med navn og adresse.';
+        }
+      })();
     } else {
       const _lw=el("div");_lw.style.cssText="margin-top:8px;padding:8px 14px;background:#D1FAE5;border:1px solid #6EE7B7;border-radius:10px;font-size:13px;color:#065F46;font-weight:600;display:flex;align-items:center;gap:8px";
       _lw.innerHTML='<span>✅</span><span>Identitet verifisert</span>';
@@ -692,7 +714,7 @@ if(session){
 if(t.weeklyDiscount>=5||t.monthlyDiscount>=5){const _dBanner=el("div");_dBanner.style.cssText="background:#EDE9FE;border:1px solid #A78BFA;border-radius:10px;padding:10px 14px;font-size:13px;margin-bottom:8px;color:#5B21B6";let _dTxt='🏷️ ';if(t.monthlyDiscount>=5)_dTxt+='<b>'+t.monthlyDiscount+'% rabatt</b> ved 28+ dager';if(t.weeklyDiscount>=5&&t.monthlyDiscount>=5)_dTxt+=' · ';if(t.weeklyDiscount>=5)_dTxt+='<b>'+t.weeklyDiscount+'% rabatt</b> ved 7+ dager';_dBanner.innerHTML=_dTxt;e.appendChild(_dBanner);}
 // Trust note
 const _trustNote=el("div");_trustNote.style.cssText="background:var(--tint);border-radius:10px;padding:10px 14px;font-size:12.5px;color:var(--ink-2);margin-bottom:8px;display:flex;gap:8px;align-items:flex-start";_trustNote.innerHTML='<span style="font-size:16px;flex-shrink:0">🔒</span><span>Betaling holdes trygt av Stripe — utleier mottar ikke pengene før du har bekreftet at utstyret er mottatt. <a onclick="route(&quot;faq&quot;)" style="color:var(--green);cursor:pointer">Les mer om trygg handel.</a></span>';e.appendChild(_trustNote);
-const m=el("button","btn btn-primary btn-block btn-lg",t.instantBook?"Bekreft og book →":"Send forespørsel →");m.style.marginTop="10px",m.onclick=()=>sendRequest(),e.appendChild(m),e.appendChild(el("p","modal-note",t.instantBook?"Bestillingen bekreftes umiddelbart — ingen godkjenning fra utleier er nødvendig.":"Du belastes ikke ennå. Utleier må godta forespørselen først. Gratis avbestilling i 48 timer."))}async function sendRequest(){if(!session)return closeAll(),openAuth(),void toast("Logg inn for å sende en forespørsel.","warn");if("admin"===session.role)return void toast("Admin-konto kan ikke booke.","warn");const e=L(range.listingId);if(session.hostId&&e.owner===session.hostId)return void toast("Dette er din egen annonse.","warn");if(!document.getElementById("acceptTerms").checked)return void toast("Du må godta vilkårene for å fortsette.","warn");if(!range.from||!range.to)return void toast("Velg innsjekk- og utsjekk-dato i kalenderen.","warn");const _phoneVal=val("bookingPhone").trim();if(!_phoneVal||!/^[0-9+\s]{8,15}$/.test(_phoneVal))return void toast("Skriv inn et gyldig telefonnummer.","warn");const _vCats=["camping","bobil","campingvogn","trailer","bil","kjøretøy","camper","caravan","motorhome","henger"];const _isVehicle=_vCats.some(c=>e.cat&&e.cat.toLowerCase().includes(c));if(!session.licFront){const _idType=_isVehicle?"f\u00f8rerkort":"legitimasjon";toast("Du m\u00e5 laste opp "+_idType+" f\u00f8r du kan booke.","warn");openLicenseUploadModal(_isVehicle?undefined:{label:"Legitimasjon",hint:"Last opp pass, ID-kort eller BankID."});return;}if(!session.licVerified){toast((_isVehicle?"F\u00f8rerkortet":"Legitimasjonen")+" er ikke godkjent enn\u00e5. Vent p\u00e5 bekreftelse.","warn");return;}const{data:_bkData,error:t}=await sb.from("bookings").insert({listing_id:e.id,renter:session.id,renter_name:session.name,renter_email:session.email,renter_phone:_phoneVal,from_date:range.from,to_date:range.to,status:e.instantBook?"accepted":"pending",wants_transport:!!(document.getElementById("wantsTransport")&&document.getElementById("wantsTransport").checked)}).select('id').single();if(t)return void toast("Kunne ikke sende forespørselen. Prøv igjen.","warn");
+const m=el("button","btn btn-primary btn-block btn-lg",t.instantBook?"Bekreft og book →":"Send forespørsel →");m.style.marginTop="10px",m.onclick=()=>sendRequest(),e.appendChild(m),e.appendChild(el("p","modal-note",t.instantBook?"Bestillingen bekreftes umiddelbart — ingen godkjenning fra utleier er nødvendig.":"Du belastes ikke ennå. Utleier må godta forespørselen først. Gratis avbestilling i 48 timer."))}async function sendRequest(){if(!session)return closeAll(),openAuth(),void toast("Logg inn for å sende en forespørsel.","warn");if("admin"===session.role)return void toast("Admin-konto kan ikke booke.","warn");const e=L(range.listingId);if(session.hostId&&e.owner===session.hostId)return void toast("Dette er din egen annonse.","warn");if(!document.getElementById("acceptTerms").checked)return void toast("Du må godta vilkårene for å fortsette.","warn");if(!range.from||!range.to)return void toast("Velg innsjekk- og utsjekk-dato i kalenderen.","warn");const _phoneVal=val("bookingPhone").trim();if(!_phoneVal||!/^[0-9+\s]{8,15}$/.test(_phoneVal))return void toast("Skriv inn et gyldig telefonnummer.","warn");const _vCats=["camping","bobil","campingvogn","trailer","bil","kjøretøy","camper","caravan","motorhome","henger"];const _isVehicle=_vCats.some(c=>e.cat&&e.cat.toLowerCase().includes(c));if(!session.licFront){const _idType=_isVehicle?"f\u00f8rerkort":"legitimasjon";toast("Du m\u00e5 laste opp "+_idType+" f\u00f8r du kan booke.","warn");openLicenseUploadModal(_isVehicle?undefined:{label:"ID-dokument",hint:"Last opp nasjonalt ID-kort, pass eller et offisielt brev med navn og adresse.",type:"identity"});return;}if(!session.licVerified){toast((_isVehicle?"F\u00f8rerkortet":"Legitimasjonen")+" er ikke godkjent enn\u00e5. Vent p\u00e5 bekreftelse.","warn");return;}const{data:_bkData,error:t}=await sb.from("bookings").insert({listing_id:e.id,renter:session.id,renter_name:session.name,renter_email:session.email,renter_phone:_phoneVal,from_date:range.from,to_date:range.to,status:e.instantBook?"accepted":"pending",wants_transport:!!(document.getElementById("wantsTransport")&&document.getElementById("wantsTransport").checked)}).select('id').single();if(t)return void toast("Kunne ikke sende forespørselen. Prøv igjen.","warn");
 const _newBkId=_bkData&&_bkData.id;
 if(_newBkId){
   if(typeof _selTransport!=='undefined'&&_selTransport&&_selTransport.id){try{await sb.from('booking_transport').insert({booking_id:_newBkId,transport_option_id:_selTransport.id,transport_name:_selTransport.name,price_snapshot:_selTransport.price,pricing_mode:_selTransport.pricing_mode});}catch(ex){console.warn('transport save err',ex);}}
@@ -790,6 +812,7 @@ async function doPayWithStripe(e){
 async function openLicenseUploadModal(opts){
   const _idLabel=(opts&&opts.label)||'Førerkort';
   const _idHint=(opts&&opts.hint)||'Last opp forsiden av ditt europeiske f\u00f8rerkort. Bildet brukes kun til verifisering og slettes etter godkjenning.';
+  const _idType=(opts&&opts.type)||'license';
   const a=document.getElementById('genModal');a.innerHTML='';
   a.style.cssText='display:flex;flex-direction:column;max-height:90vh;padding:0;overflow:hidden;border-radius:18px;width:min(500px,96vw)';
   const top=el('div','modal-top');top.style.cssText='flex-shrink:0;padding:14px 20px;border-bottom:1px solid var(--line)';
@@ -827,7 +850,7 @@ async function openLicenseUploadModal(opts){
           await sb.from('profiles').update({drivers_license_front:upd.image_url}).eq('id',session.id);
           qrBox.style.background='#D1FAE5';qrBox.style.borderColor='#6EE7B7';
           document.getElementById('_qrHint').innerHTML='<b style="color:#065F46">✓ Bilde mottatt! Verifiserer med AI…</b>';
-          await _verifyLicenseImage(upd.image_url);
+          await _verifyLicenseImage(upd.image_url,_idType);
         }
       },2500);
     })();
@@ -838,7 +861,8 @@ async function openLicenseUploadModal(opts){
 
   ['Forside','Bakside'].forEach((label,idx)=>{
     const wrap=el('div','field');wrap.style.marginBottom='16px';
-    const lbl=el('label',null,'Førerkort — '+label+(idx===0?' (påkrevd)':' (valgfritt)'));lbl.style.display='block';lbl.style.marginBottom='6px';
+    const _docLabel=_idType==='identity'?'ID-dokument':'Førerkort';
+    const lbl=el('label',null,_docLabel+' — '+label+(idx===0?' (påkrevd)':' (valgfritt)'));lbl.style.display='block';lbl.style.marginBottom='6px';
     const inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.capture='environment';
     inp.id='licFile'+idx;
     const prev=document.createElement('img');prev.style.cssText='max-width:100%;border-radius:8px;margin-top:8px;display:none;border:1px solid var(--line)';
@@ -855,7 +879,7 @@ async function openLicenseUploadModal(opts){
       const col=idx===0?'drivers_license_front':'drivers_license_back';
       await sb.from('profiles').update({[col]:url}).eq('id',session.id);
       prev.src=URL.createObjectURL(f);prev.style.display='block';
-      if(idx===0)await _verifyLicenseImage(url);
+      if(idx===0)await _verifyLicenseImage(url,_idType);
     };
     wrap.append(lbl,inp,prev);body.appendChild(wrap);
   });
@@ -879,7 +903,7 @@ async function openLicenseUploadModal(opts){
   document.getElementById('genBg').classList.add('open');
   document.body.style.overflow='hidden';
 }
-async function _verifyLicenseImage(imageUrl){
+async function _verifyLicenseImage(imageUrl,_verType){
   const statusBox=document.getElementById('licVerifyStatus');
   const saveBtn=document.getElementById('licSaveBtn');
   if(!statusBox)return;
@@ -891,17 +915,19 @@ async function _verifyLicenseImage(imageUrl){
     const res=await fetch(SUPABASE_URL+'/functions/v1/verify-license',{
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+s.access_token,'apikey':SUPABASE_ANON_KEY},
-      body:JSON.stringify({imageUrl})
+      body:JSON.stringify({imageUrl,type:_verType||'license'})
     });
     const json=await res.json();
+    const _okMsg=(_verType==='identity')?'✓ Identitet verifisert':'✓ Europeisk førerkort godkjent';
+    const _failMsg=(_verType==='identity')?'✗ Ugyldig dokument. Last opp nasjonalt ID-kort, pass eller et offisielt brev med navn og adresse.':'✗ Ikke godkjent. Last opp et gyldig europeisk førerkort.';
     if(json.verified){
       statusBox.style.cssText='display:block;padding:12px 14px;border-radius:12px;font-size:14px;font-weight:600;margin-bottom:14px;background:#D1FAE5;color:#065F46;border:1px solid #6EE7B7';
-      statusBox.textContent='✓ Europeisk førerkort godkjent'+(json.country?' — '+json.country:'');
+      statusBox.textContent=_okMsg+(json.country&&_verType!=='identity'?' — '+json.country:'');
       session.licVerified=true;
       if(saveBtn)saveBtn.disabled=false;
     }else{
       statusBox.style.cssText='display:block;padding:12px 14px;border-radius:12px;font-size:14px;font-weight:600;margin-bottom:14px;background:#FBEAE7;color:#9B1C1C;border:1px solid #FCA5A5';
-      statusBox.textContent='✗ '+(json.reason||'Ikke godkjent. Last opp et gyldig europeisk førerkort.');
+      statusBox.textContent='✗ '+(json.reason||_failMsg);
       session.licVerified=false;
       if(saveBtn)saveBtn.disabled=true;
     }
