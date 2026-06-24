@@ -669,8 +669,12 @@ if(session){
           _lw.innerHTML='<span>✅</span><span>Europeisk førerkort verifisert</span>';
           setTimeout(()=>{const bp=document.getElementById('bookBtn');if(bp)bp.disabled=false;},100);
         } else {
-          _lw.style.cssText="margin-top:14px;padding:12px 14px;background:#FEF2F2;border:1.5px solid #FECACA;border-radius:14px;font-size:13px;color:#991B1B";
-          _lw.innerHTML='<b>✗ Ikke godkjent.</b> Last opp et gyldig europeisk førerkort.';
+          _lw.style.cssText="margin-top:14px;padding:14px 16px;background:#FEF2F2;border:1.5px solid #FECACA;border-radius:14px;font-size:13px;color:#991B1B";
+          _lw.innerHTML='<b>✗ Ikke godkjent.</b> Bildet ble ikke gjenkjent som et gyldig europeisk førerkort.';
+          const _retryBtn=el('button',null,'📷 Last opp nytt førerkort');
+          _retryBtn.style.cssText='margin-top:10px;width:100%;padding:10px;background:#DC2626;color:#fff;border:0;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer';
+          _retryBtn.onclick=()=>{session.licFront=null;openLicenseUploadModal();};
+          _lw.appendChild(_retryBtn);
         }
       })();
     } else {
@@ -700,8 +704,12 @@ if(session){
           _lw.innerHTML='<span>✅</span><span>Identitet verifisert</span>';
           setTimeout(()=>{const bp=document.getElementById('bookBtn');if(bp)bp.disabled=false;},100);
         } else {
-          _lw.style.cssText="margin-top:14px;padding:12px 14px;background:#FEF2F2;border:1.5px solid #FECACA;border-radius:14px;font-size:13px;color:#991B1B";
-          _lw.innerHTML='<b>✗ Ikke godkjent.</b> Last opp nasjonalt ID-kort, pass eller et offisielt brev med navn og adresse.';
+          _lw.style.cssText="margin-top:14px;padding:14px 16px;background:#FEF2F2;border:1.5px solid #FECACA;border-radius:14px;font-size:13px;color:#991B1B";
+          _lw.innerHTML='<b>✗ Ikke godkjent.</b> Bildet ble ikke gjenkjent som gyldig ID. Godkjente dokumenter: nasjonalt ID-kort, pass eller offisielt brev med navn og adresse.';
+          const _retryBtn=el('button',null,'📷 Last opp nytt dokument');
+          _retryBtn.style.cssText='margin-top:10px;width:100%;padding:10px;background:#14512E;color:#fff;border:0;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer';
+          _retryBtn.onclick=()=>{session.licFront=null;openLicenseUploadModal({label:"ID-dokument",hint:"Last opp nasjonalt ID-kort, pass eller et offisielt brev med navn og adresse. Bildet behandles kryptert og slettes automatisk etter verifisering.",type:"identity"});};
+          _lw.appendChild(_retryBtn);
         }
       })();
     } else {
