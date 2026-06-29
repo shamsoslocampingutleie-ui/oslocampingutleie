@@ -20,6 +20,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
+import { checkRateLimit, rateLimitResponse } from "../_shared/rateLimit.ts";
 
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL")!,
@@ -31,6 +32,7 @@ Deno.serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  // Primary: require service-role key. Secondary: rate limit to 5/hour as defence-in-depth.
   const auth = req.headers.get("Authorization") ?? "";
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
   if (!auth.includes(serviceKey)) {
@@ -39,6 +41,7 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
+  if (!(await checkRateLimit(req, 5, 3_600_000))) return rateLimitResponse();
 
   try {
     const results = { deletedOld: 0, deletedDuplicates: 0 };

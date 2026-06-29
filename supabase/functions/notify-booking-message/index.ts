@@ -25,7 +25,7 @@ Deno.serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
-  if (!checkRateLimit(req, 20, 60_000)) return rateLimitResponse();
+  if (!(await checkRateLimit(req, 20, 60_000))) return rateLimitResponse();
 
   try {
     const authHeader = req.headers.get("Authorization") ?? "";

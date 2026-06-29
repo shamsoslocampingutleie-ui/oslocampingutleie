@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="nb">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hjelp og kontakt | Leieplattform</title>
+  <meta name="description" content="Trenger du hjelp? Kontakt Leieplattform på e-post eller finn svar på vanlige spørsmål." />
+  <link rel="canonical" href="https://leieplattform.no/hjelp" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    :root{--g:#14512E;--gh:#1a6a3a;--bg:#f0f7f2}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#222;line-height:1.65;background:#fff}
+    header{background:var(--g);color:#fff;padding:14px 24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
+    .logo{color:#fff;text-decoration:none;font-weight:700;font-size:1.05rem}
+    nav a{color:#c5e8ce;text-decoration:none;font-size:.9rem;margin-left:16px}
+    nav a:hover{color:#fff}
+    .hero{background:var(--bg);padding:52px 24px 40px;text-align:center}
+    .hero h1{font-size:clamp(1.6rem,4vw,2.2rem);color:var(--g);margin-bottom:10px}
+    .hero p{color:#555;font-size:1rem}
+    main{max-width:700px;margin:0 auto;padding:40px 24px 60px}
+    .contact-card{background:var(--bg);border-radius:16px;padding:32px;text-align:center;margin-bottom:32px}
+    .contact-card h2{color:var(--g);margin-bottom:8px;font-size:1.3rem}
+    .contact-card p{color:#555;font-size:.95rem;margin-bottom:20px}
+    .email-link{display:inline-flex;align-items:center;gap:8px;background:var(--g);color:#fff;text-decoration:none;font-weight:700;font-size:1rem;padding:14px 28px;border-radius:999px}
+    .email-link:hover{background:var(--gh)}
+    .note{font-size:.85rem;color:#888;margin-top:12px}
+    h2.section{font-size:1.1rem;color:var(--g);margin:32px 0 14px;padding-bottom:8px;border-bottom:2px solid var(--bg)}
+    details{border:1px solid #e0e0e0;border-radius:8px;padding:14px 16px;margin-bottom:8px}
+    summary{font-weight:600;cursor:pointer;list-style:none;padding-right:24px;position:relative;font-size:.95rem}
+    summary::-webkit-details-marker{display:none}
+    summary::after{content:"+";position:absolute;right:0;top:0;color:var(--g);font-size:1.2rem;line-height:1}
+    details[open] summary::after{content:"−"}
+    details[open] summary{color:var(--g);margin-bottom:10px}
+    details p{color:#444;font-size:.9rem;line-height:1.6}
+    .links{display:flex;gap:12px;flex-wrap:wrap;margin-top:24px}
+    .links a{display:inline-block;background:#fff;border:1.5px solid #ccc;border-radius:8px;padding:10px 18px;font-size:.9rem;color:var(--g);text-decoration:none;font-weight:600}
+    .links a:hover{border-color:var(--g);background:var(--bg)}
+    footer{background:#f5f5f5;padding:28px 24px;text-align:center;color:#666;font-size:.85rem}
+    footer a{color:var(--g);text-decoration:none}
+    @media(max-width:600px){main{padding:28px 16px 50px}.contact-card{padding:22px 16px}}
+  </style>
+
+<script>
+(function(){
+  var lang=localStorage.getItem('lp_lang')||'no';
+  if(lang!=='en')return;
+  document.documentElement.lang='en';
+  var map={
+    'Hjelp og kontakt':'Help & contact',
+    'Vi svarer innen 24 timer på hverdager':'We reply within 24 hours on weekdays',
+    'Send oss en e-post':'Send us an email',
+    'Har du spørsmål om en booking, utbetaling, konto eller noe annet? Skriv til oss — vi hjelper deg så raskt vi kan.':'Have a question about a booking, payout, account or anything else? Write to us — we\'ll help as quickly as we can.',
+    'Svartid: vanligvis innen 24 timer (hverdager)':'Response time: usually within 24 hours (weekdays)',
+    'Vanlige spørsmål':'Common questions',
+    'Jeg fikk ikke svar fra utleier — hva gjør jeg?':'I didn\'t get a reply from the host — what do I do?',
+    'Prøv å sende en melding til på nytt i chatten. Hvis utleier ikke svarer innen 48 timer kan du kontakte oss på':'Try sending another message in the chat. If the host doesn\'t reply within 48 hours, contact us at',
+    'og vi hjelper deg videre.':'and we\'ll help you.',
+    'Jeg vil avbestille — hva skjer med pengene?':'I want to cancel — what happens to my money?',
+    'Avbestillingsbetingelsene settes av den enkelte utleier. Se annonsen du booket for å se hvilken policy som gjelder (Fleksibel, Moderat eller Streng). Ta kontakt med utleier via chatten og avtal avbestillingen skriftlig. Trenger du hjelp, send oss en e-post.':'Cancellation terms are set by each host. See the listing you booked to find the applicable policy (Flexible, Moderate or Strict). Contact the host via chat and agree on the cancellation in writing. Need help? Send us an email.',
+    'Depositumet mitt er ikke frigitt — hva gjør jeg?':'My deposit hasn\'t been released — what do I do?',
+    'Etter at leieperioden er avsluttet og begge parter har bekreftet overlevering, frigis depositumet automatisk. Hvis det har gått mer enn 7 dager og du fortsatt ikke har fått depositumet tilbake, kontakt oss på':'After the rental period ends and both parties have confirmed handover, the deposit is released automatically. If more than 7 days have passed and you still haven\'t received your deposit back, contact us at',
+    'Jeg er utleier og har ikke fått utbetaling':'I\'m a host and haven\'t received my payout',
+    'Utbetaling skjer etter at begge parter har bekreftet overlevering. Logg inn → Mine bookinger → Bekreft utlevering. Etter bekreftelse tar det 2–5 virkedager via Stripe. Kontakt oss om det har gått mer enn 7 dager uten utbetaling.':'Payout is released after both parties confirm handover. Log in → My bookings → Confirm handover. After confirmation it takes 2–5 working days via Stripe. Contact us if more than 7 days have passed without a payout.',
+    'Utstyret var ikke som beskrevet — hvem kontakter jeg?':'The equipment wasn\'t as described — who do I contact?',
+    'Ta bilder umiddelbart og dokumenter avviket. Kontakt utleier via chatten på plattformen. Hvis dere ikke kommer til enighet, send oss en e-post med bookings-ID og dokumentasjon — vi er en nøytral mellompart og kan hjelpe til med å finne en løsning.':'Take photos immediately and document the discrepancy. Contact the host via the platform chat. If you can\'t reach an agreement, send us an email with your booking ID and documentation — we\'re a neutral party and can help find a solution.',
+    'Hvordan endre passord eller e-post?':'How do I change my password or email?',
+    'Vi bruker passordløs innlogging via e-postlenke. Gå til appen, klikk «Logg inn», skriv inn e-postadressen din og klikk på lenken vi sender deg. Vil du endre e-postadressen din, kontakt oss på e-post.':'We use passwordless login via email link. Go to the app, click "Log in", enter your email address and click the link we send you. To change your email address, contact us by email.',
+    'Jeg vil slette kontoen min':'I want to delete my account',
+    'Send oss en e-post fra e-postadressen tilknyttet kontoen din. Vi sletter kontoen og alle personopplysningene dine i henhold til GDPR innen 30 dager.':'Send us an email from the email address linked to your account. We\'ll delete the account and all your personal data in accordance with GDPR within 30 days.',
+    'Les alle vanlige spørsmål →':'Read all FAQs →',
+    'Tilbake til forsiden →':'Back to the home page →',
+    'Finn utstyr':'Browse listings'
+  };
+  document.title='Help & Contact | Leieplattform';
+  function walk(node){
+    if(node.nodeType===3){
+      var t=node.nodeValue.trim();
+      if(map[t])node.nodeValue=node.nodeValue.replace(t,map[t]);
+    } else {
+      node.childNodes.forEach(walk);
+    }
+  }
+  walk(document.body);
+})();
+</script>
+</head>
+<body>
+<header>
+  <a class="logo" href="/">Leieplattform</a>
+  <nav>
+    <a href="/">Finn utstyr</a>
+    <a href="/faq">FAQ</a>
+  </nav>
+</header>
+
+<div class="hero">
+  <h1>Hjelp og kontakt</h1>
+  <p>Vi svarer innen 24 timer på hverdager</p>
+</div>
+
+<main>
+  <div class="contact-card">
+    <h2>Send oss en e-post</h2>
+    <p>Har du spørsmål om en booking, utbetaling, konto eller noe annet? Skriv til oss — vi hjelper deg så raskt vi kan.</p>
+    <a class="email-link" href="mailto:kundeservice@oslocampingutleie.no">
+      ✉ kundeservice@oslocampingutleie.no
+    </a>
+    <p class="note">Svartid: vanligvis innen 24 timer (hverdager)</p>
+  </div>
+
+  <h2 class="section">Vanlige spørsmål</h2>
+
+  <details open>
+    <summary>Jeg fikk ikke svar fra utleier — hva gjør jeg?</summary>
+    <p>Prøv å sende en melding til på nytt i chatten. Hvis utleier ikke svarer innen 48 timer kan du kontakte oss på <a href="mailto:kundeservice@oslocampingutleie.no" style="color:var(--g)">kundeservice@oslocampingutleie.no</a> og vi hjelper deg videre.</p>
+  </details>
+  <details>
+    <summary>Jeg vil avbestille — hva skjer med pengene?</summary>
+    <p>Avbestillingsbetingelsene settes av den enkelte utleier. Se annonsen du booket for å se hvilken policy som gjelder (Fleksibel, Moderat eller Streng). Ta kontakt med utleier via chatten og avtal avbestillingen skriftlig. Trenger du hjelp, send oss en e-post.</p>
+  </details>
+  <details>
+    <summary>Depositumet mitt er ikke frigitt — hva gjør jeg?</summary>
+    <p>Etter at leieperioden er avsluttet og begge parter har bekreftet overlevering, frigis depositumet automatisk. Hvis det har gått mer enn 7 dager og du fortsatt ikke har fått depositumet tilbake, kontakt oss på <a href="mailto:kundeservice@oslocampingutleie.no" style="color:var(--g)">kundeservice@oslocampingutleie.no</a>.</p>
+  </details>
+  <details>
+    <summary>Jeg er utleier og har ikke fått utbetaling</summary>
+    <p>Utbetaling skjer etter at begge parter har bekreftet overlevering. Logg inn → Mine bookinger → Bekreft utlevering. Etter bekreftelse tar det 2–5 virkedager via Stripe. Kontakt oss om det har gått mer enn 7 dager uten utbetaling.</p>
+  </details>
+  <details>
+    <summary>Utstyret var ikke som beskrevet — hvem kontakter jeg?</summary>
+    <p>Ta bilder umiddelbart og dokumenter avviket. Kontakt utleier via chatten på plattformen. Hvis dere ikke kommer til enighet, send oss en e-post med bookings-ID og dokumentasjon — vi er en nøytral mellompart og kan hjelpe til med å finne en løsning.</p>
+  </details>
+  <details>
+    <summary>Hvordan endre passord eller e-post?</summary>
+    <p>Vi bruker passordløs innlogging via e-postlenke. Gå til appen, klikk «Logg inn», skriv inn e-postadressen din og klikk på lenken vi sender deg. Vil du endre e-postadressen din, kontakt oss på e-post.</p>
+  </details>
+  <details>
+    <summary>Jeg vil slette kontoen min</summary>
+    <p>Send oss en e-post fra e-postadressen tilknyttet kontoen din. Vi sletter kontoen og alle personopplysningene dine i henhold til GDPR innen 30 dager.</p>
+  </details>
+
+  <div class="links">
+    <a href="/faq">Les alle vanlige spørsmål →</a>
+    <a href="/">Tilbake til forsiden →</a>
+  </div>
+</main>
+
+<footer>
+  <p>© 2026 Leieplattform · <a href="mailto:kundeservice@oslocampingutleie.no">kundeservice@oslocampingutleie.no</a> · <a href="/faq">FAQ</a></p>
+</footer>
+</body>
+</html>

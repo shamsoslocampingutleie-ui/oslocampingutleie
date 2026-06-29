@@ -1,6 +1,13 @@
+import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
+import { checkRateLimit, rateLimitResponse } from "../_shared/rateLimit.ts";
 
 const ANTHROPIC_KEY = Deno.env.get("ANTHROPIC_API_KEY") ?? "";
+
+const supabase = createClient(
+  Deno.env.get("SUPABASE_URL")!,
+  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+);
 
 // Replace visually similar Cyrillic characters with Latin equivalents
 function sanitizeCyrillic(text: string): string {
@@ -28,6 +35,19 @@ function sanitizeCyrillic(text: string): string {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+
+  if (!(await checkRateLimit(req, 10, 60_000))) return rateLimitResponse();
+
+  const authHeader = req.headers.get("Authorization") ?? "";
+  const { data: { user }, error: authErr } = await supabase.auth.getUser(
+    authHeader.replace("Bearer ", ""),
+  );
+  if (authErr || !user) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
 
   const { title, category, specs, location, price } = await req.json().catch(() => ({}));
   if (!title) return new Response(JSON.stringify({ error: "title required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });

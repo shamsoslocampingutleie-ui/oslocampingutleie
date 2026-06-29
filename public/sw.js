@@ -1,5 +1,5 @@
-const CACHE = 'lp-v3';
-const STATIC = ['/app.html', '/manifest.json', '/favicon.svg', '/supabase.min.js'];
+const CACHE = 'lp-v5';
+const STATIC = ['/app.html', '/manifest.json', '/favicon.svg', '/supabase.min.js', '/faq/index.html', '/hjelp/index.html'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(STATIC)));

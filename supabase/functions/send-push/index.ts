@@ -39,13 +39,25 @@ Deno.serve(async (req) => {
       });
     }
 
+    const vapidConfigured = !!(
+      Deno.env.get("VAPID_PUBLIC_KEY") && Deno.env.get("VAPID_PRIVATE_KEY")
+    );
+
+    if (!vapidConfigured) {
+      console.warn("[send-push] VAPID keys not configured — push disabled. Set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY in Supabase secrets.");
+      return new Response(
+        JSON.stringify({ sent: 0, removed: 0, vapid_configured: false }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     const { data: subs } = await supabase
       .from("push_subscriptions")
       .select("id, endpoint, p256dh, auth")
       .eq("user_id", userId);
 
     if (!subs || subs.length === 0) {
-      return new Response(JSON.stringify({ sent: 0 }), {
+      return new Response(JSON.stringify({ sent: 0, removed: 0, vapid_configured: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -67,9 +79,10 @@ Deno.serve(async (req) => {
       await supabase.from("push_subscriptions").delete().in("id", goneIds);
     }
 
-    return new Response(JSON.stringify({ sent, removed: goneIds.length }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ sent, removed: goneIds.length, vapid_configured: true }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
   } catch (err) {
     console.error("[send-push] error:", err);
     return new Response(JSON.stringify({ error: String(err) }), {

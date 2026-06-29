@@ -35,20 +35,20 @@ async function sendPaymentConfirmationEmails(bookingId: string, amountTotal: num
   try {
     const { data: booking } = await supabase
       .from("bookings")
-      .select("renter, host_id, listing_id, from_date, to_date")
+      .select("renter, listing_id, from_date, to_date")
       .eq("id", bookingId)
       .single();
     if (!booking) return;
 
     const { data: listing } = await supabase
       .from("listings")
-      .select("title, price_per_day, deposit, cleaning_fee")
+      .select("title, price_per_day, deposit, cleaning_fee, owner")
       .eq("id", booking.listing_id)
       .single();
 
     const [renterAuth, hostAuth] = await Promise.all([
       supabase.auth.admin.getUserById(booking.renter),
-      supabase.auth.admin.getUserById(booking.host_id),
+      supabase.auth.admin.getUserById(listing?.owner ?? ""),
     ]);
 
     const renterEmail = renterAuth.data?.user?.email;
