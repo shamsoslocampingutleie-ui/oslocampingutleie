@@ -1504,21 +1504,20 @@ async async function adminIdVerify(){
   }
 
   function _mkImgLink(src,label){
-    const wrap=el("div");wrap.style.cssText="display:flex;flex-direction:column;align-items:center;gap:4px";
-    const a=document.createElement("a");a.href=src;a.target="_blank";a.rel="noopener noreferrer";a.title="Åpne i ny fane";
+    const wrap=el("div");wrap.style.cssText="display:flex;flex-direction:column;align-items:center;gap:6px;min-width:140px";
+    // Always show an open-in-new-tab link as fallback/primary
+    const openLink=document.createElement("a");openLink.href=src;openLink.target="_blank";openLink.rel="noopener noreferrer";
+    openLink.style.cssText="font-size:12px;color:var(--green);text-decoration:underline;font-weight:600";
+    openLink.textContent="🔗 Åpne "+label.toLowerCase();
+    // Attempt to show image inline
+    const imgWrap=document.createElement("a");imgWrap.href=src;imgWrap.target="_blank";imgWrap.rel="noopener noreferrer";imgWrap.title="Åpne i ny fane";
     const img=document.createElement("img");
     img.src=src;
-    img.style.cssText="max-width:220px;max-height:160px;border-radius:10px;border:1.5px solid var(--line);cursor:pointer;object-fit:contain;background:#f8fafc";
-    img.onerror=function(){
-      img.style.display="none";
-      const fb=el("a",null,"🔗 "+label+" (åpne i ny fane)");
-      fb.href=src;fb.target="_blank";fb.rel="noopener noreferrer";
-      fb.style.cssText="font-size:13px;color:var(--green);display:block;padding:8px 0";
-      a.replaceWith(fb);
-    };
-    a.appendChild(img);
-    const lbl=el("div");lbl.style.cssText="font-size:11px;font-weight:600;color:var(--ink-3);text-align:center";lbl.textContent=label;
-    wrap.append(a,lbl);
+    img.style.cssText="max-width:220px;max-height:160px;border-radius:10px;border:1.5px solid var(--line);cursor:pointer;object-fit:contain;background:#f8fafc;display:block";
+    img.onerror=function(){img.style.display="none";};
+    imgWrap.appendChild(img);
+    const lbl=el("div");lbl.style.cssText="font-size:11px;font-weight:700;color:var(--ink-2);text-align:center";lbl.textContent=label;
+    wrap.append(imgWrap,lbl,openLink);
     return wrap;
   }
 
