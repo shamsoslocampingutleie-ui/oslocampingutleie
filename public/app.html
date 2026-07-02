@@ -909,7 +909,7 @@ if(_trOpts.length>0){var trSection=document.createElement('div');trSection.style
 _selExtras=Object.assign({},window._preselExtras);var _lExtras=LISTING_EXTRAS[t.id]||[];
 if(_lExtras.length>0){var exSection=document.createElement('div');exSection.style.cssText='margin:14px 0;background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:14px';var exH=el('p',null,'➕ Ekstrautstyr og tillegg');exH.style.cssText='font-weight:700;font-size:14px;margin:0 0 10px';exSection.appendChild(exH);_lExtras.forEach(function(ex){var exRow=document.createElement('label');exRow.style.cssText='display:flex;align-items:flex-start;gap:10px;padding:10px;border-radius:10px;cursor:pointer;border:1.5px solid #D1D9D4;margin-bottom:6px;background:#fff';var cb=document.createElement('input');cb.type='checkbox';cb.style.cssText='margin-top:3px;flex-shrink:0';var priceLbl=ex.pricing_type==='per_day'?'+'+nok(ex.price)+' kr / natt':ex.pricing_type==='per_unit'?'+'+nok(ex.price)+' kr / stk':'+'+nok(ex.price)+' kr';var nEl=el('span',null,ex.name);nEl.style.cssText='font-weight:600;font-size:14px;display:block';var pEl=el('span',null,priceLbl);pEl.style.cssText='font-size:13px;color:#b45309';var dv=document.createElement('div');dv.append(nEl,pEl);if(ex.description){var dd=el('span',null,ex.description);dd.style.cssText='font-size:12px;color:#6B776E;display:block;margin-top:2px';dv.appendChild(dd);}if(ex.category){var cat=el('span','badge',ex.category);cat.style.cssText='font-size:11px;margin-top:4px;display:inline-block';dv.appendChild(cat);}exRow.append(cb,dv);(function(captEx){cb.addEventListener('change',function(){if(cb.checked){_selExtras[captEx.id]=captEx;exRow.style.border='1.5px solid #d97706';exRow.style.background='#fef9c3';}else{delete _selExtras[captEx.id];exRow.style.border='1.5px solid #D1D9D4';exRow.style.background='#fff';}_updateBookingTotal();});})(ex);exSection.appendChild(exRow);});n.appendChild(exSection);}const p=el("label","check"),u=el("input");u.type="checkbox",u.id="acceptTerms",p.appendChild(u),p.appendChild(el("span",null,"Jeg har lest og godtar utleiers vilkår og Leieplattforms brukervilkår.")),p.style.marginTop="12px",e.appendChild(p);if(!session&&!t.instantBook){const _lc=document.createElement("div");_lc.style.cssText="margin-top:16px;padding:18px;background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:14px;text-align:center";_lc.innerHTML='<p style="font-size:15px;font-weight:700;color:#14512E;margin:0 0 6px">Logg inn for å sende forespørsel</p><p style="font-size:13px;color:#6B776E;margin:0 0 14px;line-height:1.5">Du trenger en konto for å sende en leieforespørsel til utleier.</p>';const _lb=document.createElement("button");_lb.className="btn btn-primary btn-block";_lb.style.marginTop="4px";_lb.textContent="Logg inn eller opprett konto →";_lb.onclick=()=>openAuth();_lc.appendChild(_lb);e.appendChild(_lc);return;}if(!session){const _beF=el("div","field");_beF.style.marginTop="10px";const _beLbl=document.createElement("label");_beLbl.htmlFor="bookingGuestEmail";_beLbl.style.cssText="display:block;font-weight:600;font-size:14px;margin-bottom:5px";_beLbl.textContent="E-postadresse *";const _beInp=document.createElement("input");_beInp.type="email";_beInp.id="bookingGuestEmail";_beInp.placeholder="navn@epost.no";_beInp.autocomplete="email";_beInp.style.cssText="width:100%;padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;font-size:15px;box-sizing:border-box";_beF.append(_beLbl,_beInp);e.appendChild(_beF);}const _bnFld=el("div","field");_bnFld.style.marginTop="10px";const _bnLbl=document.createElement("label");_bnLbl.htmlFor="bookingRenterName";_bnLbl.style.cssText="display:block;font-weight:600;font-size:14px;margin-bottom:5px";_bnLbl.textContent="Fullt navn *";const _bnInp=document.createElement("input");_bnInp.type="text";_bnInp.id="bookingRenterName";_bnInp.placeholder="Fornavn Etternavn";_bnInp.autocomplete="name";_bnInp.value=session&&session.name&&session.name!==session.email?session.name:"";_bnInp.style.cssText="width:100%;padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;font-size:15px;box-sizing:border-box";_bnFld.append(_bnLbl,_bnInp);e.appendChild(_bnFld);const _baFld=el("div","field");_baFld.style.marginTop="8px";const _baLbl=document.createElement("label");_baLbl.htmlFor="bookingRenterAddress";_baLbl.style.cssText="display:block;font-weight:600;font-size:14px;margin-bottom:5px";_baLbl.textContent="Adresse *";const _baInp=document.createElement("input");_baInp.type="text";_baInp.id="bookingRenterAddress";_baInp.placeholder="Gateadresse, postnummer, by";_baInp.autocomplete="street-address";_baInp.value=session&&session.address?session.address:"";_baInp.style.cssText="width:100%;padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;font-size:15px;box-sizing:border-box";_baFld.append(_baLbl,_baInp);e.appendChild(_baFld);const _bpFld=el("div","field");_bpFld.style.marginTop="8px";const _bpLbl=el("label",null,"Telefonnummer *");_bpLbl.style.cssText="display:block;font-weight:600;font-size:14px;margin-bottom:5px";const _bpInp=document.createElement("input");_bpInp.type="tel";_bpInp.id="bookingPhone";_bpInp.placeholder="+47 xxx xx xxx";_bpInp.value=session&&session.phone?session.phone:"";_bpInp.style.cssText="width:100%;padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;font-size:15px;box-sizing:border-box";_bpFld.append(_bpLbl,_bpInp);e.appendChild(_bpFld);// === IDENTITY VERIFICATION SYSTEM ===
 const _vehicleCats=["camping","bobil","campingvogn","trailer","bil","kjøretøy","camper","caravan","motorhome","henger"];
-const _needsLic=_vehicleCats.some(c=>t.cat&&t.cat.toLowerCase().includes(c));range.needsLicense=_needsLic;if(_needsLic){const _idFld=el("div","field");_idFld.style.cssText="margin-top:8px;padding:12px 14px;background:#EFF6FF;border:1.5px solid #BFDBFE;border-radius:12px";const _idHead=el("div");_idHead.innerHTML='<b style="font-size:14px;display:block;margin-bottom:4px">🪪 Førerkort *</b><p style="font-size:12.5px;color:var(--ink-2);margin:0 0 8px">Ta et bilde av gyldig førerkort. Bildet gjennomgås kun av administrator — ikke av AI — og slettes etter at leieperioden er avsluttet.</p>';_idFld.appendChild(_idHead);const _idInp=document.createElement("input");_idInp.type="file";_idInp.id="bookingIdFile";_idInp.accept="image/*";_idInp.style.cssText="display:block;width:100%;font-size:14px;margin-bottom:4px";const _idPreview=document.createElement("img");_idPreview.style.cssText="display:none;max-width:100%;max-height:140px;border-radius:8px;margin-top:6px;object-fit:contain";_idInp.addEventListener("change",function(){if(_idInp.files&&_idInp.files[0]){const reader=new FileReader();reader.onload=function(ev){_idPreview.src=ev.target.result;_idPreview.style.display="block";};reader.readAsDataURL(_idInp.files[0]);}else{_idPreview.style.display="none";}});_idFld.append(_idInp,_idPreview);e.appendChild(_idFld);}
+const _needsLic=_vehicleCats.some(c=>t.cat&&t.cat.toLowerCase().includes(c));range.needsLicense=_needsLic;if(_needsLic){const _idFld=el("div","field");_idFld.style.cssText="margin-top:8px;padding:12px 14px;background:#EFF6FF;border:1.5px solid #BFDBFE;border-radius:12px";const _idHead=el("div");_idHead.innerHTML='<b style="font-size:14px;display:block;margin-bottom:4px">🪪 Førerkort *</b><p style="font-size:12.5px;color:var(--ink-2);margin:0 0 8px">Ta et bilde av gyldig førerkort. Bildet gjennomgås kun av administrator og slettes etter at leieperioden er avsluttet.</p>';_idFld.appendChild(_idHead);const _idInp=document.createElement("input");_idInp.type="file";_idInp.id="bookingIdFile";_idInp.accept="image/*";_idInp.style.cssText="display:block;width:100%;font-size:14px;margin-bottom:4px";const _idPreview=document.createElement("img");_idPreview.style.cssText="display:none;max-width:100%;max-height:140px;border-radius:8px;margin-top:6px;object-fit:contain";_idInp.addEventListener("change",function(){if(_idInp.files&&_idInp.files[0]){const reader=new FileReader();reader.onload=function(ev){_idPreview.src=ev.target.result;_idPreview.style.display="block";};reader.readAsDataURL(_idInp.files[0]);}else{_idPreview.style.display="none";}});_idFld.append(_idInp,_idPreview);e.appendChild(_idFld);}
 const whN=el("div");whN.style.cssText="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:12px 14px;margin-top:12px;font-size:13px;color:#166534";whN.innerHTML=t.instantBook?'<b style="display:block;margin-bottom:4px">✅ Hva skjer nå?</b><ol style="margin:0;padding-left:18px;line-height:1.7"><li>Bookingen bekreftes <b>umiddelbart</b> uten ventetid</li><li>Du mottar en e-post med detaljer og kontraktlenke</li><li>Kontakt utleier i chatten for overleveringsdetaljer</li></ol>':'<b style="display:block;margin-bottom:4px">📬 Hva skjer nå?</b><ol style="margin:0;padding-left:18px;line-height:1.7"><li>Utleier får meldingen og svarer <b>vanligvis innen 24 timer</b></li><li>Godkjenner utleier, får du e-post med betalingslenke</li><li>Betaling og signert kontrakt sendes automatisk</li></ol>';e.appendChild(whN);// Discount info banner
 if(t.weeklyDiscount>=5||t.monthlyDiscount>=5){const _dBanner=el("div");_dBanner.style.cssText="background:#EDE9FE;border:1px solid #A78BFA;border-radius:10px;padding:10px 14px;font-size:13px;margin-bottom:8px;color:#5B21B6";let _dTxt='🏷️ ';if(t.monthlyDiscount>=5)_dTxt+='<b>'+t.monthlyDiscount+'% rabatt</b> ved 28+ dager';if(t.weeklyDiscount>=5&&t.monthlyDiscount>=5)_dTxt+=' · ';if(t.weeklyDiscount>=5)_dTxt+='<b>'+t.weeklyDiscount+'% rabatt</b> ved 7+ dager';_dBanner.innerHTML=_dTxt;e.appendChild(_dBanner);}
 // Trust note
@@ -1486,112 +1486,161 @@ const CHUNK=100;for(let ci=0;ci<ids.length;ci+=CHUNK){await sb.from("error_logs"
 toast("Slettet "+ids.length+" oppf\xf8ringer","success");await _renderErrorLog(e);};
 wrap.appendChild(delBtn);
 surf.appendChild(wrap);});}e.appendChild(surf);}let _analyticsInterval=null;async function adminAnalytics(){const p=document.getElementById("ap-analytics");if(!p)return;p.innerHTML='<div style="text-align:center;padding:40px;color:var(--ink-3)">Laster analyse...</div>';if(_analyticsInterval){clearInterval(_analyticsInterval);_analyticsInterval=null;}_analyticsInterval=setInterval(()=>{if(document.getElementById('ap-analytics')?.classList.contains('on'))adminAnalytics();else{clearInterval(_analyticsInterval);_analyticsInterval=null;}},3600000);if(!document.getElementById("_pulsestyle")){const st=document.createElement("style");st.id="_pulsestyle";st.textContent="@keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:.3}}";document.head.appendChild(st);}const now5m=new Date(Date.now()-5*60000).toISOString(),since30d=new Date(Date.now()-30*24*3600000).toISOString();const[{data:visitors},{data:events},{data:recent}]=await Promise.all([sb.from("active_visitors").select("*").gte("last_seen",now5m).order("last_seen",{ascending:false}),sb.from("analytics_events").select("event_type").gte("created_at",since30d),sb.from("analytics_events").select("*").order("created_at",{ascending:false}).limit(30)]);p.innerHTML="";function mkCard(cls){const d=el("div","surface");if(cls)d.style.cssText=cls;p.appendChild(d);return d;}const vList=visitors||[];const card1=mkCard();const liveHead=el("div");liveHead.style.cssText="display:flex;align-items:center;gap:10px;margin-bottom:12px";const dot=el("span");dot.style.cssText="width:10px;height:10px;border-radius:50%;background:#22c55e;display:inline-block;animation:pulse-dot 1.5s infinite";const liveTitle=el("h3",null,"Live — "+vList.length+" besøkende nå");liveHead.append(dot,liveTitle);card1.appendChild(liveHead);if(!vList.length){card1.appendChild(el("p","sub","Ingen aktive besøkende for øyeblikket."));}else{const tbl=el("div");tbl.style.cssText="display:grid;gap:6px";vList.forEach(v=>{const row=el("div");row.style.cssText="display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--bg);border-radius:10px;font-size:13px";const secs=Math.round((Date.now()-new Date(v.last_seen).getTime())/1000);const timeStr=secs<60?secs+"s siden":Math.round(secs/60)+"m siden";const flagSpan=el("span",null,v.flag||"🌍");flagSpan.style.fontSize="18px";const info=el("div");info.innerHTML='<div style="font-weight:600">'+(v.city?v.city+", ":"")+(v.country||"Ukjent")+'</div><div style="font-size:11.5px;color:var(--ink-3)">'+(v.current_page||"/")+"</div>";const who=el("span",null,v.user_name||"Anonym");who.style.cssText="font-size:12px;color:var(--ink-3);white-space:nowrap";const time=el("span",null,timeStr);time.style.cssText="margin-left:auto;font-size:11px;color:var(--ink-3);white-space:nowrap";row.append(flagSpan,info,who,time);tbl.appendChild(row);});card1.appendChild(tbl);}const refBtn=el("button","btn btn-ghost btn-sm","↺  Oppdater");refBtn.style.marginTop="12px";refBtn.onclick=()=>adminAnalytics();card1.appendChild(refBtn);const evts=events||[];const counts={page_view:0,listing_view:0,listing_create_start:0,listing_publish:0,booking_request:0};evts.forEach(e=>{if(counts.hasOwnProperty(e.event_type))counts[e.event_type]++;});const funnel=[{label:"Sidevisninger",key:"page_view",icon:"👁"},{label:"Annonse åpnet",key:"listing_view",icon:"🏕"},{label:"Opprett start",key:"listing_create_start",icon:"✏️"},{label:"Publisert",key:"listing_publish",icon:"✅"},{label:"Bestillingsforespørsel",key:"booking_request",icon:"📩"}];const card2=mkCard();card2.appendChild(el("h3",null,"Konverteringstrakt — siste 30 dager"));card2.appendChild(el("p","sub","Fra sidebesøk til bestilling"));const maxVal=Math.max(1,...funnel.map(f=>counts[f.key]));funnel.forEach(f=>{const cnt=counts[f.key];const pct=Math.round((cnt/maxVal)*100);const row=el("div");row.style.cssText="display:grid;grid-template-columns:170px 1fr 44px;align-items:center;gap:10px;padding:5px 0";const lbl=el("span",null,f.icon+" "+f.label);lbl.style.cssText="font-size:13px;color:var(--ink-2)";const bar=el("div");bar.style.cssText="height:18px;background:var(--bg);border-radius:6px;overflow:hidden";const fill=el("div");fill.style.cssText="height:100%;width:"+pct+"%;background:var(--green,#22c55e);border-radius:6px;transition:width .5s";bar.appendChild(fill);const num=el("span",null,String(cnt));num.style.cssText="font-size:13px;font-weight:700;text-align:right;color:var(--ink)";row.append(lbl,bar,num);card2.appendChild(row);});const card3=mkCard();card3.appendChild(el("h3",null,"Siste hendelser"));const ICONS={page_view:"👁",listing_view:"🏕",listing_create_start:"✏️",listing_publish:"✅",booking_request:"📩"};const _grpMap=new Map();(recent||[]).forEach(ev=>{const key=ev.event_type+"|"+(ev.city||"?")+"|"+(ev.country||"");if(_grpMap.has(key)){const g=_grpMap.get(key);g.count++;if(ev.created_at>g.created_at)g.created_at=ev.created_at;}else{_grpMap.set(key,{...ev,count:1});}});const _grouped=Array.from(_grpMap.values()).sort((a,b)=>b.created_at.localeCompare(a.created_at));if(!_grouped.length){card3.appendChild(el("p","sub","Ingen hendelser registrert ennå."));}else{_grouped.forEach(ev=>{const row=el("div","row-item");const d=new Date(ev.created_at);const ts=d.toLocaleDateString("nb-NO",{day:"2-digit",month:"2-digit"})+" "+d.toLocaleTimeString("nb-NO",{hour:"2-digit",minute:"2-digit"});const ic=el("span",null,ICONS[ev.event_type]||"📊");ic.style.cssText="font-size:20px;min-width:28px";const main=el("div","ri-main");main.appendChild(el("div","ri-title",ev.event_type.replace(/_/g," ")));main.appendChild(el("div","ri-sub",(ev.flag||"")+" "+(ev.city?ev.city+", ":"")+ev.country));const right=el("div");right.style.cssText="display:flex;flex-direction:column;align-items:flex-end;gap:3px;margin-left:auto";const t=el("span",null,ts);t.style.cssText="font-size:11px;color:var(--ink-3);white-space:nowrap";right.appendChild(t);if(ev.count>1){const badge=el("span",null,"×"+ev.count);badge.style.cssText="font-size:11px;font-weight:700;background:var(--tint);color:var(--green,#14512e);border-radius:20px;padding:1px 7px;white-space:nowrap";;right.appendChild(badge);}row.append(ic,main,right);card3.appendChild(row);});}}function escHtml(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
-async function adminIdVerify(){
-  const e=document.getElementById("ap-idverify");e.innerHTML="";
+async async function adminIdVerify(){
+  const e=document.getElementById("ap-idverify");
+  if(!e)return;
+  e.innerHTML='<p class="sub" style="padding:16px">Laster legitimasjoner …</p>';
+
+  // Helper: get signed URL for private storage (valid 1 hour)
+  async function _signedSrc(fullUrl){
+    if(!fullUrl)return null;
+    try{
+      const m=fullUrl.match(/\/storage\/v1\/object\/(?:public|sign)\/([^/?]+)\/(.+?)(?:\?|$)/);
+      if(!m)return fullUrl;
+      const bucket=m[1],path=decodeURIComponent(m[2].split('?')[0]);
+      const{data}=await sb.storage.from(bucket).createSignedUrl(path,3600);
+      return data&&data.signedUrl?data.signedUrl:fullUrl;
+    }catch{return fullUrl;}
+  }
+
+  function _mkImgLink(src,label){
+    const wrap=el("div");wrap.style.cssText="display:flex;flex-direction:column;align-items:center;gap:4px";
+    const a=document.createElement("a");a.href=src;a.target="_blank";a.rel="noopener noreferrer";a.title="Åpne i ny fane";
+    const img=document.createElement("img");
+    img.src=src;
+    img.style.cssText="max-width:220px;max-height:160px;border-radius:10px;border:1.5px solid var(--line);cursor:pointer;object-fit:contain;background:#f8fafc";
+    img.onerror=function(){
+      img.style.display="none";
+      const fb=el("a",null,"🔗 "+label+" (åpne i ny fane)");
+      fb.href=src;fb.target="_blank";fb.rel="noopener noreferrer";
+      fb.style.cssText="font-size:13px;color:var(--green);display:block;padding:8px 0";
+      a.replaceWith(fb);
+    };
+    a.appendChild(img);
+    const lbl=el("div");lbl.style.cssText="font-size:11px;font-weight:600;color:var(--ink-3);text-align:center";lbl.textContent=label;
+    wrap.append(a,lbl);
+    return wrap;
+  }
+
+  e.innerHTML="";
   const surf=el("div","surface");
   surf.appendChild(el("h3",null,"ID-kontroll"));
-  surf.appendChild(el("p","sub","Legitimasjonsbilder lastet opp av leietakere ved bestilling. Gjennomg\xE5 manuelt og godkjenn eller avvis — avvisning sletter bildet fra lagringen."));
+  surf.appendChild(el("p","sub","Legitimasjonsbilder lastet opp av leietakere. Gjennomgå manuelt og godkjenn eller avvis — avvisning sletter bildet fra lagringen."));
   e.appendChild(surf);
-  // --- Booking-level renter IDs ---
+
+  // ── Booking-level IDs ──
   const bkSurf=el("div","surface");bkSurf.style.marginBottom="20px";
   const bkHead=el("h3",null,"Leietaker-legitimasjon fra bestillinger");bkHead.style.marginBottom="8px";bkSurf.appendChild(bkHead);
-  const{data:bkDocs,error:bkDocsErr}=await sb.from("booking_documents").select("id,booking_id,user_id,url,created_at").eq("type","drivers_license").order("created_at",{ascending:false});
-  if(bkDocsErr){bkSurf.appendChild(el("p",null,"Feil: "+bkDocsErr.message));}
-  else if(!bkDocs||!bkDocs.length){bkSurf.appendChild(el("p","sub","Ingen leietaker-legitimasjon lastet opp ennå."));}
-  else{
-    const dot2=document.getElementById("idVerifyDot");if(dot2){dot2.style.display="inline-block";dot2.title=bkDocs.length+" legitimasjoner";}
-    bkDocs.forEach(function(doc){
-      const bk=BOOKINGS.find(function(b){return b.id===doc.booking_id;});
+  e.appendChild(bkSurf);
+
+  const{data:bkDocs,error:bkDocsErr}=await sb.from("booking_documents")
+    .select("id,booking_id,user_id,url,created_at")
+    .eq("type","drivers_license")
+    .order("created_at",{ascending:false});
+
+  if(bkDocsErr){
+    bkSurf.appendChild(el("p",null,"Feil: "+bkDocsErr.message));
+  } else if(!bkDocs||!bkDocs.length){
+    bkSurf.appendChild(el("p","sub","Ingen leietaker-legitimasjon lastet opp ennå."));
+  } else {
+    const dot2=document.getElementById("idVerifyDot");
+    if(dot2){dot2.style.display="inline-block";dot2.title=bkDocs.length+" legitimasjoner";}
+    for(const doc of bkDocs){
+      const bk=BOOKINGS.find(b=>b.id===doc.booking_id);
       const card=el("div","surface");card.style.cssText="margin-bottom:12px;border:1.5px solid var(--line)";
       const hdr=el("div");hdr.style.cssText="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap";
-      const info=el("div");info.innerHTML="<b style='font-size:14px'>"+(bk?escHtml(bk.renterName||"Ukjent"):"Ukjent leietaker")+"</b><div style='font-size:12px;color:var(--ink-3)'>Booking: "+escHtml(doc.booking_id.slice(0,8))+(bk?"  \xB7  "+fmt(bk.from)+"–"+fmt(bk.to):"")+"</div>";
+      const info=el("div");
+      const renterName=bk&&(bk.renterName||bk.renter_name)||"Ukjent leietaker";
+      info.innerHTML="<b style='font-size:14px'>"+escHtml(renterName)+"</b><div style='font-size:12px;color:var(--ink-3)'>Booking: "+escHtml(doc.booking_id.slice(0,8))+(bk?"  ·  "+fmt(bk.from)+"–"+fmt(bk.to):"")+"</div>";
       const ts=el("span",null,doc.created_at?doc.created_at.slice(0,10):"");ts.style.cssText="margin-left:auto;font-size:11px;color:var(--ink-3)";
       hdr.append(info,ts);card.appendChild(hdr);
-      const a=document.createElement("a");a.href=doc.url;a.target="_blank";a.rel="noopener noreferrer";a.title="\xC5pne legitimasjon i ny fane";
-      const img=document.createElement("img");img.src=doc.url;img.style.cssText="max-width:200px;max-height:150px;border-radius:8px;border:1px solid var(--line);display:block;cursor:pointer;object-fit:contain";
-      img.onerror=function(){img.style.display="none";};a.appendChild(img);card.appendChild(a);
-      const delBtn=el("button","btn btn-ghost btn-sm","🗑 Slett bilde");delBtn.style.cssText="color:var(--red);margin-top:10px";
+
+      const signedSrc=await _signedSrc(doc.url);
+      const imgRow=el("div");imgRow.style.cssText="margin-bottom:10px";
+      imgRow.appendChild(_mkImgLink(signedSrc,"Førerkort"));
+      card.appendChild(imgRow);
+
+      const delBtn=el("button","btn btn-ghost btn-sm","🗑 Slett bilde");delBtn.style.cssText="color:var(--red);margin-top:6px";
       delBtn.onclick=async function(){
         if(!confirm("Slette dette legitimasjonsbildet? Kan ikke angres."))return;
         const parts=doc.url.split('/booking-photos/');
-        if(parts.length>1)await sb.storage.from('booking-photos').remove([decodeURIComponent(parts[1])]).catch(function(){});
+        if(parts.length>1)await sb.storage.from('booking-photos').remove([decodeURIComponent(parts[1].split('?')[0])]).catch(()=>{});
         await sb.from('booking_documents').delete().eq('id',doc.id);
         toast("Slettet","success");adminIdVerify();
       };
-      card.appendChild(delBtn);bkSurf.appendChild(card);
-    });
+      card.appendChild(delBtn);
+      bkSurf.appendChild(card);
+    }
   }
-  e.appendChild(bkSurf);
-  // --- Profile-level driver's licenses (legacy) ---
-  const profSurf=el("div","surface");profSurf.appendChild(el("h3",null,"Profil-legitimasjon (f\xF8rerkort)"));profSurf.appendChild(el("p","sub","F\xF8rerkort lastet opp via profilsiden."));e.appendChild(profSurf);
+
+  // ── Profile-level IDs ──
+  const profSurf=el("div","surface");
+  profSurf.appendChild(el("h3",null,"Profil-legitimasjon (førerkort)"));
+  profSurf.appendChild(el("p","sub","Førerkort lastet opp via profilsiden."));
+  e.appendChild(profSurf);
+
   const{data:profiles,error}=await sb.from("profiles")
-    .select("id,full_name,email,drivers_license_front,drivers_license_back,drivers_license_verified,drivers_license_ai_result,drivers_license_admin_reviewed,drivers_license_doc_type,drivers_license_country,created_at")
+    .select("id,full_name,email,drivers_license_front,drivers_license_back,drivers_license_verified,drivers_license_admin_reviewed,drivers_license_doc_type,created_at")
     .not("drivers_license_front","is",null)
     .order("created_at",{ascending:false});
+
   if(error){profSurf.appendChild(el("p",null,"Kunne ikke laste: "+error.message));return;}
   if(!profiles||!profiles.length){profSurf.appendChild(el("p","sub","Ingen profil-legitimasjon lastet opp ennå."));return;}
+
   const pending=(profiles||[]).filter(p=>!p.drivers_license_admin_reviewed).length;
   const dot=document.getElementById("idVerifyDot");
   if(dot&&!(bkDocs&&bkDocs.length)){dot.style.display=pending>0?"inline-block":"none";dot.title=pending+" venter";}
-  (profiles||[]).forEach(p=>{
-    const card=el("div","surface");card.style.cssText="margin-bottom:14px;border:1.5px solid "+(p.drivers_license_admin_reviewed?"#86EFAC":"#FECACA");
-    // Header
+
+  for(const p of profiles){
+    const reviewed=p.drivers_license_admin_reviewed;
+    const card=el("div","surface");card.style.cssText="margin-bottom:14px;border:1.5px solid "+(reviewed?"#86EFAC":"#FECACA");
+
     const hdr=el("div");hdr.style.cssText="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap";
     const avatar=el("div");avatar.style.cssText="width:38px;height:38px;border-radius:50%;background:#14512E;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;flex-shrink:0";
     avatar.textContent=(p.full_name||p.email||"?").split(" ").map(n=>n[0]).join("").slice(0,2).toUpperCase();
     const info=el("div");info.innerHTML="<b style='font-size:14px'>"+escHtml(p.full_name||"Ukjent")+"</b><div style='font-size:12px;color:var(--ink-3)'>"+escHtml(p.email||"")+"</div>";
-    const aiTag=el("span");
-    aiTag.style.cssText="margin-left:auto;border-radius:999px;padding:3px 10px;font-size:12px;font-weight:700;"+(p.drivers_license_admin_reviewed?"background:#D1FAE5;color:#065F46":"background:#FEE2E2;color:#991B1B");
-    aiTag.textContent=p.drivers_license_admin_reviewed?"✓ Gjennomgått":"⏳ Venter gjennomgang";
+    const statusTag=el("span");
+    statusTag.style.cssText="margin-left:auto;border-radius:999px;padding:3px 10px;font-size:12px;font-weight:700;"+(reviewed?"background:#D1FAE5;color:#065F46":"background:#FEE2E2;color:#991B1B");
+    statusTag.textContent=reviewed?"✓ Gjennomgått":"⏳ Venter gjennomgang";
     const docBadge=el("span");docBadge.style.cssText="border-radius:999px;padding:3px 10px;font-size:11px;background:#F0F4F0;color:var(--ink-2)";
     docBadge.textContent=p.drivers_license_doc_type==="identity"?"🪪 ID-dokument":"🚗 Førerkort";
-    hdr.append(avatar,info,docBadge,aiTag);
-    card.appendChild(hdr);
-    // Image preview
-    const imgRow=el("div");imgRow.style.cssText="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap";
+    hdr.append(avatar,info,docBadge,statusTag);card.appendChild(hdr);
+
+    const imgRow=el("div");imgRow.style.cssText="display:flex;gap:14px;margin-bottom:12px;flex-wrap:wrap";
     if(p.drivers_license_front){
-      const a=document.createElement("a");a.href=p.drivers_license_front;a.target="_blank";a.title="Åpne i ny fane";
-      const img=document.createElement("img");img.src=p.drivers_license_front;img.style.cssText="max-width:180px;max-height:130px;border-radius:10px;border:1px solid var(--line);cursor:pointer";
-      img.onerror=()=>{img.style.display="none";};
-      const lbl=el("div");lbl.style.cssText="font-size:11px;color:var(--ink-3);margin-top:4px;text-align:center";lbl.textContent="Forside";
-      const wrap=el("div");wrap.append(a,lbl);a.appendChild(img);imgRow.appendChild(wrap);
+      const src=await _signedSrc(p.drivers_license_front);
+      imgRow.appendChild(_mkImgLink(src,"Forside"));
     }
     if(p.drivers_license_back){
-      const a=document.createElement("a");a.href=p.drivers_license_back;a.target="_blank";
-      const img=document.createElement("img");img.src=p.drivers_license_back;img.style.cssText="max-width:180px;max-height:130px;border-radius:10px;border:1px solid var(--line);cursor:pointer";
-      img.onerror=()=>{img.style.display="none";};
-      const lbl=el("div");lbl.style.cssText="font-size:11px;color:var(--ink-3);margin-top:4px;text-align:center";lbl.textContent="Bakside";
-      const wrap=el("div");wrap.append(a,lbl);a.appendChild(img);imgRow.appendChild(wrap);
+      const src=await _signedSrc(p.drivers_license_back);
+      imgRow.appendChild(_mkImgLink(src,"Bakside"));
     }
     card.appendChild(imgRow);
-    // Actions
+
     const actions=el("div");actions.style.cssText="display:flex;gap:8px;flex-wrap:wrap";
-    if(!p.drivers_license_admin_reviewed){
+    if(!reviewed){
       const approveBtn=el("button","btn btn-primary btn-sm","✓ Godkjenn");
       approveBtn.onclick=async()=>{
-        const{error}=await sb.from("profiles").update({drivers_license_verified:true,drivers_license_admin_reviewed:true}).eq("id",p.id);
-        if(error)return toast("Feil: "+error.message,"error");
+        const{error:err}=await sb.from("profiles").update({drivers_license_verified:true,drivers_license_admin_reviewed:true}).eq("id",p.id);
+        if(err)return toast("Feil: "+err.message,"error");
         toast("Godkjent ✓","success");adminIdVerify();
       };
-      actions.appendChild(approveBtn);
       const rejectBtn=el("button","btn btn-ghost btn-sm","✕ Avvis og slett");
       rejectBtn.style.color="var(--red)";
       rejectBtn.onclick=async()=>{
-        if(!confirm("Avvis og slett bilde for "+( p.full_name||p.email)+"? Dette kan ikke angres."))return;
-        // Delete from storage
-        const paths=[p.id+"/front",p.id+"/back",p.id+"/front.jpg",p.id+"/back.jpg",p.id+"/front.jpeg",p.id+"/back.jpeg",p.id+"/front.png",p.id+"/back.png",p.id+"/front.webp",p.id+"/back.webp"];
+        if(!confirm("Avvis og slett bilde for "+(p.full_name||p.email)+"?"))return;
+        const paths=[p.id+"/front",p.id+"/back",p.id+"/front.jpg",p.id+"/back.jpg",p.id+"/front.jpeg",p.id+"/back.jpeg",p.id+"/front.png",p.id+"/back.png"];
         await sb.storage.from("drivers-license").remove(paths).catch(()=>{});
         await sb.from("profiles").update({drivers_license_verified:false,drivers_license_front:null,drivers_license_back:null,drivers_license_admin_reviewed:true,drivers_license_ai_result:false}).eq("id",p.id);
         toast("Avvist og bilde slettet","success");adminIdVerify();
       };
-      actions.appendChild(rejectBtn);
+      actions.append(approveBtn,rejectBtn);
     } else {
-      // Reviewed — allow re-review / delete image
       const delBtn=el("button","btn btn-ghost btn-sm","🗑 Slett bilde");
       delBtn.style.color="var(--ink-3)";
       delBtn.onclick=async()=>{
-        if(!confirm("Slette ID-bildet for "+(p.full_name||p.email)+"? Brukeren beholder godkjent status."))return;
-        const paths=[p.id+"/front",p.id+"/back",p.id+"/front.jpg",p.id+"/back.jpg",p.id+"/front.jpeg",p.id+"/back.jpeg",p.id+"/front.png",p.id+"/back.png",p.id+"/front.webp",p.id+"/back.webp"];
+        if(!confirm("Slette ID-bildet for "+(p.full_name||p.email)+"?"))return;
+        const paths=[p.id+"/front",p.id+"/back",p.id+"/front.jpg",p.id+"/back.jpg",p.id+"/front.jpeg",p.id+"/back.jpeg",p.id+"/front.png",p.id+"/back.png"];
         await sb.storage.from("drivers-license").remove(paths).catch(()=>{});
         await sb.from("profiles").update({drivers_license_front:null,drivers_license_back:null}).eq("id",p.id);
         toast("Bilde slettet","success");adminIdVerify();
@@ -1600,7 +1649,7 @@ async function adminIdVerify(){
     }
     card.appendChild(actions);
     profSurf.appendChild(card);
-  });
+  }
 }
 function adminBookings(){const e=document.getElementById("ap-bookings");e.innerHTML="";const t=el("div","surface");t.appendChild(el("h3",null,"Alle bookinger")),t.appendChild(el("p","sub","Trykk «Avtale» for å se kontrakten.")),BOOKINGS.forEach(e=>{const n=_LS(e.listingId),i=el("div","row-item"),o=el("div","ri-ic");o.style.background=CAT_BG[n.cat],o.innerHTML='<span style="width:22px;height:22px;display:inline-flex">'+ICONS[n.cat]+"</span>";const a=el("div","ri-main");a.appendChild(el("div","ri-title",n.title)),a.appendChild(el("div","ri-sub",e.renterName+(e.renterPhone?" ("+e.renterPhone+")":"")+" → "+hostOf(n.owner).name+" · "+fmt(e.from)+"–"+fmt(e.to)));const l=document.createElement("div");l.innerHTML=statusBadge(e.status);const r=el("button","btn btn-ghost btn-sm","Avtale");r.onclick=()=>openContract(e.id);const s=el("div","row-actions");if(s.append(l),"pending"===e.status){const acc=el("button","btn btn-primary btn-sm","Godta");acc.onclick=async()=>{await acceptBooking(e.id),adminBookings()},s.append(acc);const dec=el("button","btn btn-ghost btn-sm","Avslå");dec.onclick=async()=>{await declineBooking(e.id),adminBookings()},s.append(dec)}if("declined"!==e.status){const t=el("button","btn btn-ghost btn-sm","Se chat");t.onclick=()=>openChat(e.id),s.append(t)}s.append(r);const delBtn=el("button","btn btn-ghost btn-sm","Slett");delBtn.style.color="var(--red)";delBtn.onclick=async()=>{if(!confirm("Slett booking for "+e.renterName+"? Dette kan ikke angres."))return;const{error:delErr}=await sb.from("bookings").delete().eq("id",e.id);if(delErr){toast("Sletting feilet: "+delErr.message,"warn");return;}const bi=BOOKINGS.findIndex(b=>b.id===e.id);if(bi>-1)BOOKINGS.splice(bi,1);adminBookings();};s.append(delBtn);i.append(o,a,s),t.appendChild(i)}),e.appendChild(t)}let lastFocused=null;function openModal(e){lastFocused=document.activeElement,document.getElementById(e).classList.add("open"),document.body.style.overflow="hidden",applyLang()}function bgClose(e,t){e.target===document.getElementById(t)&&closeAll()}function toggleDrawer(){const e=document.getElementById("drawer"),t=document.getElementById("scrim"),n=document.getElementById("hambBtn"),i=!e.classList.contains("open");e.classList.toggle("open",i),t.classList.toggle("open",i),n.setAttribute("aria-expanded",i),document.body.style.overflow=i?"hidden":"",i&&setTimeout(()=>e.querySelector("button.dlink,.close")?.focus(),120)}function closeAll(){try{localStorage.removeItem("_ocu_open_edit");}catch(e){}if(_chatSub){try{_chatSub.unsubscribe();}catch(ex){}_chatSub=null;}if(document.querySelectorAll(".modal-bg.open").forEach(e=>e.classList.remove("open")),document.getElementById("drawer").classList.remove("open"),document.getElementById("scrim").classList.remove("open"),document.getElementById("hambBtn").setAttribute("aria-expanded","false"),document.body.style.overflow="",lastFocused&&lastFocused.focus)try{lastFocused.focus()}catch(e){}}function toast(e,t){const n=document.getElementById("toasts"),i=el("div","toast"+(t?" "+t:""),e);return n.appendChild(i),applyLang(),setTimeout(()=>{i.style.opacity="0",i.style.transition="opacity .3s",setTimeout(()=>i.remove(),320)},2800),!1}
 function _updateHeroStats(){
