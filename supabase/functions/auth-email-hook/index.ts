@@ -25,7 +25,7 @@ Deno.serve(async (req) => {
 
   const actionType = emailData.email_action_type as string;
   const tokenHash = emailData.token_hash as string;
-  const siteUrl = (emailData.site_url as string) || "https://oslocampingutleie.no";
+  const siteUrl = (emailData.site_url as string) || "https://leieplattform.no";
   const redirectTo = (emailData.redirect_to as string) || siteUrl;
 
   let subject = "";
@@ -51,7 +51,7 @@ Deno.serve(async (req) => {
     `);
   } else if (actionType === "invite") {
     const url = `${siteUrl}/app.html#type=invite&token_hash=${tokenHash}&redirect_to=${encodeURIComponent(redirectTo)}`;
-    subject = "Du er invitert til Oslo Camping Utleie";
+    subject = "Du er invitert til Leieplattform";
     html = emailLayout("Invitasjon", `
       <p>Du har blitt invitert til å opprette en konto.</p>
       <a class="btn" href="${url}">Aksepter invitasjon →</a>

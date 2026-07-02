@@ -25,7 +25,7 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ error: "Ugyldig e-postadresse." }), { status: 400, headers: corsHeaders });
   }
 
-  const redirectTo = body.redirect_to ?? "https://oslocampingutleie.no";
+  const redirectTo = body.redirect_to ?? "https://leieplattform.no";
 
   const sb = createClient(
     Deno.env.get("SUPABASE_URL")!,
@@ -42,14 +42,14 @@ Deno.serve(async (req) => {
   if (!linkErr && link?.properties?.action_link) {
     const resetUrl = link.properties.action_link;
     const html = emailLayout("Tilbakestill passord", `
-      <p>Vi mottok en forespørsel om å tilbakestille passordet for din konto på Oslo Camping Utleie.</p>
+      <p>Vi mottok en forespørsel om å tilbakestille passordet for din konto på Leieplattform.</p>
       <p>Klikk på knappen under for å sette et nytt passord. Lenken er gyldig i 60 minutter.</p>
       <a class="btn" href="${resetUrl}">Sett nytt passord →</a>
       <p style="font-size:13px;color:#888;margin-top:16px">Hvis du ikke ba om dette, kan du ignorere denne e-posten. Passordet ditt forblir uendret.</p>
     `);
 
     try {
-      await sendEmail(email, "Tilbakestill passordet ditt – Oslo Camping Utleie", html);
+      await sendEmail(email, "Tilbakestill passordet ditt – Leieplattform", html);
     } catch (e) {
       console.error("[send-reset-email] Resend error:", e);
       // Still return success so we don't reveal account existence
