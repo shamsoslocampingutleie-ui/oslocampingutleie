@@ -44,7 +44,7 @@ Deno.serve(async (req) => {
   if (!(await checkRateLimit(req, 5, 3_600_000))) return rateLimitResponse();
 
   try {
-    const results = { deletedOld: 0, deletedDuplicates: 0 };
+    const results = { deletedOld: 0, deletedDuplicates: 0, deletedLicenseDocs: 0, deletedLicenseFiles: 0 };
 
     // 1. Delete errors older than 14 days
     const cutoff = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
@@ -84,6 +84,31 @@ Deno.serve(async (req) => {
         }
         results.deletedDuplicates = toDelete.length;
       }
+    }
+
+    // 3. Delete expired license documents from storage + DB
+    const { data: expiredDocs } = await supabase
+      .from("booking_documents")
+      .select("id, url")
+      .eq("type", "drivers_license")
+      .not("delete_after", "is", null)
+      .lt("delete_after", new Date().toISOString());
+
+    if (expiredDocs && expiredDocs.length > 0) {
+      // Extract storage paths from URLs and delete from storage
+      const storagePaths: string[] = [];
+      for (const doc of expiredDocs) {
+        const m = doc.url?.match(/\/storage\/v1\/object\/(?:public|sign)\/booking-photos\/(.+?)(?:\?|$)/);
+        if (m) storagePaths.push(decodeURIComponent(m[1]));
+      }
+      if (storagePaths.length > 0) {
+        const { data: removed } = await supabase.storage.from("booking-photos").remove(storagePaths);
+        results.deletedLicenseFiles = removed?.length ?? 0;
+      }
+      // Delete DB rows
+      const ids = expiredDocs.map((d) => d.id);
+      await supabase.from("booking_documents").delete().in("id", ids);
+      results.deletedLicenseDocs = ids.length;
     }
 
     console.log("[auto-clean-errors]", results);
