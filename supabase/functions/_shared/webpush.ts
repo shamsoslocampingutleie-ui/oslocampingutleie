@@ -1,7 +1,7 @@
 // Web Push via npm:web-push — VAPID keys must be set as Supabase secrets:
 //   VAPID_PUBLIC_KEY   (base64url-encoded P-256 public key)
 //   VAPID_PRIVATE_KEY  (base64url-encoded P-256 private key)
-//   VAPID_SUBJECT      e.g. "mailto:kundeservice@leieplattform.no"
+//   VAPID_SUBJECT      e.g. "mailto:kundeservice@oslocampingutleie.no"
 import webpush from "npm:web-push@3";
 
 let _initialised = false;
@@ -10,7 +10,7 @@ function init() {
   if (_initialised) return;
   const pub = Deno.env.get("VAPID_PUBLIC_KEY");
   const priv = Deno.env.get("VAPID_PRIVATE_KEY");
-  const subj = Deno.env.get("VAPID_SUBJECT") ?? "mailto:kundeservice@leieplattform.no";
+  const subj = Deno.env.get("VAPID_SUBJECT") ?? "mailto:kundeservice@oslocampingutleie.no";
   if (!pub || !priv) {
     console.warn("[webpush] VAPID keys not set — push disabled");
     return;

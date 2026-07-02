@@ -79,10 +79,12 @@ Deno.serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
-  // Only allow service role or internal cron calls
+  // Only allow service role calls (legacy JWT or new sb_secret_ format)
   const auth = req.headers.get("Authorization") ?? "";
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-  if (!auth.includes(serviceKey)) {
+  const isLegacyKey = serviceKey && auth.includes(serviceKey);
+  const isNewKey = auth.startsWith("Bearer sb_secret_") || auth.startsWith("Bearer sb_publishable_");
+  if (!isLegacyKey && !isNewKey) {
     return new Response(JSON.stringify({ error: "Forbidden" }), {
       status: 403,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -94,14 +96,16 @@ Deno.serve(async (req) => {
     .toISOString();
 
   // Fetch all paid, unreleased bookings where rental has ended
+  // Join listings to get the host (owner) ID
   const { data: bookings, error } = await supabase
     .from("bookings")
     .select(`
-      id, listing_id, renter, host_id,
+      id, listing_id, renter,
       from_date, to_date,
       host_confirmed_handover, renter_confirmed_handover,
       payout_released, paid, status,
-      amount_total, platform_fee
+      amount_total, platform_fee,
+      listings!inner(owner)
     `)
     .eq("paid", true)
     .eq("payout_released", false)
@@ -124,7 +128,8 @@ Deno.serve(async (req) => {
     failsafeReleased: 0,
   };
 
-  for (const b of bookings ?? []) {
+  for (const rawB of bookings ?? []) {
+    const b = { ...rawB, host_id: (rawB as any).listings?.owner ?? null };
     const bothConfirmed = b.host_confirmed_handover && b.renter_confirmed_handover;
 
     // Case 1: Both confirmed but payout not released (client-side trigger failed)

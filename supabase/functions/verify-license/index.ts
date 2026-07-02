@@ -9,7 +9,7 @@ const supabase = createClient(
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
 );
 const anthropic = new Anthropic({ apiKey: Deno.env.get("ANTHROPIC_API_KEY")! });
-const ADMIN_EMAIL = Deno.env.get("ADMIN_EMAIL") ?? "kundeservice@leieplattform.no";
+const ADMIN_EMAIL = Deno.env.get("ADMIN_EMAIL") ?? "kundeservice@oslocampingutleie.no";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -120,7 +120,7 @@ Respond ONLY with valid JSON:
 </td></tr></table>
 </td></tr>
 <tr><td style="background:#F6FAF7;border-top:1px solid #E8EDE8;padding:16px 28px;text-align:center;">
-<p style="margin:0;font-size:12px;color:#9BA8A0;">Leieplattform · <a href="mailto:kundeservice@leieplattform.no" style="color:#14512E;">kundeservice@leieplattform.no</a></p>
+<p style="margin:0;font-size:12px;color:#9BA8A0;">Leieplattform · <a href="mailto:kundeservice@oslocampingutleie.no" style="color:#14512E;">kundeservice@oslocampingutleie.no</a></p>
 </td></tr>
 </table></td></tr></table></body></html>`
     ).catch(e => console.warn("[verify-license] Admin email failed:", e));
