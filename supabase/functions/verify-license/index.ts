@@ -9,7 +9,7 @@ const supabase = createClient(
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
 );
 const anthropic = new Anthropic({ apiKey: Deno.env.get("ANTHROPIC_API_KEY")! });
-const ADMIN_EMAIL = Deno.env.get("ADMIN_EMAIL") ?? "kundeservice@oslocampingutleie.no";
+const ADMIN_EMAIL = Deno.env.get("ADMIN_EMAIL") ?? "kundeservice@leieplattform.no";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -104,7 +104,7 @@ Respond ONLY with valid JSON:
       `<!DOCTYPE html><html lang="nb"><head><meta charset="UTF-8"></head><body style="margin:0;padding:0;background:#F0F4F0;font-family:sans-serif;">
 <table cellspacing="0" cellpadding="0" border="0" width="100%" style="background:#F0F4F0;"><tr><td align="center" style="padding:32px 16px;">
 <table cellspacing="0" cellpadding="0" border="0" width="100%" style="max-width:520px;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.08);">
-<tr><td style="background:#14512E;padding:20px 28px;"><span style="font-size:18px;font-weight:800;color:#fff;">Oslo Camping Utleie — Admin</span></td></tr>
+<tr><td style="background:#14512E;padding:20px 28px;"><span style="font-size:18px;font-weight:800;color:#fff;">Leieplattform — Admin</span></td></tr>
 <tr><td style="padding:28px;">
 <h2 style="margin:0 0 16px;font-size:20px;color:#14512E;">Ny ID-opplasting krever gjennomgang</h2>
 <table cellspacing="0" cellpadding="0" border="0" width="100%" style="background:#F6FAF7;border-radius:12px;padding:16px;margin-bottom:20px;">
@@ -120,7 +120,7 @@ Respond ONLY with valid JSON:
 </td></tr></table>
 </td></tr>
 <tr><td style="background:#F6FAF7;border-top:1px solid #E8EDE8;padding:16px 28px;text-align:center;">
-<p style="margin:0;font-size:12px;color:#9BA8A0;">Oslo Camping Utleie · <a href="mailto:kundeservice@oslocampingutleie.no" style="color:#14512E;">kundeservice@oslocampingutleie.no</a></p>
+<p style="margin:0;font-size:12px;color:#9BA8A0;">Leieplattform · <a href="mailto:kundeservice@leieplattform.no" style="color:#14512E;">kundeservice@leieplattform.no</a></p>
 </td></tr>
 </table></td></tr></table></body></html>`
     ).catch(e => console.warn("[verify-license] Admin email failed:", e));

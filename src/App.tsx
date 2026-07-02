@@ -42,7 +42,7 @@ export default function App() {
       ref={ref}
       src="/app.html"
       className="app-frame"
-      title="Oslo Camping Utleie"
+      title="Leieplattform"
       allow="geolocation; clipboard-write"
     />
   );

@@ -1,4 +1,4 @@
--- Oslo Camping Utleie - Supabase schema
+-- Leieplattform - Supabase schema
 -- Kjores i Supabase SQL Editor. Trygt a kjore flere ganger.
 -- Legger kun til det som mangler, endrer ikke eksisterende data.
 
@@ -148,6 +148,7 @@ comment on table public.bookings is 'Booking requests for a listing.';
 
 create index if not exists bookings_listing_id_idx on public.bookings (listing_id);
 create index if not exists bookings_renter_idx on public.bookings (renter);
+create index if not exists bookings_renter_email_idx on public.bookings (renter_email);
 create index if not exists bookings_status_idx on public.bookings (status);
 
 -- 4) updated_at triggers
