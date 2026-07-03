@@ -2170,6 +2170,7 @@ function showCampaignPopup(){
 }
 function hideCampaignPopup(){
   var p=document.getElementById('campaignPopup');if(p)p.style.display='none';
+  stopFootballRain();
 }
 
 async function submitCampaignEntry(){
@@ -2193,6 +2194,7 @@ async function submitCampaignEntry(){
     var data=await res.json();
     if(data.ok){
       try{localStorage.setItem('lp_campaign_submitted','1');}catch(e){}
+      stopFootballRain();
       var form=document.getElementById('cpgForm');
       var thanks=document.getElementById('cpgThanks');
       if(form)form.style.display='none';
