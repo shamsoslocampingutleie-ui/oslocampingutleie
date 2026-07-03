@@ -2057,5 +2057,559 @@ _checkMobileUpload();
 // Service Worker — caches app shell for fast repeat loads
 if('serviceWorker'in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){});});}
 
+// ══════════════════════════════════════════════════════════
+// KAMPANJE: Norge vs Brasil tippekonkurranse
+// ══════════════════════════════════════════════════════════
+const CAMPAIGN_ADMIN_URL='https://cglxodxiqpzrgwrfaqbr.supabase.co/functions/v1/campaign-admin';
+const CAMPAIGN_SUBMIT_URL='https://cglxodxiqpzrgwrfaqbr.supabase.co/functions/v1/campaign-submit';
+
+const campaign={
+  enabled:true,competitionOpen:true,winnerDrawn:false,
+  footballRain:true,popup:true,countdown:true,
+  matchDate:new Date('2026-07-15T20:00:00+02:00'),
+  matchTeams:'Norge vs Brasil'
+};
+
+async function loadCampaignConfig(){
+  try{
+    const{data}=await sb.from('campaign_config').select('*').eq('id',1).single();
+    if(!data)return;
+    campaign.enabled=data.enabled;
+    campaign.competitionOpen=data.competition_open;
+    campaign.winnerDrawn=data.winner_drawn;
+    campaign.footballRain=data.football_rain;
+    campaign.popup=data.popup_enabled;
+    campaign.countdown=data.countdown_enabled;
+    if(data.match_date)campaign.matchDate=new Date(data.match_date);
+    if(data.match_teams)campaign.matchTeams=data.match_teams;
+    applyCampaignConfig();
+  }catch(e){}
+}
+
+function applyCampaignConfig(){
+  if(!campaign.enabled){cleanupCampaign();return;}
+  // Update popup subtitle with match teams and date
+  var sub=document.getElementById('cpgSubtitle');
+  if(sub){
+    var months=['januar','februar','mars','april','mai','juni','juli','august','september','oktober','november','desember'];
+    var md=campaign.matchDate;
+    var dateStr=md.getDate()+'. '+months[md.getMonth()]+' '+md.getFullYear()+' kl. '+String(md.getHours()).padStart(2,'0')+':'+String(md.getMinutes()).padStart(2,'0');
+    sub.textContent=campaign.matchTeams+' · '+dateStr;
+  }
+  if(campaign.footballRain)startFootballRain();else stopFootballRain();
+  if(campaign.countdown)startCountdown();else stopCountdown();
+  if(campaign.popup&&campaign.competitionOpen){
+    try{if(!localStorage.getItem('lp_campaign_submitted'))setTimeout(showCampaignPopup,3000);}
+    catch(e){setTimeout(showCampaignPopup,3000);}
+  }
+}
+
+function cleanupCampaign(){
+  stopFootballRain();stopCountdown();hideCampaignPopup();
+  ['campaignPopup','campaignFootballRain','campaignAdminPanel','campaignStyle'].forEach(function(id){
+    var el=document.getElementById(id);if(el)el.remove();
+  });
+  try{localStorage.removeItem('lp_campaign_submitted');localStorage.removeItem('lp_campaign_popup_shown');}catch(e){}
+}
+
+// ── Football rain ──
+var _rainInterval=null;
+function startFootballRain(){
+  var container=document.getElementById('campaignFootballRain');
+  if(!container||_rainInterval)return;
+  _rainInterval=setInterval(function(){
+    if(!campaign.footballRain||!campaign.enabled){stopFootballRain();return;}
+    var ball=document.createElement('div');
+    ball.className='campaign-ball';
+    ball.textContent='⚽';
+    ball.style.left=Math.random()*96+'%';
+    ball.style.animationDuration=(2+Math.random()*3)+'s';
+    ball.style.fontSize=(16+Math.random()*20)+'px';
+    container.appendChild(ball);
+    setTimeout(function(){ball.remove();},5500);
+  },400);
+}
+function stopFootballRain(){
+  clearInterval(_rainInterval);_rainInterval=null;
+  var c=document.getElementById('campaignFootballRain');if(c)c.innerHTML='';
+}
+
+// ── Countdown ──
+var _countdownInterval=null;
+function startCountdown(){
+  var el=document.getElementById('campaignCountdown');if(!el)return;
+  if(_countdownInterval)return;
+  _countdownInterval=setInterval(function(){
+    var now=Date.now(),diff=campaign.matchDate.getTime()-now;
+    if(diff<=0){
+      stopCountdown();
+      campaign.competitionOpen=false;
+      el.textContent='Kampen er i gang! 🔴';
+      return;
+    }
+    var d=Math.floor(diff/86400000);
+    var h=Math.floor((diff%86400000)/3600000);
+    var m=Math.floor((diff%3600000)/60000);
+    var s=Math.floor((diff%60000)/1000);
+    el.textContent=(d>0?d+' dag'+(d!==1?'er':'')+' ':'')
+      +String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+  },1000);
+}
+function stopCountdown(){
+  clearInterval(_countdownInterval);_countdownInterval=null;
+}
+
+// ── Popup ──
+function showCampaignPopup(){
+  var p=document.getElementById('campaignPopup');
+  if(!p||!campaign.enabled||!campaign.competitionOpen)return;
+  try{if(localStorage.getItem('lp_campaign_submitted'))return;}catch(e){}
+  p.style.display='flex';
+  if(campaign.countdown)startCountdown();
+}
+function hideCampaignPopup(){
+  var p=document.getElementById('campaignPopup');if(p)p.style.display='none';
+}
+
+async function submitCampaignEntry(){
+  var name=(document.getElementById('cpgName')||{}).value||'';
+  var email=(document.getElementById('cpgEmail')||{}).value||'';
+  var home=document.getElementById('cpgHome')||{};
+  var away=document.getElementById('cpgAway')||{};
+  var errEl=document.getElementById('cpgErr');
+  var btn=document.getElementById('cpgBtn');
+  if(errEl)errEl.textContent='';
+  if(!name.trim()||!email.trim()||home.value===''||away.value===''){
+    if(errEl)errEl.textContent='Fyll inn alle feltene.';return;
+  }
+  if(btn){btn.disabled=true;btn.textContent='Sender ...';}
+  try{
+    var res=await fetch(CAMPAIGN_SUBMIT_URL,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','apikey':'sb_publishable_yypSMj_dG7_yfOmJO9ZZmA_CrrnMmgW'},
+      body:JSON.stringify({name:name.trim(),email:email.trim(),predictedHome:parseInt(home.value,10),predictedAway:parseInt(away.value,10)})
+    });
+    var data=await res.json();
+    if(data.ok){
+      try{localStorage.setItem('lp_campaign_submitted','1');}catch(e){}
+      var form=document.getElementById('cpgForm');
+      var thanks=document.getElementById('cpgThanks');
+      if(form)form.style.display='none';
+      if(thanks)thanks.style.display='block';
+    }else{
+      if(errEl)errEl.textContent=data.error||'Noe gikk galt. Prøv igjen.';
+      if(btn){btn.disabled=false;btn.textContent='Delta i konkurransen →';}
+    }
+  }catch(e){
+    if(errEl)errEl.textContent='Nettverksfeil. Prøv igjen.';
+    if(btn){btn.disabled=false;btn.textContent='Delta i konkurransen →';}
+  }
+}
+
+// ── Admin panel ──
+var _cpgAdminPw='';
+var _cpgAdminTab='deltakere';
+var _cpgEntries=[];
+var _cpgConfig={};
+
+function checkCampaignAdminHash(){
+  if(location.hash==='#kampanje-admin'){
+    var p=document.getElementById('campaignAdminPanel');
+    if(p)p.style.display='flex';
+  }
+}
+window.addEventListener('hashchange',checkCampaignAdminHash);
+
+async function cpgAdminLogin(){
+  var pw=(document.getElementById('cpgAdminPw')||{}).value||'';
+  var errEl=document.getElementById('cpgAdminLoginErr');
+  if(errEl)errEl.textContent='';
+  if(!pw){if(errEl)errEl.textContent='Skriv inn passord.';return;}
+  var res=await cpgAdminCall({password:pw,action:'get_config'});
+  if(res&&res.ok){
+    _cpgAdminPw=pw;
+    _cpgConfig=res.config||{};
+    document.getElementById('cpgAdminLogin').style.display='none';
+    document.getElementById('cpgAdminMain').style.display='block';
+    cpgAdminShowTab('deltakere');
+  }else{
+    if(errEl)errEl.textContent=(res&&res.error)||'Feil passord.';
+  }
+}
+
+async function cpgAdminCall(body){
+  try{
+    var res=await fetch(CAMPAIGN_ADMIN_URL,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','apikey':'sb_publishable_yypSMj_dG7_yfOmJO9ZZmA_CrrnMmgW'},
+      body:JSON.stringify(Object.assign({password:_cpgAdminPw},body))
+    });
+    return await res.json();
+  }catch(e){return{error:'Nettverksfeil'};}
+}
+
+function cpgAdminShowTab(tab){
+  _cpgAdminTab=tab;
+  ['deltakere','konkurranse','vinner','innstillinger','logg'].forEach(function(t){
+    var el=document.getElementById('cpgTab_'+t);if(el)el.style.display='none';
+    var btn=document.getElementById('cpgTabBtn_'+t);
+    if(btn){btn.style.background=t===tab?'#166534':'transparent';btn.style.color=t===tab?'#fff':'#9ca3af';}
+  });
+  var active=document.getElementById('cpgTab_'+tab);if(active)active.style.display='block';
+  if(tab==='deltakere')cpgAdminLoadEntries();
+  if(tab==='konkurranse')cpgAdminLoadKonkurranse();
+  if(tab==='vinner')cpgAdminLoadVinner();
+  if(tab==='innstillinger')cpgAdminLoadSettings();
+  if(tab==='logg')cpgAdminLoadLogg();
+}
+
+async function cpgAdminLoadEntries(search,dateFrom,dateTo,sortBy,sortDir){
+  var container=document.getElementById('cpgEntriesBody');
+  if(container)container.innerHTML='<tr><td colspan="6" style="padding:16px;color:#9ca3af;text-align:center">Laster...</td></tr>';
+  var body={action:'list_entries'};
+  if(search)body.search=search;if(dateFrom)body.dateFrom=dateFrom;
+  if(dateTo)body.dateTo=dateTo;if(sortBy)body.sortBy=sortBy;if(sortDir)body.sortDir=sortDir;
+  var res=await cpgAdminCall(body);
+  if(!res||!res.ok){if(container)container.innerHTML='<tr><td colspan="6" style="color:#ef4444;padding:8px">Feil: '+(res&&res.error||'ukjent')+'</td></tr>';return;}
+  _cpgEntries=res.entries||[];
+  var total=document.getElementById('cpgTotal');if(total)total.textContent=res.total+' deltakere totalt';
+  if(!container)return;
+  if(!_cpgEntries.length){container.innerHTML='<tr><td colspan="6" style="padding:16px;color:#9ca3af;text-align:center">Ingen deltakere ennå.</td></tr>';return;}
+  container.innerHTML=_cpgEntries.map(function(e,i){
+    var d=new Date(e.created_at);
+    var dt=d.toLocaleDateString('nb-NO')+' '+d.toLocaleTimeString('nb-NO',{hour:'2-digit',minute:'2-digit'});
+    return '<tr style="border-bottom:1px solid #1f2937"><td style="padding:8px 10px;color:#d1fae5">'+escHtml(e.name)+'</td>'
+      +'<td style="padding:8px 10px;color:#9ca3af">'+escHtml(e.email)+'</td>'
+      +'<td style="padding:8px 10px;text-align:center;color:#34d399;font-weight:600">'+e.predicted_home+'</td>'
+      +'<td style="padding:8px 10px;text-align:center;color:#34d399;font-weight:600">'+e.predicted_away+'</td>'
+      +'<td style="padding:8px 10px;color:#6b7280;font-size:12px">'+dt+'</td>'
+      +'<td style="padding:8px 10px;color:#6b7280;font-size:11px">'+(e.ip_address||'–')+'</td></tr>';
+  }).join('');
+}
+
+async function cpgAdminExportCSV(){
+  var res=await cpgAdminCall({action:'export_csv'});
+  if(!res)return;
+  var blob=new Blob([typeof res==='string'?res:JSON.stringify(res)],{type:'text/csv'});
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='kampanje-deltakere.csv';a.click();
+}
+
+// Export CSV via direct fetch for binary response
+async function cpgAdminExportCSVDirect(){
+  try{
+    var res=await fetch(CAMPAIGN_ADMIN_URL,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','apikey':'sb_publishable_yypSMj_dG7_yfOmJO9ZZmA_CrrnMmgW'},
+      body:JSON.stringify({password:_cpgAdminPw,action:'export_csv'})
+    });
+    var text=await res.text();
+    var blob=new Blob([text],{type:'text/csv;charset=utf-8'});
+    var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='kampanje-deltakere.csv';a.click();
+  }catch(e){alert('CSV-eksport feilet.');}
+}
+
+async function cpgAdminLoadKonkurranse(){
+  var res=await cpgAdminCall({action:'get_config'});
+  if(!res||!res.ok)return;
+  _cpgConfig=res.config||{};
+  var el=document.getElementById('cpgKonkurranseInfo');
+  if(!el)return;
+  var cfg=_cpgConfig;
+  var md=cfg.match_date?new Date(cfg.match_date):null;
+  var mdStr=md?md.toLocaleDateString('nb-NO',{day:'numeric',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'}):'–';
+  el.innerHTML='<div style="display:grid;gap:8px;margin-bottom:16px">'
+    +'<div style="display:flex;justify-content:space-between"><span style="color:#9ca3af">Kamp:</span><span style="color:#d1fae5">'+escHtml(cfg.match_teams||'')+'</span></div>'
+    +'<div style="display:flex;justify-content:space-between"><span style="color:#9ca3af">Dato:</span><span style="color:#d1fae5">'+mdStr+'</span></div>'
+    +'<div style="display:flex;justify-content:space-between"><span style="color:#9ca3af">Åpen:</span><span style="color:'+(cfg.competition_open?'#34d399':'#ef4444')+'">'+(cfg.competition_open?'Ja – mottar tips':'Nei – stengt')+'</span></div>'
+    +(cfg.final_home_score!=null?'<div style="display:flex;justify-content:space-between"><span style="color:#9ca3af">Sluttresultat:</span><span style="color:#fbbf24;font-weight:600">'+cfg.final_home_score+' – '+cfg.final_away_score+'</span></div>':'')
+    +'</div>';
+}
+
+async function cpgAdminRegisterResult(){
+  var h=parseInt((document.getElementById('cpgHomeScore')||{}).value||'',10);
+  var a=parseInt((document.getElementById('cpgAwayScore')||{}).value||'',10);
+  var errEl=document.getElementById('cpgResultErr');if(errEl)errEl.textContent='';
+  if(isNaN(h)||isNaN(a)){if(errEl)errEl.textContent='Fyll inn begge scorer.';return;}
+  if(!confirm('Registrere sluttresultat '+h+' – '+a+' ('+_cpgConfig.match_teams+')? Konkurransen stenges.'))return;
+  var res=await cpgAdminCall({action:'register_result',homeScore:h,awayScore:a});
+  if(res&&res.ok){alert('Resultat registrert: '+h+' – '+a);cpgAdminLoadKonkurranse();}
+  else{if(errEl)errEl.textContent=(res&&res.error)||'Feil.';}
+}
+
+async function cpgAdminDrawWinner(){
+  if(!confirm('Trekke vinner nå? Dette kan kun gjøres én gang.'))return;
+  var res=await cpgAdminCall({action:'draw_winner'});
+  if(res&&res.ok){
+    alert('🏆 Vinner: '+res.winner.name+' ('+res.winner.email+')\nTipp: '+res.winner.predicted_home+' – '+res.winner.predicted_away+'\n\nRiktige tips: '+res.correctCount+' av '+res.totalEntries+' deltakere.');
+    cpgAdminShowTab('vinner');
+  }else if(res&&res.noCorrect){
+    if(confirm('Ingen tippet riktig ('+res.totalEntries+' deltakere). Trekke tilfeldig vinner blant alle?'))cpgAdminDrawRandom();
+  }else{
+    alert('Feil: '+((res&&res.error)||'ukjent'));
+  }
+}
+
+async function cpgAdminDrawRandom(){
+  if(!confirm('Trekke tilfeldig vinner blant ALLE deltakere?'))return;
+  var res=await cpgAdminCall({action:'draw_random_winner'});
+  if(res&&res.ok){
+    alert('🎲 Tilfeldig vinner: '+res.winner.name+' ('+res.winner.email+')\nTipp: '+res.winner.predicted_home+' – '+res.winner.predicted_away);
+    cpgAdminShowTab('vinner');
+  }else{alert('Feil: '+((res&&res.error)||'ukjent'));}
+}
+
+async function cpgAdminLoadVinner(){
+  var el=document.getElementById('cpgVinnerContent');if(!el)return;
+  el.innerHTML='<p style="color:#9ca3af">Laster...</p>';
+  var res=await cpgAdminCall({action:'get_draw_result'});
+  if(!res||!res.ok){el.innerHTML='<p style="color:#ef4444">Feil: '+(res&&res.error||'ukjent')+'</p>';return;}
+  if(!res.drawn){el.innerHTML='<p style="color:#9ca3af;font-size:15px">Ingen vinner er trukket ennå.</p>';return;}
+  var w=res.winner;
+  var dt=res.drawTimestamp?new Date(res.drawTimestamp).toLocaleString('nb-NO'):'–';
+  el.innerHTML='<div style="background:#052e16;border:2px solid #34d399;border-radius:12px;padding:20px">'
+    +'<div style="font-size:24px;margin-bottom:4px">🏆</div>'
+    +'<div style="font-size:20px;font-weight:700;color:#d1fae5;margin-bottom:4px">'+escHtml(w.name)+'</div>'
+    +'<div style="color:#6ee7b7;margin-bottom:8px">'+escHtml(w.email)+'</div>'
+    +'<div style="color:#fbbf24;font-size:15px;font-weight:600">Tipp: '+w.predicted_home+' – '+w.predicted_away
+    +(res.finalScore?'&nbsp;&nbsp;·&nbsp;&nbsp;Fasit: '+res.finalScore.home+' – '+res.finalScore.away:'')+'</div>'
+    +'<div style="color:#6b7280;font-size:12px;margin-top:8px">Trukket: '+dt+'</div>'
+    +'</div>';
+}
+
+async function cpgAdminLoadSettings(){
+  var res=await cpgAdminCall({action:'get_config'});
+  if(!res||!res.ok)return;
+  _cpgConfig=res.config||{};
+  var cfg=_cpgConfig;
+  var el=document.getElementById('cpgSettingsContent');if(!el)return;
+  function tog(label,field,val){
+    return '<label style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid #1f2937;cursor:pointer">'
+      +'<span style="color:#d1fae5">'+label+'</span>'
+      +'<input type="checkbox" '+(val?'checked':'')
+      +' onchange="cpgAdminToggle(\''+field+'\',this.checked)" style="width:18px;height:18px;accent-color:#16a34a;cursor:pointer"></label>';
+  }
+  el.innerHTML=tog('Kampanje aktivert','enabled',cfg.enabled)
+    +tog('Konkurranse åpen (mottar tips)','competition_open',cfg.competition_open)
+    +tog('Fotballregn','football_rain',cfg.football_rain)
+    +tog('Popup','popup_enabled',cfg.popup_enabled)
+    +tog('Nedtelling','countdown_enabled',cfg.countdown_enabled)
+    +'<div style="margin-top:16px">'
+    +'<button onclick="cpgAdminDisable()" style="background:#7f1d1d;border:none;border-radius:8px;padding:10px 20px;color:#fca5a5;font-size:14px;cursor:pointer;font-weight:600">⛔ Deaktiver hele kampanjen</button></div>';
+}
+
+async function cpgAdminToggle(field,val){
+  var updates={};updates[field]=val;
+  var res=await cpgAdminCall({action:'update_config',...updates});
+  if(res&&res.ok){_cpgConfig[field]=val;}else{alert('Kunne ikke oppdatere: '+((res&&res.error)||'ukjent'));cpgAdminLoadSettings();}
+}
+
+async function cpgAdminDisable(){
+  if(!confirm('Deaktiver hele kampanjen? Popup, fotballregn og nedtelling fjernes.'))return;
+  var res=await cpgAdminCall({action:'disable_campaign'});
+  if(res&&res.ok){alert('Kampanjen er deaktivert.');cpgAdminLoadSettings();}
+  else{alert('Feil: '+((res&&res.error)||'ukjent'));}
+}
+
+async function cpgAdminLoadLogg(){
+  var el=document.getElementById('cpgLoggContent');if(!el)return;
+  el.innerHTML='<p style="color:#9ca3af">Laster...</p>';
+  var res=await cpgAdminCall({action:'get_logs'});
+  if(!res||!res.ok){el.innerHTML='<p style="color:#ef4444">Feil.</p>';return;}
+  var logs=res.logs||[];
+  if(!logs.length){el.innerHTML='<p style="color:#9ca3af">Ingen loggoppføringer ennå.</p>';return;}
+  el.innerHTML='<div style="max-height:400px;overflow-y:auto">'+logs.map(function(l){
+    var dt=new Date(l.created_at).toLocaleString('nb-NO');
+    return '<div style="border-bottom:1px solid #1f2937;padding:8px 0">'
+      +'<div style="display:flex;justify-content:space-between;margin-bottom:2px">'
+      +'<span style="color:#34d399;font-size:13px;font-weight:600">'+escHtml(l.action)+'</span>'
+      +'<span style="color:#6b7280;font-size:11px">'+dt+'</span></div>'
+      +(l.ip_address?'<div style="color:#6b7280;font-size:11px">IP: '+escHtml(l.ip_address)+'</div>':'')
+      +(l.details?'<div style="color:#9ca3af;font-size:11px;margin-top:2px">'+JSON.stringify(l.details).slice(0,120)+'</div>':'')
+      +'</div>';
+  }).join('')+'</div>';
+}
+
+function escHtml(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+function cpgAdminSearchEntries(){
+  var search=(document.getElementById('cpgSearch')||{}).value||'';
+  var dateFrom=(document.getElementById('cpgDateFrom')||{}).value||'';
+  var dateTo=(document.getElementById('cpgDateTo')||{}).value||'';
+  cpgAdminLoadEntries(search||undefined,dateFrom||undefined,dateTo||undefined);
+}
+
+// Init campaign on load
+(function(){
+  var initialized=false;
+  function initCampaign(){
+    if(initialized)return;initialized=true;
+    loadCampaignConfig();
+    checkCampaignAdminHash();
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initCampaign);
+  else initCampaign();
+  setTimeout(initCampaign,1000);
+})();
+
 </script>
+
+<!-- ══ KAMPANJE HTML ══ -->
+<style id="campaignStyle">
+@keyframes campaignFall{from{top:-30px;opacity:.7}to{top:105%;opacity:.1}}
+.campaign-ball{position:absolute;top:-30px;animation:campaignFall linear forwards;opacity:.7;user-select:none;pointer-events:none}
+#campaignPopup{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9000;align-items:center;justify-content:center;padding:16px}
+.cpg-modal{background:#0f2017;border:1px solid #166534;border-radius:20px;padding:28px 24px;width:min(420px,100%);max-height:90vh;overflow-y:auto;position:relative;box-shadow:0 24px 48px rgba(0,0,0,.6)}
+.cpg-modal h2{margin:0 0 4px;font-size:20px;color:#d1fae5;text-align:center}
+.cpg-modal p.subtitle{margin:0 0 16px;font-size:13px;color:#6ee7b7;text-align:center}
+.cpg-modal label{display:block;font-size:11px;color:#6ee7b7;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;margin-top:12px}
+.cpg-modal input{width:100%;padding:10px 12px;background:#071a0e;border:1px solid #166534;border-radius:8px;color:#d1fae5;font-size:15px;box-sizing:border-box;outline:none}
+.cpg-modal input:focus{border-color:#34d399}
+.cpg-scores{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.cpg-btn{width:100%;margin-top:16px;padding:13px;background:#166534;border:none;border-radius:10px;color:#fff;font-size:15px;font-weight:700;cursor:pointer;letter-spacing:.02em}
+.cpg-btn:hover{background:#15803d}
+.cpg-err{margin-top:8px;font-size:13px;color:#f87171;min-height:18px;text-align:center}
+.cpg-close{position:absolute;top:12px;right:14px;background:none;border:none;font-size:22px;color:#6ee7b7;cursor:pointer;line-height:1}
+.cpg-thanks{display:none;text-align:center;padding:20px 0}
+.cpg-legal{font-size:11px;color:#4b7a5a;text-align:center;margin-top:10px}
+/* Admin panel */
+#campaignAdminPanel{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9500;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto}
+.cpg-admin-wrap{background:#0a1a10;border:1px solid #166534;border-radius:16px;width:min(900px,100%);margin:auto;padding:0;overflow:hidden}
+.cpg-admin-header{background:#052e16;padding:16px 20px;display:flex;align-items:center;justify-content:space-between}
+.cpg-admin-tabs{display:flex;gap:4px;padding:12px 20px;background:#071a0e;border-bottom:1px solid #1f2937;flex-wrap:wrap}
+.cpg-admin-tab-btn{padding:7px 16px;border:none;border-radius:8px;font-size:13px;cursor:pointer;transition:.15s;font-weight:500}
+.cpg-admin-body{padding:20px}
+.cpg-admin-table{width:100%;border-collapse:collapse;font-size:13px}
+.cpg-admin-table th{padding:8px 10px;text-align:left;color:#6ee7b7;font-size:11px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #1f2937}
+</style>
+
+<div id="campaignFootballRain" style="position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:50;overflow:hidden"></div>
+
+<div id="campaignPopup">
+  <div class="cpg-modal">
+    <button class="cpg-close" onclick="hideCampaignPopup()">×</button>
+    <div style="text-align:center;font-size:28px;margin-bottom:8px">🇳🇴⚽🇧🇷</div>
+    <h2>Tippe-konkurranse!</h2>
+    <p class="subtitle" id="cpgSubtitle">Norge vs Brasil</p>
+    <div id="cpgCountdownWrap" style="text-align:center;margin-bottom:12px">
+      <span style="font-size:11px;color:#4b7a5a;text-transform:uppercase;letter-spacing:.08em">Kampstart om </span>
+      <span id="campaignCountdown" style="font-size:15px;font-weight:700;color:#34d399;font-family:monospace"></span>
+    </div>
+    <div id="cpgForm">
+      <label for="cpgName">Navn</label>
+      <input id="cpgName" type="text" placeholder="Ola Nordmann" autocomplete="name">
+      <label for="cpgEmail">E-postadresse</label>
+      <input id="cpgEmail" type="email" placeholder="ola@eksempel.no" autocomplete="email">
+      <div class="cpg-scores">
+        <div>
+          <label for="cpgHome">🇳🇴 Norge mål</label>
+          <input id="cpgHome" type="number" min="0" max="20" placeholder="0">
+        </div>
+        <div>
+          <label for="cpgAway">🇧🇷 Brasil mål</label>
+          <input id="cpgAway" type="number" min="0" max="20" placeholder="0">
+        </div>
+      </div>
+      <div id="cpgErr" class="cpg-err"></div>
+      <button id="cpgBtn" class="cpg-btn" onclick="submitCampaignEntry()">Delta i konkurransen →</button>
+      <p class="cpg-legal">Én deltakelse per e-postadresse. Vinneren trekkes blant riktige tips.</p>
+    </div>
+    <div id="cpgThanks" class="cpg-thanks">
+      <div style="font-size:48px">🎉</div>
+      <h2 style="color:#34d399;margin:8px 0 4px">Takk! Du er påmeldt.</h2>
+      <p style="color:#6ee7b7;font-size:14px">Lykke til i trekningen! Vi kontakter vinneren på e-post.</p>
+      <button class="cpg-btn" style="margin-top:12px" onclick="hideCampaignPopup()">Lukk</button>
+    </div>
+  </div>
+</div>
+
+<!-- Campaign Admin Panel -->
+<div id="campaignAdminPanel">
+  <div class="cpg-admin-wrap">
+    <div class="cpg-admin-header">
+      <div style="font-size:16px;font-weight:700;color:#d1fae5">⚽ Kampanje-admin – Norge vs Brasil</div>
+      <button onclick="document.getElementById('campaignAdminPanel').style.display='none';history.pushState('',document.title,location.pathname+location.search)" style="background:none;border:none;font-size:20px;color:#6ee7b7;cursor:pointer">×</button>
+    </div>
+
+    <!-- Login -->
+    <div id="cpgAdminLogin" style="padding:32px;max-width:360px;margin:auto">
+      <label style="display:block;font-size:12px;color:#6ee7b7;margin-bottom:6px">Admin-passord</label>
+      <input id="cpgAdminPw" type="password" placeholder="Passord" onkeydown="if(event.key==='Enter')cpgAdminLogin()"
+        style="width:100%;padding:10px 12px;background:#071a0e;border:1px solid #166534;border-radius:8px;color:#d1fae5;font-size:15px;box-sizing:border-box;margin-bottom:10px">
+      <div id="cpgAdminLoginErr" style="font-size:13px;color:#f87171;margin-bottom:8px;min-height:16px"></div>
+      <button onclick="cpgAdminLogin()" style="width:100%;padding:11px;background:#166534;border:none;border-radius:8px;color:#fff;font-size:14px;font-weight:700;cursor:pointer">Logg inn →</button>
+    </div>
+
+    <!-- Main -->
+    <div id="cpgAdminMain" style="display:none">
+      <div class="cpg-admin-tabs">
+        <button id="cpgTabBtn_deltakere" class="cpg-admin-tab-btn" onclick="cpgAdminShowTab('deltakere')">Deltakere</button>
+        <button id="cpgTabBtn_konkurranse" class="cpg-admin-tab-btn" onclick="cpgAdminShowTab('konkurranse')">Konkurranse</button>
+        <button id="cpgTabBtn_vinner" class="cpg-admin-tab-btn" onclick="cpgAdminShowTab('vinner')">Vinner</button>
+        <button id="cpgTabBtn_innstillinger" class="cpg-admin-tab-btn" onclick="cpgAdminShowTab('innstillinger')">Innstillinger</button>
+        <button id="cpgTabBtn_logg" class="cpg-admin-tab-btn" onclick="cpgAdminShowTab('logg')">Logg</button>
+      </div>
+
+      <div class="cpg-admin-body">
+        <!-- Deltakere -->
+        <div id="cpgTab_deltakere" style="display:none">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:flex-end">
+            <input id="cpgSearch" type="search" placeholder="Søk navn / e-post…" style="padding:8px 12px;background:#071a0e;border:1px solid #166534;border-radius:8px;color:#d1fae5;font-size:13px;flex:1;min-width:160px">
+            <input id="cpgDateFrom" type="date" style="padding:8px;background:#071a0e;border:1px solid #166534;border-radius:8px;color:#d1fae5;font-size:13px">
+            <input id="cpgDateTo" type="date" style="padding:8px;background:#071a0e;border:1px solid #166634;border-radius:8px;color:#d1fae5;font-size:13px">
+            <button onclick="cpgAdminSearchEntries()" style="padding:8px 14px;background:#166534;border:none;border-radius:8px;color:#fff;font-size:13px;cursor:pointer">Søk</button>
+            <button onclick="cpgAdminExportCSVDirect()" style="padding:8px 14px;background:#1e3a2f;border:1px solid #166534;border-radius:8px;color:#6ee7b7;font-size:13px;cursor:pointer">⬇ CSV</button>
+          </div>
+          <div style="font-size:12px;color:#6b7280;margin-bottom:8px" id="cpgTotal"></div>
+          <div style="overflow-x:auto">
+            <table class="cpg-admin-table">
+              <thead><tr>
+                <th>Navn</th><th>E-post</th><th style="text-align:center">Norge</th><th style="text-align:center">Brasil</th><th>Tidspunkt</th><th>IP</th>
+              </tr></thead>
+              <tbody id="cpgEntriesBody"><tr><td colspan="6" style="padding:16px;color:#9ca3af;text-align:center">Laster...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Konkurranse -->
+        <div id="cpgTab_konkurranse" style="display:none">
+          <div id="cpgKonkurranseInfo" style="margin-bottom:20px"></div>
+          <div style="background:#071a0e;border:1px solid #1f2937;border-radius:12px;padding:16px;margin-bottom:16px">
+            <div style="font-size:14px;font-weight:600;color:#d1fae5;margin-bottom:12px">Registrer sluttresultat</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px">
+              <div>
+                <label style="display:block;font-size:11px;color:#6ee7b7;margin-bottom:4px">🇳🇴 Norge</label>
+                <input id="cpgHomeScore" type="number" min="0" max="20" placeholder="0" style="width:100%;padding:9px;background:#0a1a10;border:1px solid #166534;border-radius:8px;color:#d1fae5;font-size:16px;text-align:center;box-sizing:border-box">
+              </div>
+              <div>
+                <label style="display:block;font-size:11px;color:#6ee7b7;margin-bottom:4px">🇧🇷 Brasil</label>
+                <input id="cpgAwayScore" type="number" min="0" max="20" placeholder="0" style="width:100%;padding:9px;background:#0a1a10;border:1px solid #166534;border-radius:8px;color:#d1fae5;font-size:16px;text-align:center;box-sizing:border-box">
+              </div>
+            </div>
+            <div id="cpgResultErr" style="font-size:13px;color:#f87171;min-height:16px;margin-bottom:8px"></div>
+            <button onclick="cpgAdminRegisterResult()" style="padding:10px 20px;background:#166534;border:none;border-radius:8px;color:#fff;font-size:14px;font-weight:600;cursor:pointer">Registrer resultat og steng konkurransen</button>
+          </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <button onclick="cpgAdminDrawWinner()" style="padding:11px 22px;background:#14532d;border:2px solid #34d399;border-radius:10px;color:#34d399;font-size:14px;font-weight:700;cursor:pointer">🏆 Trekk vinner blant riktige tips</button>
+            <button onclick="if(confirm('Trekke tilfeldig blant ALLE deltakere?'))cpgAdminDrawRandom()" style="padding:11px 22px;background:#1c1c2e;border:1px solid #6b7280;border-radius:10px;color:#9ca3af;font-size:14px;cursor:pointer">🎲 Trekk tilfeldig vinner (alle)</button>
+          </div>
+        </div>
+
+        <!-- Vinner -->
+        <div id="cpgTab_vinner" style="display:none">
+          <div id="cpgVinnerContent"></div>
+        </div>
+
+        <!-- Innstillinger -->
+        <div id="cpgTab_innstillinger" style="display:none">
+          <div id="cpgSettingsContent"></div>
+        </div>
+
+        <!-- Logg -->
+        <div id="cpgTab_logg" style="display:none">
+          <div id="cpgLoggContent"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 </body></html>
