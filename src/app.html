@@ -2215,7 +2215,14 @@ var _cpgConfig={};
 function checkCampaignAdminHash(){
   if(location.hash==='#kampanje-admin'){
     var p=document.getElementById('campaignAdminPanel');
-    if(p)p.style.display='flex';
+    if(p) p.style.display='flex';
+    if(!_cpgAdminPw){
+      var loginEl=document.getElementById('cpgAdminLogin');
+      var mainEl=document.getElementById('cpgAdminMain');
+      if(loginEl) loginEl.style.display='block';
+      if(mainEl) mainEl.style.display='none';
+      setTimeout(function(){var pw=document.getElementById('cpgAdminPw');if(pw)pw.focus();},80);
+    }
   }
 }
 window.addEventListener('hashchange',checkCampaignAdminHash);
