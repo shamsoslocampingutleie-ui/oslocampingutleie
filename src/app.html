@@ -2058,7 +2058,7 @@ _checkMobileUpload();
 if('serviceWorker'in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){});});}
 
 // ══════════════════════════════════════════════════════════
-// KAMPANJE: Norge vs Brasil tippekonkurranse
+// KAMPANJE: Brasil vs Norge tippekonkurranse
 // ══════════════════════════════════════════════════════════
 const CAMPAIGN_ADMIN_URL='https://cglxodxiqpzrgwrfaqbr.supabase.co/functions/v1/campaign-admin';
 const CAMPAIGN_SUBMIT_URL='https://cglxodxiqpzrgwrfaqbr.supabase.co/functions/v1/campaign-submit';
@@ -2066,8 +2066,8 @@ const CAMPAIGN_SUBMIT_URL='https://cglxodxiqpzrgwrfaqbr.supabase.co/functions/v1
 const campaign={
   enabled:true,competitionOpen:true,winnerDrawn:false,
   footballRain:true,popup:true,countdown:true,
-  matchDate:new Date('2026-07-15T20:00:00+02:00'),
-  matchTeams:'Norge vs Brasil'
+  matchDate:new Date('2026-07-05T22:00:00+02:00'),
+  matchTeams:'Brasil vs Norge'
 };
 
 async function loadCampaignConfig(){
@@ -2489,7 +2489,7 @@ function cpgAdminSearchEntries(){
     <button class="cpg-close" onclick="hideCampaignPopup()">×</button>
     <div style="text-align:center;font-size:28px;margin-bottom:8px">🇳🇴⚽🇧🇷</div>
     <h2>Tippe-konkurranse!</h2>
-    <p class="subtitle" id="cpgSubtitle">Norge vs Brasil</p>
+    <p class="subtitle" id="cpgSubtitle">Brasil vs Norge</p>
     <div id="cpgCountdownWrap" style="text-align:center;margin-bottom:12px">
       <span style="font-size:11px;color:#4b7a5a;text-transform:uppercase;letter-spacing:.08em">Kampstart om </span>
       <span id="campaignCountdown" style="font-size:15px;font-weight:700;color:#34d399;font-family:monospace"></span>
@@ -2526,7 +2526,7 @@ function cpgAdminSearchEntries(){
 <div id="campaignAdminPanel">
   <div class="cpg-admin-wrap">
     <div class="cpg-admin-header">
-      <div style="font-size:16px;font-weight:700;color:#d1fae5">⚽ Kampanje-admin – Norge vs Brasil</div>
+      <div style="font-size:16px;font-weight:700;color:#d1fae5">⚽ Kampanje-admin – Brasil vs Norge</div>
       <button onclick="document.getElementById('campaignAdminPanel').style.display='none';history.pushState('',document.title,location.pathname+location.search)" style="background:none;border:none;font-size:20px;color:#6ee7b7;cursor:pointer">×</button>
     </div>
 
