@@ -1,5 +1,5 @@
-const CACHE = 'lp-v5';
-const STATIC = ['/app.html', '/manifest.json', '/favicon.svg', '/supabase.min.js', '/faq/index.html', '/hjelp/index.html'];
+const CACHE = 'lp-v6';
+const STATIC = ['/app.html', '/manifest.json', '/favicon.svg', '/supabase.min.js', '/leaflet.min.js', '/leaflet.min.css', '/faq/index.html', '/hjelp/index.html'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(STATIC)));
@@ -35,6 +35,7 @@ self.addEventListener('fetch', e => {
 
   // Cache-first for same-origin static assets and fonts
   if (url.pathname.startsWith('/assets/') || url.pathname === '/supabase.min.js' ||
+      url.pathname === '/leaflet.min.js' || url.pathname === '/leaflet.min.css' ||
       url.pathname === '/manifest.json' || url.pathname === '/favicon.svg' ||
       url.hostname.includes('fonts.gstatic')) {
     e.respondWith(
