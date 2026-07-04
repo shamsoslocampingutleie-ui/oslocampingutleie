@@ -69,7 +69,7 @@ Deno.serve(async (req) => {
 
   const { data: listing, error: listingErr } = await sb
     .from("listings")
-    .select("id,title,price_per_day,cleaning_fee,deposit,deposit_mode,instant_book,status,owner,cat")
+    .select("id,title,price_per_day,cleaning_fee,deposit,deposit_mode,instant_book,status,owner,category")
     .eq("id", listing_id)
     .single();
   if (listingErr || !listing) return err(404, "Annonsen ble ikke funnet.");
