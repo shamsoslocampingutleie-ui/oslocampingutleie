@@ -199,7 +199,47 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Case 3: Only one party is missing confirmation → send reminder
+    // Case 3: One party confirmed, other hasn't, and >7 days past end → auto-confirm missing + release
+    const oneConfirmed = b.host_confirmed_handover !== b.renter_confirmed_handover;
+    if (oneConfirmed) {
+      const endDate = new Date(b.to_date);
+      if (endDate < new Date(sevenDaysAgo)) {
+        console.log(`[auto-confirm] One party unconfirmed 7d+ past end for booking ${b.id}`);
+        await supabase
+          .from("bookings")
+          .update({
+            host_confirmed_handover: true,
+            renter_confirmed_handover: true,
+            status: "completed",
+          })
+          .eq("id", b.id);
+
+        await triggerRelease(b.id);
+        results.autoReleased++;
+
+        const [hostEmail, renterEmail] = await Promise.all([
+          getUserEmail(b.host_id),
+          getUserEmail(b.renter),
+        ]);
+        const listingTitle = (await supabase.from("listings").select("title").eq("id", b.listing_id).single()).data?.title ?? "leieforholdet";
+
+        if (hostEmail) {
+          await sendEmail(hostEmail, "Utbetaling frigitt automatisk", emailLayout("Utbetaling frigitt automatisk",
+            `<p>Leieperioden for <strong>${listingTitle}</strong> (${fmt(b.from_date)} – ${fmt(b.to_date)}) ble automatisk avsluttet. Utbetalingen er frigitt til din Stripe-konto.</p>
+            <a href="https://leieplattform.no" class="btn">Gå til Mine bookinger</a>`,
+          ));
+        }
+        if (renterEmail) {
+          await sendEmail(renterEmail, "Leieperioden er avsluttet", emailLayout("Leieperioden er avsluttet",
+            `<p>Leieperioden for <strong>${listingTitle}</strong> (${fmt(b.from_date)} – ${fmt(b.to_date)}) ble automatisk avsluttet.</p>
+            <a href="https://leieplattform.no" class="btn">Se mine bookinger</a>`,
+          ));
+        }
+        continue;
+      }
+    }
+
+    // Case 4: One or both missing confirmation, within 7 days → send reminder
     const listingRes = await supabase
       .from("listings")
       .select("title")
