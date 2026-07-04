@@ -8,6 +8,8 @@ import Stripe from "npm:stripe@17";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { sendEmail, emailLayout } from "../_shared/email.ts";
 
+const ADMIN_EMAIL = Deno.env.get("ADMIN_EMAIL") ?? "";
+
 const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY")!, {
   apiVersion: "2024-06-20",
 });
@@ -101,6 +103,26 @@ async function sendPaymentConfirmationEmails(bookingId: string, amountTotal: num
           <div class="info-box">
             <p>Har ingen av dere bekreftet innen 7 dager etter leieperiodens slutt, frigis utbetalingen automatisk.</p>
           </div>`,
+        ),
+      );
+    }
+
+    // Admin notification
+    if (ADMIN_EMAIL) {
+      await sendEmail(
+        ADMIN_EMAIL,
+        `Ny betalt booking — ${title}`,
+        emailLayout(
+          "Ny betalt booking",
+          `<p>En ny booking er betalt og klar for behandling.</p>
+          <div class="info-box">
+            <p><strong>Utstyr:</strong> ${title}</p>
+            <p><strong>Periode:</strong> ${fmt(booking.from_date)} – ${fmt(booking.to_date)}</p>
+            <p><strong>Totalt betalt:</strong> ${nok(amountTotal)}</p>
+            <p><strong>Leietaker:</strong> ${renterEmail ?? "ukjent"}</p>
+            <p><strong>Utleier:</strong> ${hostEmail ?? "ukjent"}</p>
+          </div>
+          <a href="https://leieplattform.no/app.html" class="btn">→ Gå til admin-panel</a>`,
         ),
       );
     }
