@@ -108,7 +108,7 @@ Deno.serve(async (req) => {
       renter_ip: ip,
       from_date,
       to_date,
-      status: listing.instant_book ? "accepted" : "pending",
+      status: listing.instant_book ? "pending_payment" : "pending",
       wants_transport: !!wants_transport,
     })
     .select("id")

@@ -192,6 +192,7 @@ Deno.serve(async (req) => {
           .from("bookings")
           .update({
             paid: true,
+            status: "accepted",
             payment_intent_id: piId || "",
             amount_total: amountTotal,
             platform_fee: platformFee,
