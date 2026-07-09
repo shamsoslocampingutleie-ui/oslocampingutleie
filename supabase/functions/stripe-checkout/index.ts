@@ -40,7 +40,11 @@ Deno.serve(async (req) => {
     }
     const userId = userData.user.id;
 
-    const { bookingId, successUrl, cancelUrl, discountCode, transportFee: reqTransportFee } = await req.json();
+    // Rate limit: 10 checkout attempts per user per 5 minutes
+    if (!await checkRateLimit(req, 10, 300_000)) return rateLimitResponse();
+
+    // Only use bookingId, successUrl, cancelUrl, discountCode from client — never trust amounts
+    const { bookingId, successUrl, cancelUrl, discountCode } = await req.json();
     if (!bookingId) {
       return new Response(JSON.stringify({ error: "bookingId required" }), {
         status: 400,
@@ -153,9 +157,9 @@ Deno.serve(async (req) => {
     const deposit = listing.deposit_mode !== "incident"
       ? Number(listing.deposit || 0)
       : 0;
-    // Transport fee: from request body (frontend validates against booking.wants_transport)
-    const transportFeeAmount = booking.wants_transport && reqTransportFee && reqTransportFee > 0
-      ? Math.round(Number(reqTransportFee))
+    // Transport fee: always from DB listing, never trusted from client
+    const transportFeeAmount = booking.wants_transport && Number(listing.transport_fee || 0) > 0
+      ? Math.round(Number(listing.transport_fee))
       : 0;
     const amountTotal = rentAfterDiscount + serviceFee + cleaningFee + deposit + transportFeeAmount;
     // Platform fee = 7% from renter + 10% from host = 17% of rent. Host gets 90%.
@@ -211,7 +215,7 @@ Deno.serve(async (req) => {
         platform_fee_ore: String(platformFeeOre),
         discount_code: discountCode ?? "",
         discount_pct: String(discountPct),
-        transport_fee: String(transportFeeAmount),
+        transport_fee_ore: String(Math.round(transportFeeAmount * 100)),
       },
       success_url: successUrl || fallback,
       cancel_url: cancelUrl || fallback,

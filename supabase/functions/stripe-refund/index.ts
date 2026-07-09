@@ -47,6 +47,9 @@ Deno.serve(async (req) => {
     }
     const userId = userData.user.id;
 
+    // Rate limit: 5 refund attempts per user per 5 minutes
+    if (!await checkRateLimit(req, 5, 300_000)) return rateLimitResponse();
+
     const { bookingId } = await req.json();
     if (!bookingId) {
       return new Response(JSON.stringify({ error: "bookingId required" }), {

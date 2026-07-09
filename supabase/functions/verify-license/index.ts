@@ -13,7 +13,7 @@ const ADMIN_EMAIL = Deno.env.get("ADMIN_EMAIL") ?? "kundeservice@oslocampingutle
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-  if (!checkRateLimit(req, 5, 60_000)) return rateLimitResponse();
+  if (!await checkRateLimit(req, 5, 60_000)) return rateLimitResponse();
 
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -23,20 +23,43 @@ Deno.serve(async (req) => {
 
   try {
     const { imageUrl, type = "license" } = await req.json();
-    if (!imageUrl || typeof imageUrl !== "string") return new Response(JSON.stringify({ error: "imageUrl required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    if (!imageUrl || typeof imageUrl !== "string" || imageUrl.length > 2000) {
+      return new Response(JSON.stringify({ error: "imageUrl required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    // SSRF protection: only allow images from our own Supabase storage
+    try {
+      const parsed = new URL(imageUrl);
+      const supabaseHost = new URL(Deno.env.get("SUPABASE_URL")!).hostname;
+      if (parsed.hostname !== supabaseHost && !parsed.hostname.endsWith(".supabase.co")) {
+        return new Response(JSON.stringify({ error: "Invalid image source" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      if (parsed.protocol !== "https:") {
+        return new Response(JSON.stringify({ error: "HTTPS required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+    } catch {
+      return new Response(JSON.stringify({ error: "Invalid imageUrl" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
 
     const imgRes = await fetch(imageUrl);
     if (!imgRes.ok) return new Response(JSON.stringify({ error: "Could not fetch image" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
     const contentType = imgRes.headers.get("content-type") || "image/jpeg";
     const allowed = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-    const mediaType = (allowed.includes(contentType) ? contentType : "image/jpeg") as "image/jpeg" | "image/png" | "image/webp" | "image/gif";
+    if (!allowed.some(t => contentType.startsWith(t))) {
+      return new Response(JSON.stringify({ error: "Unsupported image type" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    const mediaType = (allowed.find(t => contentType.startsWith(t)) ?? "image/jpeg") as "image/jpeg" | "image/png" | "image/webp" | "image/gif";
     const buffer = await imgRes.arrayBuffer();
+    // Reject images > 15 MB to prevent memory exhaustion
+    if (buffer.byteLength > 15 * 1024 * 1024) {
+      return new Response(JSON.stringify({ error: "Image too large (max 15 MB)" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
     const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
 
     const isIdentity = type === "identity";
+    const isHostId = type === "host_id";
 
-    const prompt = isIdentity
+    const prompt = (isIdentity || isHostId)
       ? `Du er et dokumentverifiseringssystem. Analyser dette bildet og avgjør om det er et gyldig identitetsdokument.
 
 Godkjente dokumenter:
@@ -76,21 +99,30 @@ Respond ONLY with valid JSON:
     try { result = JSON.parse(rawText); }
     catch { return new Response(JSON.stringify({ error: "Analyse feilet, prøv igjen." }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }); }
 
-    const verified = isIdentity
+    const verified = (isIdentity || isHostId)
       ? result.isValid === true && (result.confidence === "high" || result.confidence === "medium")
       : result.isDriversLicense === true && result.isEuropean === true && (result.confidence === "high" || result.confidence === "medium");
 
     // Hent brukerinfo for admin-varselet
     const { data: profile } = await supabase.from("profiles").select("full_name, email").eq("id", user.id).single();
 
-    // Lagre resultat + doc_type + AI-verdict (admin_reviewed = false = trenger gjennomgang)
-    await supabase.from("profiles").update({
-      drivers_license_verified: verified,
-      drivers_license_ai_result: verified,
-      drivers_license_admin_reviewed: false,
-      drivers_license_doc_type: type,
-      drivers_license_country: (result.country ?? result.documentType ?? null) as string | null,
-    }).eq("id", user.id);
+    if (isHostId) {
+      // Host identity: save to host_id_ai_* fields (NOT drivers_license_*)
+      await supabase.from("profiles").update({
+        host_id_ai_result: verified,
+        host_id_ai_confidence: (result.confidence ?? null) as string | null,
+        host_id_ai_reason: (result.reason ?? null) as string | null,
+      }).eq("id", user.id);
+    } else {
+      // Renter license or identity: save to drivers_license_* fields
+      await supabase.from("profiles").update({
+        drivers_license_verified: verified,
+        drivers_license_ai_result: verified,
+        drivers_license_admin_reviewed: false,
+        drivers_license_doc_type: type,
+        drivers_license_country: (result.country ?? result.documentType ?? null) as string | null,
+      }).eq("id", user.id);
+    }
 
     // Send e-post til admin
     const docLabel = isIdentity ? "ID-dokument" : "Førerkort";
