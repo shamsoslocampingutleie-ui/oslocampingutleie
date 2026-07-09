@@ -2165,7 +2165,7 @@ function applyCampaignConfig(){
     sub.textContent=campaign.matchTeams+' · '+dateStr;
   }
   var alreadySubmitted=false;try{alreadySubmitted=!!localStorage.getItem('lp_campaign_submitted');}catch(e){}
-  if(campaign.footballRain&&!alreadySubmitted)startFootballRain();else stopFootballRain();
+  stopFootballRain();
   if(campaign.countdown)startCountdown();else stopCountdown();
   if(campaign.popup&&campaign.competitionOpen&&!alreadySubmitted){
     setTimeout(showCampaignPopup,3000);
