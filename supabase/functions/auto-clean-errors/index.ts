@@ -41,7 +41,7 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
-  if (!(await checkRateLimit(req, 5, 3_600_000))) return rateLimitResponse();
+  if (!(await checkRateLimit(req, 5, 3_600_000))) return rateLimitResponse(corsHeaders);
 
   try {
     const results = { deletedOld: 0, deletedDuplicates: 0, deletedLicenseDocs: 0, deletedLicenseFiles: 0 };

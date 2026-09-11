@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { checkRateLimit, rateLimitResponse } from "../_shared/rateLimit.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -37,6 +38,10 @@ Deno.serve(async (req) => {
   }
 
   const { password, action } = body as { password?: string; action?: string };
+
+  // Rate limit password attempts before checking it, so it can't be brute-forced:
+  // 5 attempts per IP per 5 minutes, regardless of whether the password is correct.
+  if (!await checkRateLimit(req, 5, 300_000)) return rateLimitResponse(CORS);
 
   // Auth check
   if (!adminPassword || password !== adminPassword) {

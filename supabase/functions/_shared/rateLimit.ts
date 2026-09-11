@@ -34,9 +34,15 @@ export async function checkRateLimit(
   return data === true;
 }
 
-export function rateLimitResponse(): Response {
+export function rateLimitResponse(
+  corsHeaders: Record<string, string> = {},
+): Response {
   return new Response(JSON.stringify({ error: "Too many requests" }), {
     status: 429,
-    headers: { "Content-Type": "application/json", "Retry-After": "60" },
+    headers: {
+      ...corsHeaders,
+      "Content-Type": "application/json",
+      "Retry-After": "60",
+    },
   });
 }

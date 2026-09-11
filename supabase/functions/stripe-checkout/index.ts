@@ -41,7 +41,7 @@ Deno.serve(async (req) => {
     const userId = userData.user.id;
 
     // Rate limit: 10 checkout attempts per user per 5 minutes
-    if (!await checkRateLimit(req, 10, 300_000)) return rateLimitResponse();
+    if (!await checkRateLimit(req, 10, 300_000)) return rateLimitResponse(corsHeaders);
 
     // Only use bookingId, successUrl, cancelUrl, discountCode from client — never trust amounts
     const { bookingId, successUrl, cancelUrl, discountCode } = await req.json();

@@ -5,6 +5,14 @@
 const FROM = Deno.env.get("FROM_EMAIL") ?? "Leieplattform <noreply@leieplattform.no>";
 const RESEND_KEY = Deno.env.get("RESEND_API_KEY") ?? "";
 
+export function escapeHtml(s: unknown): string {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 export async function sendEmail(
   to: string,
   subject: string,

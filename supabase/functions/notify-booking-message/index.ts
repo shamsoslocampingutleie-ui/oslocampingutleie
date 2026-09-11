@@ -1,6 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
-import { sendEmail, emailLayout } from "../_shared/email.ts";
+import { sendEmail, emailLayout, escapeHtml } from "../_shared/email.ts";
 import { insertNotification } from "../_shared/notify.ts";
 import { checkRateLimit, rateLimitResponse } from "../_shared/rateLimit.ts";
 
@@ -25,7 +25,7 @@ Deno.serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
-  if (!(await checkRateLimit(req, 20, 60_000))) return rateLimitResponse();
+  if (!(await checkRateLimit(req, 20, 60_000))) return rateLimitResponse(corsHeaders);
 
   try {
     const authHeader = req.headers.get("Authorization") ?? "";
@@ -70,10 +70,23 @@ Deno.serve(async (req) => {
         .eq("id", booking.listing_id)
         .single();
 
-      const preview = (messageText ?? "").slice(0, 200);
+      // senderRole is client-supplied — verify the caller is actually a
+      // party to this booking before sending email/push "on their behalf".
+      const callerId = userData.user.id;
+      const callerIsRenter = booking.renter === callerId;
+      const callerIsHost = listing?.owner === callerId;
+      if (!callerIsRenter && !callerIsHost) {
+        return new Response(JSON.stringify({ error: "Forbidden" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const preview = escapeHtml((messageText ?? "").slice(0, 200));
+      const safeSenderName = escapeHtml(senderName || "Bruker");
       const appUrl = "https://leieplattform.no";
 
-      if (senderRole === "renter" || senderRole === "user") {
+      if (callerIsRenter) {
         // Renter sent → notify host
         const { data: hostUser } = await supabase.auth.admin.getUserById(
           listing?.owner ?? "",
@@ -82,10 +95,10 @@ Deno.serve(async (req) => {
         if (hostEmail) {
           await sendEmail(
             hostEmail,
-            `Ny melding fra ${senderName} — ${listing?.title ?? "booking"}`,
+            `Ny melding fra ${safeSenderName} — ${listing?.title ?? "booking"}`,
             emailLayout(
               "Du har fått en melding 📬",
-              `<p><strong>${senderName}</strong> har sendt deg en melding angående <strong>${listing?.title ?? "annonsen din"}</strong>:</p>
+              `<p><strong>${safeSenderName}</strong> har sendt deg en melding angående <strong>${listing?.title ?? "annonsen din"}</strong>:</p>
               <div class="info-box">
                 <p style="font-style:italic">"${preview}"</p>
               </div>
@@ -95,7 +108,7 @@ Deno.serve(async (req) => {
           );
         }
         if (listing?.owner) {
-          const t = `Ny melding fra ${senderName}`;
+          const t = `Ny melding fra ${safeSenderName}`;
           const b = `"${preview.slice(0, 80)}"`;
           await insertNotification(supabase, listing.owner, "chat_message", t, b,
             { bookingId, listingTitle: listing.title });
@@ -104,7 +117,6 @@ Deno.serve(async (req) => {
       } else {
         // Host sent → notify renter
         const renterEmail = booking.renter_email;
-        const renterName = booking.renter_name ?? "Leietaker";
         if (renterEmail) {
           await sendEmail(
             renterEmail,

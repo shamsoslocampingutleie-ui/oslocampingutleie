@@ -36,7 +36,7 @@ function sanitizeCyrillic(text: string): string {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
-  if (!(await checkRateLimit(req, 10, 60_000))) return rateLimitResponse();
+  if (!(await checkRateLimit(req, 10, 60_000))) return rateLimitResponse(corsHeaders);
 
   const authHeader = req.headers.get("Authorization") ?? "";
   const { data: { user }, error: authErr } = await supabase.auth.getUser(

@@ -18,23 +18,34 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Accept service-role key OR valid user JWT
+    // Accept service-role key OR a valid user JWT. A JWT caller may only
+    // push-notify themselves — otherwise any logged-in user could send
+    // arbitrary notification text to any other user by passing their id.
     const auth = req.headers.get("Authorization") ?? "";
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-    if (!auth.includes(serviceKey)) {
-      const { error } = await supabase.auth.getUser(auth.replace("Bearer ", ""));
-      if (error) {
+    const isServiceRole = auth.includes(serviceKey);
+    let callerId: string | null = null;
+    if (!isServiceRole) {
+      const { data, error } = await supabase.auth.getUser(auth.replace("Bearer ", ""));
+      if (error || !data?.user) {
         return new Response(JSON.stringify({ error: "Unauthorized" }), {
           status: 401,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+      callerId = data.user.id;
     }
 
     const { userId, title, body, url } = await req.json();
     if (!userId || !title || !body) {
       return new Response(JSON.stringify({ error: "Missing fields" }), {
         status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (!isServiceRole && userId !== callerId) {
+      return new Response(JSON.stringify({ error: "Forbidden" }), {
+        status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

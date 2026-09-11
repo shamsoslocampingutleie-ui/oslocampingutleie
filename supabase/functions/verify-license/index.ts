@@ -1,7 +1,7 @@
 import Anthropic from "npm:@anthropic-ai/sdk";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
-import { sendEmail } from "../_shared/email.ts";
+import { sendEmail, escapeHtml } from "../_shared/email.ts";
 import { checkRateLimit, rateLimitResponse } from "../_shared/rateLimit.ts";
 
 const supabase = createClient(
@@ -13,7 +13,7 @@ const ADMIN_EMAIL = Deno.env.get("ADMIN_EMAIL") ?? "kundeservice@oslocampingutle
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-  if (!await checkRateLimit(req, 5, 60_000)) return rateLimitResponse();
+  if (!await checkRateLimit(req, 5, 60_000)) return rateLimitResponse(corsHeaders);
 
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -140,11 +140,11 @@ Respond ONLY with valid JSON:
 <tr><td style="padding:28px;">
 <h2 style="margin:0 0 16px;font-size:20px;color:#14512E;">Ny ID-opplasting krever gjennomgang</h2>
 <table cellspacing="0" cellpadding="0" border="0" width="100%" style="background:#F6FAF7;border-radius:12px;padding:16px;margin-bottom:20px;">
-<tr><td style="padding:4px 0;font-size:14px;color:#3D4A41;"><b>Bruker:</b> ${userName}</td></tr>
-<tr><td style="padding:4px 0;font-size:14px;color:#3D4A41;"><b>E-post:</b> ${profile?.email || user.email}</td></tr>
-<tr><td style="padding:4px 0;font-size:14px;color:#3D4A41;"><b>Dokumenttype:</b> ${docLabel}</td></tr>
-<tr><td style="padding:4px 0;font-size:14px;color:#3D4A41;"><b>AI-vurdering:</b> ${aiLabel} (${result.confidence || "?"})</td></tr>
-<tr><td style="padding:4px 0;font-size:14px;color:#3D4A41;"><b>Grunn (AI):</b> ${result.reason || "-"}</td></tr>
+<tr><td style="padding:4px 0;font-size:14px;color:#3D4A41;"><b>Bruker:</b> ${escapeHtml(userName)}</td></tr>
+<tr><td style="padding:4px 0;font-size:14px;color:#3D4A41;"><b>E-post:</b> ${escapeHtml(profile?.email || user.email)}</td></tr>
+<tr><td style="padding:4px 0;font-size:14px;color:#3D4A41;"><b>Dokumenttype:</b> ${escapeHtml(docLabel)}</td></tr>
+<tr><td style="padding:4px 0;font-size:14px;color:#3D4A41;"><b>AI-vurdering:</b> ${escapeHtml(aiLabel)} (${escapeHtml(result.confidence || "?")})</td></tr>
+<tr><td style="padding:4px 0;font-size:14px;color:#3D4A41;"><b>Grunn (AI):</b> ${escapeHtml(result.reason || "-")}</td></tr>
 </table>
 <p style="margin:0 0 8px;font-size:14px;color:#3D4A41;">Se bildet og godkjenn eller avvis i admin-panelet:</p>
 <table cellspacing="0" cellpadding="0" border="0"><tr><td style="background:#14512E;border-radius:999px;">

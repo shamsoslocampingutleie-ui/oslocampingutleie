@@ -79,11 +79,14 @@ Deno.serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
-  // Only allow service role calls (legacy JWT or new sb_secret_ format)
+  // Only allow service role calls (legacy JWT or new sb_secret_ format).
+  // sb_publishable_ is the new name for the PUBLIC anon key — it must never
+  // grant access here, or anyone holding the public key (everyone) could
+  // trigger privileged payout-release/reminder logic on demand.
   const auth = req.headers.get("Authorization") ?? "";
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
   const isLegacyKey = serviceKey && auth.includes(serviceKey);
-  const isNewKey = auth.startsWith("Bearer sb_secret_") || auth.startsWith("Bearer sb_publishable_");
+  const isNewKey = auth.startsWith("Bearer sb_secret_");
   if (!isLegacyKey && !isNewKey) {
     return new Response(JSON.stringify({ error: "Forbidden" }), {
       status: 403,

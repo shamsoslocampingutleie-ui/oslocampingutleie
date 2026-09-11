@@ -1,6 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
-import { sendEmail, emailLayout } from "../_shared/email.ts";
+import { sendEmail, emailLayout, escapeHtml } from "../_shared/email.ts";
 
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL")!,
@@ -26,7 +26,23 @@ Deno.serve(async (req) => {
 
     const { hostUserId, messageText, senderName, senderRole } = await req.json();
 
+    // senderRole is client-supplied — never trust it for authorization.
+    // Verify the caller's actual role/identity server-side before sending
+    // an email that claims to be "from Leieplattform" or from a named host.
+    const { data: callerProfile } = await supabase
+      .from("profiles")
+      .select("role, full_name")
+      .eq("id", userData.user.id)
+      .single();
+    const callerIsAdmin = callerProfile?.role === "admin";
+
     if (senderRole === "admin") {
+      if (!callerIsAdmin) {
+        return new Response(JSON.stringify({ error: "Forbidden" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
       // Admin sendte melding → varsle utleieren
       const { data: hostUser } = await supabase.auth.admin.getUserById(hostUserId);
       const hostEmail = hostUser?.user?.email;
@@ -38,7 +54,7 @@ Deno.serve(async (req) => {
             "Du har fått en melding 📬",
             `<p>Du har mottatt en direktemelding fra <strong>Leieplattform</strong>:</p>
             <div class="info-box">
-              <p style="font-style:italic">"${messageText}"</p>
+              <p style="font-style:italic">"${escapeHtml(messageText)}"</p>
             </div>
             <p>Logg inn for å svare direkte i meldingssystemet.</p>
             <a href="https://leieplattform.no" class="btn">Gå til Meldinger →</a>`,
@@ -46,6 +62,14 @@ Deno.serve(async (req) => {
         );
       }
     } else {
+      // Utleier svarte → verify the caller is actually the host being represented
+      if (userData.user.id !== hostUserId) {
+        return new Response(JSON.stringify({ error: "Forbidden" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const safeSenderName = escapeHtml(senderName || callerProfile?.full_name || "Utleier");
       // Utleier svarte → varsle alle admin-brukere
       const { data: admins } = await supabase
         .from("profiles")
@@ -58,12 +82,12 @@ Deno.serve(async (req) => {
         if (adminEmail) {
           await sendEmail(
             adminEmail,
-            `Svar fra ${senderName} — Leieplattform`,
+            `Svar fra ${safeSenderName} — Leieplattform`,
             emailLayout(
               "Ny melding fra utleier 📬",
-              `<p><strong>${senderName}</strong> har svart på din direktemelding:</p>
+              `<p><strong>${safeSenderName}</strong> har svart på din direktemelding:</p>
               <div class="info-box">
-                <p style="font-style:italic">"${messageText}"</p>
+                <p style="font-style:italic">"${escapeHtml(messageText)}"</p>
               </div>
               <a href="https://leieplattform.no" class="btn">Gå til Admin → Meldinger</a>`,
             ),
