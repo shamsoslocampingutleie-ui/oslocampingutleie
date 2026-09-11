@@ -17,7 +17,7 @@
 //   5. If BOTH are confirmed but payout not released → release now (failsafe).
 
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { sendEmail, emailLayout } from "../_shared/email.ts";
+import { sendEmail, emailLayout, escapeHtml } from "../_shared/email.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 import { insertNotification } from "../_shared/notify.ts";
 
@@ -171,7 +171,7 @@ Deno.serve(async (req) => {
           .select("title")
           .eq("id", b.listing_id)
           .single();
-        const title = listingRes.data?.title ?? "leieforholdet";
+        const title = escapeHtml(listingRes.data?.title ?? "leieforholdet");
 
         if (hostEmail) {
           await sendEmail(
@@ -224,7 +224,7 @@ Deno.serve(async (req) => {
           getUserEmail(b.host_id),
           getUserEmail(b.renter),
         ]);
-        const listingTitle = (await supabase.from("listings").select("title").eq("id", b.listing_id).single()).data?.title ?? "leieforholdet";
+        const listingTitle = escapeHtml((await supabase.from("listings").select("title").eq("id", b.listing_id).single()).data?.title ?? "leieforholdet");
 
         if (hostEmail) {
           await sendEmail(hostEmail, "Utbetaling frigitt automatisk", emailLayout("Utbetaling frigitt automatisk",
@@ -248,7 +248,7 @@ Deno.serve(async (req) => {
       .select("title")
       .eq("id", b.listing_id)
       .single();
-    const title = listingRes.data?.title ?? "leieforholdet";
+    const title = escapeHtml(listingRes.data?.title ?? "leieforholdet");
 
     if (!b.host_confirmed_handover) {
       const hostEmail = await getUserEmail(b.host_id);

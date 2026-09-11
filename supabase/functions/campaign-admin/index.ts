@@ -93,8 +93,10 @@ Deno.serve(async (req) => {
     let q = sb.from("campaign_entries").select("*").order(col, { ascending: dir });
 
     if (search?.trim()) {
-      const s = search.trim();
-      q = q.or(`name.ilike.%${s}%,email.ilike.%${s}%`);
+      // Strip characters that are structural in PostgREST's .or() filter
+      // grammar so a search term can't break out into extra clauses.
+      const s = search.trim().replace(/[,()]/g, "");
+      if (s) q = q.or(`name.ilike.%${s}%,email.ilike.%${s}%`);
     }
     if (dateFrom) q = q.gte("created_at", dateFrom);
     if (dateTo) q = q.lte("created_at", dateTo);

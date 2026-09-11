@@ -1,3 +1,4 @@
+import { Webhook } from "npm:standardwebhooks@1.0.0";
 import { sendEmail, emailLayout } from "../_shared/email.ts";
 
 const corsHeaders = {
@@ -5,12 +6,34 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Set via `supabase secrets set SEND_EMAIL_HOOK_SECRET=...` using the secret
+// shown when enabling Authentication -> Hooks -> Send Email in the Supabase
+// dashboard. Until it's set, requests are accepted unverified (so email
+// keeps working) but a warning is logged on every call.
+const hookSecret = Deno.env.get("SEND_EMAIL_HOOK_SECRET");
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
+  const rawBody = await req.text();
+
+  if (hookSecret) {
+    try {
+      new Webhook(hookSecret).verify(rawBody, Object.fromEntries(req.headers));
+    } catch (e) {
+      console.error("[auth-email-hook] signature verification failed:", e);
+      return new Response(JSON.stringify({ error: "Invalid signature" }), { status: 401 });
+    }
+  } else {
+    console.warn(
+      "[auth-email-hook] SEND_EMAIL_HOOK_SECRET is not set — accepting this request WITHOUT verifying it came from Supabase. " +
+      "Configure the Send Email hook secret in Supabase Dashboard -> Authentication -> Hooks, then set it as an Edge Function secret to close this gap.",
+    );
+  }
+
   let payload: Record<string, unknown>;
   try {
-    payload = await req.json();
+    payload = JSON.parse(rawBody);
   } catch {
     return new Response(JSON.stringify({ error: "Invalid JSON" }), { status: 400 });
   }

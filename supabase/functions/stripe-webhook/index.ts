@@ -6,7 +6,7 @@
 //   account.updated
 import Stripe from "npm:stripe@17";
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { sendEmail, emailLayout } from "../_shared/email.ts";
+import { sendEmail, emailLayout, escapeHtml } from "../_shared/email.ts";
 
 const ADMIN_EMAIL = Deno.env.get("ADMIN_EMAIL") ?? "";
 
@@ -55,7 +55,7 @@ async function sendPaymentConfirmationEmails(bookingId: string, amountTotal: num
 
     const renterEmail = renterAuth.data?.user?.email;
     const hostEmail = hostAuth.data?.user?.email;
-    const title = listing?.title ?? "leieforholdet";
+    const title = escapeHtml(listing?.title ?? "leieforholdet");
     const hostPayout = nok(amountTotal - platformFee);
 
     // Email to RENTER: payment confirmed
@@ -119,8 +119,8 @@ async function sendPaymentConfirmationEmails(bookingId: string, amountTotal: num
             <p><strong>Utstyr:</strong> ${title}</p>
             <p><strong>Periode:</strong> ${fmt(booking.from_date)} – ${fmt(booking.to_date)}</p>
             <p><strong>Totalt betalt:</strong> ${nok(amountTotal)}</p>
-            <p><strong>Leietaker:</strong> ${renterEmail ?? "ukjent"}</p>
-            <p><strong>Utleier:</strong> ${hostEmail ?? "ukjent"}</p>
+            <p><strong>Leietaker:</strong> ${escapeHtml(renterEmail ?? "ukjent")}</p>
+            <p><strong>Utleier:</strong> ${escapeHtml(hostEmail ?? "ukjent")}</p>
           </div>
           <a href="https://leieplattform.no/app.html" class="btn">→ Gå til admin-panel</a>`,
         ),

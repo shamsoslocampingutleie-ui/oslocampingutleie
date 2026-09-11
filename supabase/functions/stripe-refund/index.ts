@@ -10,7 +10,7 @@ import Stripe from "npm:stripe@17";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 import { checkRateLimit, rateLimitResponse } from "../_shared/rateLimit.ts";
-import { sendEmail, emailLayout } from "../_shared/email.ts";
+import { sendEmail, emailLayout, escapeHtml } from "../_shared/email.ts";
 
 const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY")!, {
   apiVersion: "2024-06-20",
@@ -179,7 +179,7 @@ Deno.serve(async (req) => {
         supabase.auth.admin.getUserById(booking.host_id),
       ]);
 
-      const title = listing?.title ?? "leieforholdet";
+      const title = escapeHtml(listing?.title ?? "leieforholdet");
       const fromFmt = fmt(booking.from_date);
       const toFmt = fmt(booking.to_date);
 

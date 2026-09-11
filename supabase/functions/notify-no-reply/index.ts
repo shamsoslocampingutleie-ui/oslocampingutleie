@@ -13,7 +13,7 @@
 //   3. Reminders are only sent ONCE per event (uses a `reminded_at` flag or checks messages table)
 
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { sendEmail, emailLayout } from "../_shared/email.ts";
+import { sendEmail, emailLayout, escapeHtml } from "../_shared/email.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 
 const supabase = createClient(
@@ -82,10 +82,10 @@ Deno.serve(async (req) => {
         `Påminnelse: Du har en ubesvart bookingforespørsel`,
         emailLayout(
           "Ubesvart leieforespørsel ⏰",
-          `<p><strong>${b.renter_name}</strong> sendte en leieforespørsel for <strong>${listing?.title ?? "annonsen din"}</strong> for over 12 timer siden.</p>
+          `<p><strong>${escapeHtml(b.renter_name)}</strong> sendte en leieforespørsel for <strong>${escapeHtml(listing?.title ?? "annonsen din")}</strong> for over 12 timer siden.</p>
           <div class="info-box">
             <p><strong>Periode:</strong> ${fmt(b.from_date)} → ${fmt(b.to_date)}</p>
-            <p><strong>Leietaker:</strong> ${b.renter_name}</p>
+            <p><strong>Leietaker:</strong> ${escapeHtml(b.renter_name)}</p>
           </div>
           <p>Logg inn og godkjenn eller avslå forespørselen. Leietakere booker hos den utleieren som svarer raskest.</p>
           <a href="${APP_URL}" class="btn">Svar på forespørsel →</a>`,
@@ -143,7 +143,9 @@ Deno.serve(async (req) => {
         .eq("id", booking.listing_id)
         .single();
 
-      const preview = (msg.text ?? "").slice(0, 120);
+      const preview = escapeHtml((msg.text ?? "").slice(0, 120));
+      const safeSenderName = escapeHtml(msg.sender_name);
+      const safeTitle = escapeHtml(listing?.title ?? "annonsen din");
 
       if (msg.sender_role === "renter" || msg.sender_role === "user") {
         // Renter sent last → remind host
@@ -154,7 +156,7 @@ Deno.serve(async (req) => {
           `Påminnelse: Ubesvart melding fra ${msg.sender_name}`,
           emailLayout(
             "Du har en ubesvart melding ⏰",
-            `<p><strong>${msg.sender_name}</strong> sendte deg en melding for over 12 timer siden angående <strong>${listing?.title ?? "annonsen din"}</strong>:</p>
+            `<p><strong>${safeSenderName}</strong> sendte deg en melding for over 12 timer siden angående <strong>${safeTitle}</strong>:</p>
             <div class="info-box">
               <p style="font-style:italic">"${preview}${msg.text?.length > 120 ? "..." : ""}"</p>
             </div>
@@ -172,7 +174,7 @@ Deno.serve(async (req) => {
           `Påminnelse: Utleier har sendt deg en melding`,
           emailLayout(
             "Ubesvart melding fra utleier ⏰",
-            `<p>Utleier har sendt deg en melding angående <strong>${listing?.title ?? "annonsen"}</strong> for over 12 timer siden:</p>
+            `<p>Utleier har sendt deg en melding angående <strong>${escapeHtml(listing?.title ?? "annonsen")}</strong> for over 12 timer siden:</p>
             <div class="info-box">
               <p style="font-style:italic">"${preview}${msg.text?.length > 120 ? "..." : ""}"</p>
             </div>
