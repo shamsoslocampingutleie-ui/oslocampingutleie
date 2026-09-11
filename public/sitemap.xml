@@ -44,4 +44,15 @@
   <url><loc>https://leieplattform.no/leie-tilhenger-oslo</loc><lastmod>2026-06-24</lastmod><changefreq>weekly</changefreq><priority>0.6</priority></url>
   <url><loc>https://leieplattform.no/leie-tilhenger-bergen</loc><lastmod>2026-06-24</lastmod><changefreq>weekly</changefreq><priority>0.6</priority></url>
   <url><loc>https://leieplattform.no/leie-tilhenger-trondheim</loc><lastmod>2026-06-24</lastmod><changefreq>weekly</changefreq><priority>0.6</priority></url>
+
+  <!-- Maskiner -->
+  <url><loc>https://leieplattform.no/leie-maskiner-oslo</loc><lastmod>2026-09-11</lastmod><changefreq>weekly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://leieplattform.no/leie-maskiner-bergen</loc><lastmod>2026-09-11</lastmod><changefreq>weekly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://leieplattform.no/leie-maskiner-trondheim</loc><lastmod>2026-09-11</lastmod><changefreq>weekly</changefreq><priority>0.6</priority></url>
+
+  <!-- Bli utleier (nye kategorier uten annonser ennå) -->
+  <url><loc>https://leieplattform.no/lei-ut-bat</loc><lastmod>2026-09-11</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://leieplattform.no/lei-ut-bil</loc><lastmod>2026-09-11</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://leieplattform.no/lei-ut-verktoy</loc><lastmod>2026-09-11</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://leieplattform.no/lei-ut-fritidsutstyr</loc><lastmod>2026-09-11</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
 </urlset>
