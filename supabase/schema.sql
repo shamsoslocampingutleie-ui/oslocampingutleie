@@ -177,6 +177,35 @@ create trigger bookings_set_updated_at
   before update on public.bookings
   for each row execute procedure public.set_updated_at();
 
+-- Prevent double-booking: block accepting a booking whose dates overlap
+-- another already-accepted booking on the same listing.
+create or replace function public.prevent_double_booking()
+returns trigger
+language plpgsql
+security definer
+as $$
+begin
+  if new.status = 'accepted' and (old is null or old.status is distinct from 'accepted') then
+    if exists (
+      select 1 from public.bookings b
+      where b.listing_id = new.listing_id
+        and b.id <> new.id
+        and b.status = 'accepted'
+        and b.from_date < new.to_date
+        and b.to_date > new.from_date
+    ) then
+      raise exception 'DOUBLE_BOOKING: Denne perioden er allerede akseptert for en annen leietaker.';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_prevent_double_booking on public.bookings;
+create trigger trg_prevent_double_booking
+  before insert or update on public.bookings
+  for each row execute function public.prevent_double_booking();
+
 -- 5) Row Level Security (RLS)
 alter table public.profiles enable row level security;
 alter table public.listings enable row level security;

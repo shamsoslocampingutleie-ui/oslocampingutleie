@@ -188,7 +188,7 @@ Deno.serve(async (req) => {
           .single();
         const alreadyPaid = existingBooking?.paid === true;
 
-        await supabase
+        const { error: updateErr } = await supabase
           .from("bookings")
           .update({
             paid: true,
@@ -200,8 +200,62 @@ Deno.serve(async (req) => {
           })
           .eq("id", bookingId);
 
-        // Only send emails once — guard against webhook replay
-        if (!alreadyPaid) {
+        if (updateErr) {
+          // The renter has already been charged, but the booking could not be
+          // confirmed (most likely: another renter's request for the same
+          // dates was accepted first — see prevent_double_booking trigger).
+          // Refund immediately rather than leave them charged with nothing.
+          console.error("[webhook] Booking update failed after payment:", updateErr.message);
+          try {
+            if (piId) {
+              await stripe.refunds.create({ payment_intent: piId, reason: "requested_by_customer" });
+            }
+            await supabase
+              .from("bookings")
+              .update({ status: "declined" })
+              .eq("id", bookingId)
+              .eq("status", "pending_payment");
+            const { data: failedBooking } = await supabase
+              .from("bookings")
+              .select("renter, listing_id, from_date, to_date")
+              .eq("id", bookingId)
+              .single();
+            if (failedBooking?.renter) {
+              const renterAuth = await supabase.auth.admin.getUserById(failedBooking.renter);
+              const renterEmail = renterAuth.data?.user?.email;
+              const { data: listingRow } = await supabase
+                .from("listings")
+                .select("title")
+                .eq("id", failedBooking.listing_id)
+                .single();
+              if (renterEmail) {
+                await sendEmail(
+                  renterEmail,
+                  "Bookingen kunne ikke bekreftes — du er refundert",
+                  emailLayout(
+                    "Beklager, denne perioden ble tatt av en annen",
+                    `<p>Noen andre rakk å bekrefte en booking for <strong>${escapeHtml(listingRow?.title ?? "utstyret")}</strong> i samme periode like før deg.</p>
+                    <p>Du er <strong>ikke belastet</strong> — betalingen på ${nok(amountTotal)} er refundert i sin helhet og vil vises på kontoen din innen få dager.</p>
+                    <a href="https://leieplattform.no" class="btn">Finn noe annet å leie →</a>`,
+                  ),
+                );
+              }
+            }
+            if (ADMIN_EMAIL) {
+              await sendEmail(
+                ADMIN_EMAIL,
+                "Dobbeltbooking forhindret — refundert automatisk",
+                emailLayout(
+                  "Dobbeltbooking forhindret",
+                  `<p>Booking <code>${escapeHtml(bookingId)}</code> ble betalt men kunne ikke bekreftes (${escapeHtml(updateErr.message)}). Betalingen er automatisk refundert til leietaker.</p>`,
+                ),
+              );
+            }
+          } catch (refundErr) {
+            console.error("[webhook] Auto-refund after failed booking update also failed:", refundErr);
+          }
+        } else if (!alreadyPaid) {
+          // Only send emails once — guard against webhook replay
           await sendPaymentConfirmationEmails(bookingId, amountTotal, platformFee);
         }
       }
