@@ -936,8 +936,8 @@ drop policy if exists "extras_read" on public.listing_extras;
 create policy "extras_read" on public.listing_extras for select using (true);
 drop policy if exists "extras_write" on public.listing_extras;
 create policy "extras_write" on public.listing_extras for all
-  using (auth.uid() in (select owner from public.listings where id = listing_id))
-  with check (auth.uid() in (select owner from public.listings where id = listing_id));
+  using (public.is_admin() or auth.uid() in (select owner from public.listings where id = listing_id))
+  with check (public.is_admin() or auth.uid() in (select owner from public.listings where id = listing_id));
 
 create table if not exists public.transport_options (
   id           uuid primary key default gen_random_uuid(),
@@ -956,8 +956,8 @@ drop policy if exists "transport_read" on public.transport_options;
 create policy "transport_read" on public.transport_options for select using (true);
 drop policy if exists "transport_write" on public.transport_options;
 create policy "transport_write" on public.transport_options for all
-  using (auth.uid() in (select owner from public.listings where id = listing_id))
-  with check (auth.uid() in (select owner from public.listings where id = listing_id));
+  using (public.is_admin() or auth.uid() in (select owner from public.listings where id = listing_id))
+  with check (public.is_admin() or auth.uid() in (select owner from public.listings where id = listing_id));
 
 create table if not exists public.booking_extras (
   id             uuid primary key default gen_random_uuid(),
