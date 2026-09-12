@@ -206,6 +206,48 @@ create trigger trg_prevent_double_booking
   before insert or update on public.bookings
   for each row execute function public.prevent_double_booking();
 
+-- Lock down financial/audit fields on bookings so only edge functions
+-- (service_role) or admins can set them — a renter/host issuing a raw
+-- client update could otherwise fake paid/accepted status, payouts,
+-- or refunds. See protect_profile_fields() for the same pattern.
+create or replace function public.protect_booking_fields()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if auth.role() = 'service_role' then
+    return new;
+  end if;
+  if public.is_admin() then
+    return new;
+  end if;
+  new.payment_intent_id := old.payment_intent_id;
+  new.paid := old.paid;
+  new.amount_total := old.amount_total;
+  new.platform_fee := old.platform_fee;
+  new.payout_released := old.payout_released;
+  new.transfer_id := old.transfer_id;
+  new.stripe_customer_details := old.stripe_customer_details;
+  new.refund_id := old.refund_id;
+  new.refund_amount := old.refund_amount;
+  new.cancelled_by := old.cancelled_by;
+  new.cancelled_at := old.cancelled_at;
+  new.renter_ip := old.renter_ip;
+  new.listing_id := old.listing_id;
+  new.renter := old.renter;
+  new.from_date := old.from_date;
+  new.to_date := old.to_date;
+  return new;
+end;
+$$;
+
+drop trigger if exists protect_booking_fields_trigger on public.bookings;
+create trigger protect_booking_fields_trigger
+  before update on public.bookings
+  for each row execute function public.protect_booking_fields();
+
 -- 5) Row Level Security (RLS)
 alter table public.profiles enable row level security;
 alter table public.listings enable row level security;
@@ -260,10 +302,29 @@ create policy "Renters can create bookings"
   on public.bookings for insert
   with check (renter = auth.uid());
 
+-- NOTE: an earlier version of this policy added a WITH CHECK clause
+-- with a subquery back onto bookings itself (comparing NEW to OLD
+-- per protected column) to stop renter/host from faking paid/status/
+-- payout fields. That pattern causes Postgres to raise "infinite
+-- recursion detected in policy for relation bookings" for every
+-- update a real renter or host makes (42P17) — it is not a viable
+-- pattern for self-referencing checks. Field protection now lives in
+-- protect_booking_fields() below (a BEFORE UPDATE trigger, which reads
+-- OLD/NEW directly with no RLS re-entry), so this policy only needs to
+-- gate row ownership.
+drop policy if exists "Renter can update own non-critical fields" on public.bookings;
+drop policy if exists "Host can update own listing bookings" on public.bookings;
 drop policy if exists "Renter or host can update bookings" on public.bookings;
-create policy "Renter or host can update bookings"
+create policy "bookings_update_owner"
   on public.bookings for update
   using (
+    renter = auth.uid()
+    or exists (
+      select 1 from public.listings l
+      where l.id = bookings.listing_id and l.owner = auth.uid()
+    )
+  )
+  with check (
     renter = auth.uid()
     or exists (
       select 1 from public.listings l
@@ -617,8 +678,16 @@ create policy messages_select on public.messages for select
 
 -- Manglet helt: uten denne feilet all "merk som lest" (read_at) stille,
 -- både i vanlig booking-chat og i admin sin direktemelding-varselprikk.
--- Begrenset med with_check til kun å tillate at read_at endres — alle
--- andre felt (innhold, avsender, flagging) må forbli uendret.
+--
+-- NOTE: the first version of this policy tried to lock every other
+-- column with a WITH CHECK subquery comparing NEW to OLD via
+-- "(select m.col from public.messages m where m.id = messages.id)".
+-- That pattern makes Postgres raise "infinite recursion detected in
+-- policy for relation messages" (42P17) on every single update — it
+-- silently broke this feature from the moment it was added. Field
+-- protection now lives in protect_message_fields() below (a trigger,
+-- which reads OLD/NEW directly with no RLS re-entry); this policy only
+-- gates who may touch the row at all.
 drop policy if exists messages_update on public.messages;
 create policy messages_update on public.messages for update
   using (
@@ -634,15 +703,47 @@ create policy messages_update on public.messages for update
     or (booking_id like 'direct-%' and booking_id = 'direct-' || auth.uid()::text)
   )
   with check (
-    booking_id is not distinct from (select m.booking_id from public.messages m where m.id = messages.id)
-    and sender_id is not distinct from (select m.sender_id from public.messages m where m.id = messages.id)
-    and sender_name is not distinct from (select m.sender_name from public.messages m where m.id = messages.id)
-    and sender_role is not distinct from (select m.sender_role from public.messages m where m.id = messages.id)
-    and text is not distinct from (select m.text from public.messages m where m.id = messages.id)
-    and flagged is not distinct from (select m.flagged from public.messages m where m.id = messages.id)
-    and flag_reason is not distinct from (select m.flag_reason from public.messages m where m.id = messages.id)
-    and created_at is not distinct from (select m.created_at from public.messages m where m.id = messages.id)
+    public.is_admin()
+    or exists (
+      select 1 from public.bookings b
+      where b.id::text = booking_id
+        and (
+          b.renter = auth.uid()
+          or exists (select 1 from public.listings l where l.id = b.listing_id and l.owner = auth.uid())
+        )
+    )
+    or (booking_id like 'direct-%' and booking_id = 'direct-' || auth.uid()::text)
   );
+
+create or replace function public.protect_message_fields()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if auth.role() = 'service_role' then
+    return new;
+  end if;
+  if public.is_admin() then
+    return new;
+  end if;
+  new.booking_id := old.booking_id;
+  new.sender_id := old.sender_id;
+  new.sender_name := old.sender_name;
+  new.sender_role := old.sender_role;
+  new.text := old.text;
+  new.flagged := old.flagged;
+  new.flag_reason := old.flag_reason;
+  new.created_at := old.created_at;
+  return new;
+end;
+$$;
+
+drop trigger if exists protect_message_fields_trigger on public.messages;
+create trigger protect_message_fields_trigger
+  before update on public.messages
+  for each row execute function public.protect_message_fields();
 
 create index if not exists messages_booking_id_idx2 on public.messages (booking_id);
 
