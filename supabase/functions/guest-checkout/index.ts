@@ -145,7 +145,7 @@ Deno.serve(async (req) => {
 
       const n = nights(from_date as string, to_date as string);
       const rent = Number(listing.price_per_day) * n;
-      const serviceFee = Math.round(rent * 0.07);
+      const serviceFee = Math.round(rent * 0.10);
       const cleaningFee = Number(listing.cleaning_fee || 0);
       const deposit = listing.deposit_mode !== "incident" ? Number(listing.deposit || 0) : 0;
       const amountTotal = rent + serviceFee + cleaningFee + deposit;
