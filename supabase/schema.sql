@@ -860,14 +860,21 @@ insert into storage.buckets (id, name, public)
   values ('booking-photos', 'booking-photos', false)
   on conflict (id) do nothing;
 
--- Tilgangspolicyer for drivers-license (kun eieren)
+-- Tilgangspolicyer for drivers-license (eieren + admin for verifisering)
 drop policy if exists "license_upload" on storage.objects;
 create policy "license_upload" on storage.objects for insert
   with check (bucket_id = 'drivers-license' and auth.uid()::text = (storage.foldername(name))[1]);
 
 drop policy if exists "license_read" on storage.objects;
 create policy "license_read" on storage.objects for select
-  using (bucket_id = 'drivers-license' and auth.uid()::text = (storage.foldername(name))[1]);
+  using (bucket_id = 'drivers-license' and (auth.uid()::text = (storage.foldername(name))[1] or public.is_admin()));
+
+-- Manglet helt: uten denne feilet sletting av ID-dokumenter stille både
+-- ved godkjenning/avvisning (admin) og når en bruker fjerner sitt eget
+-- opplastede førerkort — dokumentene ble aldri faktisk slettet.
+drop policy if exists "license_delete" on storage.objects;
+create policy "license_delete" on storage.objects for delete
+  using (bucket_id = 'drivers-license' and (auth.uid()::text = (storage.foldername(name))[1] or public.is_admin()));
 
 -- Tilgangspolicyer for booking-photos (partene i bookingen)
 drop policy if exists "booking_photos_upload" on storage.objects;
