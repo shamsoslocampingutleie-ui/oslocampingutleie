@@ -577,12 +577,42 @@ create policy messages_select on public.messages for select
     public.is_admin()
     or exists (
       select 1 from public.bookings b
-      where b.id = booking_id
+      where b.id::text = booking_id
         and (
           b.renter = auth.uid()
           or exists (select 1 from public.listings l where l.id = b.listing_id and l.owner = auth.uid())
         )
     )
+    or (booking_id like 'direct-%' and booking_id = 'direct-' || auth.uid()::text)
+  );
+
+-- Manglet helt: uten denne feilet all "merk som lest" (read_at) stille,
+-- både i vanlig booking-chat og i admin sin direktemelding-varselprikk.
+-- Begrenset med with_check til kun å tillate at read_at endres — alle
+-- andre felt (innhold, avsender, flagging) må forbli uendret.
+drop policy if exists messages_update on public.messages;
+create policy messages_update on public.messages for update
+  using (
+    public.is_admin()
+    or exists (
+      select 1 from public.bookings b
+      where b.id::text = booking_id
+        and (
+          b.renter = auth.uid()
+          or exists (select 1 from public.listings l where l.id = b.listing_id and l.owner = auth.uid())
+        )
+    )
+    or (booking_id like 'direct-%' and booking_id = 'direct-' || auth.uid()::text)
+  )
+  with check (
+    booking_id is not distinct from (select m.booking_id from public.messages m where m.id = messages.id)
+    and sender_id is not distinct from (select m.sender_id from public.messages m where m.id = messages.id)
+    and sender_name is not distinct from (select m.sender_name from public.messages m where m.id = messages.id)
+    and sender_role is not distinct from (select m.sender_role from public.messages m where m.id = messages.id)
+    and text is not distinct from (select m.text from public.messages m where m.id = messages.id)
+    and flagged is not distinct from (select m.flagged from public.messages m where m.id = messages.id)
+    and flag_reason is not distinct from (select m.flag_reason from public.messages m where m.id = messages.id)
+    and created_at is not distinct from (select m.created_at from public.messages m where m.id = messages.id)
   );
 
 create index if not exists messages_booking_id_idx2 on public.messages (booking_id);
