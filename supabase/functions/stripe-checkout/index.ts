@@ -152,19 +152,14 @@ Deno.serve(async (req) => {
     const n = nights(booking.from_date, booking.to_date);
     const rent = Number(listing.price_per_day) * n;
 
-    // Validate and apply discount code (format: OCU-XXXXXX-N, max 20%)
-    let discountPct = 0;
-    if (discountCode && typeof discountCode === "string") {
-      const m = discountCode.trim().toUpperCase().match(/^OCU-[A-Z0-9]{6}-(\d+)$/);
-      if (m) {
-        const pct = parseInt(m[1], 10);
-        if (pct >= 1 && pct <= 20) discountPct = pct;
-      }
-    }
-    const rentAfterDiscount = discountPct > 0
-      ? Math.round(rent * (1 - discountPct / 100))
-      : rent;
-    const discountAmount = rent - rentAfterDiscount;
+    // Discount codes are disabled: they were validated purely by a
+    // client-suppliable regex/percentage with no server-side issuance or
+    // redemption tracking, so any client could invent an arbitrary code
+    // (e.g. "OCU-AAAAAA-20") for a real discount. Re-enable only once codes
+    // are backed by a real table (code, pct, expiry, used state).
+    const discountPct = 0;
+    const rentAfterDiscount = rent;
+    const discountAmount = 0;
 
     const serviceFee = Math.round(rentAfterDiscount * 0.10); // 10% from renter
     const cleaningFee = Number(listing.cleaning_fee || 0);
