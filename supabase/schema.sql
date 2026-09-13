@@ -634,15 +634,22 @@ alter table public.bookings add column if not exists extra_charges jsonb not nul
 
 -- 21) Persistent chat messages between host and renter (off-platform
 --     contact detection + admin oversight happen in the app layer).
+-- NOTE: id is uuid and booking_id is plain text on the live table —
+-- this create-table statement is a no-op there (table already exists)
+-- and is kept here only for a fresh install. booking_id can't be a
+-- real FK to bookings(id) because it also holds the non-booking
+-- 'direct-<userId>' and 'inquiry:<listingId>:<renterId>' thread keys
+-- described where messages_select/insert/update are defined below.
 create table if not exists public.messages (
-  id bigint generated always as identity primary key,
-  booking_id uuid not null references public.bookings(id) on delete cascade,
+  id uuid primary key default gen_random_uuid(),
+  booking_id text not null,
   sender_id uuid not null references public.profiles(id) on delete cascade,
   sender_name text not null default '',
   sender_role text not null default 'renter',
   text text not null,
   flagged boolean not null default false,
   flag_reason text,
+  read_at timestamptz,
   created_at timestamptz not null default now()
 );
 alter table public.messages enable row level security;
