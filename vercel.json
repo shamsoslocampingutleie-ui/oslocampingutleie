@@ -1,191 +1,191 @@
 {
-  "rewrites": [
-    {
-      "source": "/listing/:id",
-      "destination": "/api/og?id=:id"
-    },
-    {
-      "source": "/((?!assets|favicon|app\\.html|sw\\.js|supabase\\.min\\.js|leaflet\\.min\\.js|leaflet\\.min\\.css|images|manifest\\.json|robots\\.txt|sitemap\\.xml|api|listing|leie-campingvogn-oslo|leie-campingvogn-bergen|leie-campingvogn-trondheim|leie-campingvogn-stavanger|leie-campingvogn-kristiansand|leie-campingvogn-jessheim|leie-campingvogn-gardermoen|leie-bobil-oslo|leie-bobil-bergen|leie-bobil-stavanger|leie-bobil-jessheim|leie-bobil-gardermoen|leie-campingvogn-drammen|leie-campingvogn-fredrikstad|leie-campingvogn-sandnes|leie-campingvogn-tromso|leie-campingvogn-sarpsborg|leie-campingvogn-skien|leie-campingvogn-alesund|leie-campingvogn-haugesund|leie-bobil-trondheim|leie-bobil-kristiansand|leie-bobil-tromso|leie-bobil-drammen|leie-bobil-fredrikstad|leie-bobil-alesund|leie-taktelt-oslo|leie-taktelt-bergen|leie-taktelt-stavanger|leie-tilhenger-oslo|leie-tilhenger-bergen|leie-tilhenger-trondheim|leie-maskiner-oslo|leie-maskiner-bergen|leie-maskiner-trondheim|lei-ut-bat|lei-ut-bil|lei-ut-verktoy|lei-ut-fritidsutstyr|faq|hjelp|lei-ut-campingvogn|bli-utleier|personvern).*)",
-      "destination": "/"
-    }
-  ],
-  "headers": [
-    {
-      "source": "/(.*)",
-      "headers": [
+    "rewrites": [
         {
-          "key": "X-Content-Type-Options",
-          "value": "nosniff"
+            "source": "/listing/:id",
+            "destination": "/api/og?id=:id"
         },
         {
-          "key": "X-Frame-Options",
-          "value": "SAMEORIGIN"
+            "source": "/((?!assets|favicon|app\\.html|sw\\.js|supabase\\.min\\.js|leaflet\\.min\\.js|leaflet\\.min\\.css|images|manifest\\.json|robots\\.txt|sitemap\\.xml|api|listing|leie-campingvogn-oslo|leie-campingvogn-bergen|leie-campingvogn-trondheim|leie-campingvogn-stavanger|leie-campingvogn-kristiansand|leie-campingvogn-jessheim|leie-campingvogn-gardermoen|leie-campingvogn-drammen|leie-campingvogn-fredrikstad|leie-campingvogn-sandnes|leie-campingvogn-tromso|leie-campingvogn-sarpsborg|leie-campingvogn-skien|leie-campingvogn-alesund|leie-campingvogn-haugesund|leie-bobil-oslo|leie-bobil-bergen|leie-bobil-trondheim|leie-bobil-stavanger|leie-bobil-kristiansand|leie-bobil-jessheim|leie-bobil-gardermoen|leie-bobil-drammen|leie-bobil-fredrikstad|leie-bobil-sandnes|leie-bobil-tromso|leie-bobil-sarpsborg|leie-bobil-skien|leie-bobil-alesund|leie-bobil-haugesund|leie-taktelt-oslo|leie-taktelt-bergen|leie-taktelt-trondheim|leie-taktelt-stavanger|leie-taktelt-kristiansand|leie-taktelt-jessheim|leie-taktelt-gardermoen|leie-taktelt-drammen|leie-taktelt-fredrikstad|leie-taktelt-sandnes|leie-taktelt-tromso|leie-taktelt-sarpsborg|leie-taktelt-skien|leie-taktelt-alesund|leie-taktelt-haugesund|leie-tilhenger-oslo|leie-tilhenger-bergen|leie-tilhenger-trondheim|leie-tilhenger-stavanger|leie-tilhenger-kristiansand|leie-tilhenger-jessheim|leie-tilhenger-gardermoen|leie-tilhenger-drammen|leie-tilhenger-fredrikstad|leie-tilhenger-sandnes|leie-tilhenger-tromso|leie-tilhenger-sarpsborg|leie-tilhenger-skien|leie-tilhenger-alesund|leie-tilhenger-haugesund|leie-maskiner-oslo|leie-maskiner-bergen|leie-maskiner-trondheim|leie-maskiner-stavanger|leie-maskiner-kristiansand|leie-maskiner-jessheim|leie-maskiner-gardermoen|leie-maskiner-drammen|leie-maskiner-fredrikstad|leie-maskiner-sandnes|leie-maskiner-tromso|leie-maskiner-sarpsborg|leie-maskiner-skien|leie-maskiner-alesund|leie-maskiner-haugesund|leie-bil-oslo|leie-bil-bergen|leie-bil-trondheim|leie-bil-stavanger|leie-bil-kristiansand|leie-bil-jessheim|leie-bil-gardermoen|leie-bil-drammen|leie-bil-fredrikstad|leie-bil-sandnes|leie-bil-tromso|leie-bil-sarpsborg|leie-bil-skien|leie-bil-alesund|leie-bil-haugesund|leie-bat-oslo|leie-bat-bergen|leie-bat-trondheim|leie-bat-stavanger|leie-bat-kristiansand|leie-bat-jessheim|leie-bat-gardermoen|leie-bat-drammen|leie-bat-fredrikstad|leie-bat-sandnes|leie-bat-tromso|leie-bat-sarpsborg|leie-bat-skien|leie-bat-alesund|leie-bat-haugesund|leie-verktoy-oslo|leie-verktoy-bergen|leie-verktoy-trondheim|leie-verktoy-stavanger|leie-verktoy-kristiansand|leie-verktoy-jessheim|leie-verktoy-gardermoen|leie-verktoy-drammen|leie-verktoy-fredrikstad|leie-verktoy-sandnes|leie-verktoy-tromso|leie-verktoy-sarpsborg|leie-verktoy-skien|leie-verktoy-alesund|leie-verktoy-haugesund|leie-fritidsutstyr-oslo|leie-fritidsutstyr-bergen|leie-fritidsutstyr-trondheim|leie-fritidsutstyr-stavanger|leie-fritidsutstyr-kristiansand|leie-fritidsutstyr-jessheim|leie-fritidsutstyr-gardermoen|leie-fritidsutstyr-drammen|leie-fritidsutstyr-fredrikstad|leie-fritidsutstyr-sandnes|leie-fritidsutstyr-tromso|leie-fritidsutstyr-sarpsborg|leie-fritidsutstyr-skien|leie-fritidsutstyr-alesund|leie-fritidsutstyr-haugesund|lei-ut-bat|lei-ut-bil|lei-ut-verktoy|lei-ut-fritidsutstyr|faq|hjelp|lei-ut-campingvogn|bli-utleier|personvern).*)",
+            "destination": "/"
+        }
+    ],
+    "headers": [
+        {
+            "source": "/(.*)",
+            "headers": [
+                {
+                    "key": "X-Content-Type-Options",
+                    "value": "nosniff"
+                },
+                {
+                    "key": "X-Frame-Options",
+                    "value": "SAMEORIGIN"
+                },
+                {
+                    "key": "Referrer-Policy",
+                    "value": "strict-origin-when-cross-origin"
+                },
+                {
+                    "key": "Permissions-Policy",
+                    "value": "geolocation=(self), camera=(), microphone=(), usb=(), payment=(self \"https://checkout.stripe.com\")"
+                },
+                {
+                    "key": "Strict-Transport-Security",
+                    "value": "max-age=63072000; includeSubDomains; preload"
+                },
+                {
+                    "key": "Content-Security-Policy",
+                    "value": "default-src 'self'; script-src 'self' 'unsafe-inline' js.stripe.com https://plausible.io https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src 'self' https://fonts.gstatic.com data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://api.resend.com https://tile.openstreetmap.org https://nominatim.openstreetmap.org https://ipapi.co https://ipinfo.io https://plausible.io https://cdn.jsdelivr.net https://fonts.googleapis.com https://fonts.gstatic.com; frame-src 'self' https://checkout.stripe.com https://js.stripe.com; img-src 'self' data: blob: https:; media-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self' https://checkout.stripe.com; frame-ancestors 'self'; upgrade-insecure-requests"
+                }
+            ]
         },
         {
-          "key": "Referrer-Policy",
-          "value": "strict-origin-when-cross-origin"
+            "source": "/assets/(.*)",
+            "headers": [
+                {
+                    "key": "Cache-Control",
+                    "value": "public, max-age=31536000, immutable"
+                }
+            ]
         },
         {
-          "key": "Permissions-Policy",
-          "value": "geolocation=(self), camera=(), microphone=(), usb=(), payment=(self \"https://checkout.stripe.com\")"
+            "source": "/supabase.min.js",
+            "headers": [
+                {
+                    "key": "Cache-Control",
+                    "value": "public, max-age=31536000, immutable"
+                }
+            ]
         },
         {
-          "key": "Strict-Transport-Security",
-          "value": "max-age=63072000; includeSubDomains; preload"
+            "source": "/favicon.svg",
+            "headers": [
+                {
+                    "key": "Cache-Control",
+                    "value": "public, max-age=31536000, immutable"
+                }
+            ]
         },
         {
-          "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' js.stripe.com https://plausible.io https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src 'self' https://fonts.gstatic.com data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://api.resend.com https://tile.openstreetmap.org https://nominatim.openstreetmap.org https://ipapi.co https://ipinfo.io https://plausible.io https://cdn.jsdelivr.net https://fonts.googleapis.com https://fonts.gstatic.com; frame-src 'self' https://checkout.stripe.com https://js.stripe.com; img-src 'self' data: blob: https:; media-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self' https://checkout.stripe.com; frame-ancestors 'self'; upgrade-insecure-requests"
-        }
-      ]
-    },
-    {
-      "source": "/assets/(.*)",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=31536000, immutable"
-        }
-      ]
-    },
-    {
-      "source": "/supabase.min.js",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=31536000, immutable"
-        }
-      ]
-    },
-    {
-      "source": "/favicon.svg",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=31536000, immutable"
-        }
-      ]
-    },
-    {
-      "source": "/leaflet.min.js",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=31536000, immutable"
-        }
-      ]
-    },
-    {
-      "source": "/leaflet.min.css",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=31536000, immutable"
-        }
-      ]
-    },
-    {
-      "source": "/images/(.*)",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=31536000, immutable"
-        }
-      ]
-    },
-    {
-      "source": "/icon-192.png",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=31536000, immutable"
-        }
-      ]
-    },
-    {
-      "source": "/icon-512.png",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=31536000, immutable"
-        }
-      ]
-    },
-    {
-      "source": "/og-image.jpg",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=2592000"
-        }
-      ]
-    },
-    {
-      "source": "/sw.js",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-cache"
-        }
-      ]
-    },
-    {
-      "source": "/manifest.json",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=86400"
-        }
-      ]
-    },
-    {
-      "source": "/app.html",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-store, no-cache, must-revalidate"
-        }
-      ]
-    },
-    {
-      "source": "/",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-store, no-cache, must-revalidate"
-        }
-      ]
-    },
-    {
-      "source": "/(hjelp|faq|bli-utleier|lei-ut-campingvogn|personvern)(.*)",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-store, no-cache, must-revalidate"
-        }
-      ]
-    },
-    {
-      "source": "/sitemap.xml",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=86400"
+            "source": "/leaflet.min.js",
+            "headers": [
+                {
+                    "key": "Cache-Control",
+                    "value": "public, max-age=31536000, immutable"
+                }
+            ]
         },
         {
-          "key": "Content-Type",
-          "value": "application/xml; charset=utf-8"
-        }
-      ]
-    },
-    {
-      "source": "/robots.txt",
-      "headers": [
+            "source": "/leaflet.min.css",
+            "headers": [
+                {
+                    "key": "Cache-Control",
+                    "value": "public, max-age=31536000, immutable"
+                }
+            ]
+        },
         {
-          "key": "Cache-Control",
-          "value": "public, max-age=86400"
+            "source": "/images/(.*)",
+            "headers": [
+                {
+                    "key": "Cache-Control",
+                    "value": "public, max-age=31536000, immutable"
+                }
+            ]
+        },
+        {
+            "source": "/icon-192.png",
+            "headers": [
+                {
+                    "key": "Cache-Control",
+                    "value": "public, max-age=31536000, immutable"
+                }
+            ]
+        },
+        {
+            "source": "/icon-512.png",
+            "headers": [
+                {
+                    "key": "Cache-Control",
+                    "value": "public, max-age=31536000, immutable"
+                }
+            ]
+        },
+        {
+            "source": "/og-image.jpg",
+            "headers": [
+                {
+                    "key": "Cache-Control",
+                    "value": "public, max-age=2592000"
+                }
+            ]
+        },
+        {
+            "source": "/sw.js",
+            "headers": [
+                {
+                    "key": "Cache-Control",
+                    "value": "no-cache"
+                }
+            ]
+        },
+        {
+            "source": "/manifest.json",
+            "headers": [
+                {
+                    "key": "Cache-Control",
+                    "value": "public, max-age=86400"
+                }
+            ]
+        },
+        {
+            "source": "/app.html",
+            "headers": [
+                {
+                    "key": "Cache-Control",
+                    "value": "no-store, no-cache, must-revalidate"
+                }
+            ]
+        },
+        {
+            "source": "/",
+            "headers": [
+                {
+                    "key": "Cache-Control",
+                    "value": "no-store, no-cache, must-revalidate"
+                }
+            ]
+        },
+        {
+            "source": "/(hjelp|faq|bli-utleier|lei-ut-campingvogn|personvern)(.*)",
+            "headers": [
+                {
+                    "key": "Cache-Control",
+                    "value": "no-store, no-cache, must-revalidate"
+                }
+            ]
+        },
+        {
+            "source": "/sitemap.xml",
+            "headers": [
+                {
+                    "key": "Cache-Control",
+                    "value": "public, max-age=86400"
+                },
+                {
+                    "key": "Content-Type",
+                    "value": "application/xml; charset=utf-8"
+                }
+            ]
+        },
+        {
+            "source": "/robots.txt",
+            "headers": [
+                {
+                    "key": "Cache-Control",
+                    "value": "public, max-age=86400"
+                }
+            ]
         }
-      ]
-    }
-  ]
+    ]
 }
