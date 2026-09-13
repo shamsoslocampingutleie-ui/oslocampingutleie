@@ -663,12 +663,18 @@ alter table public.messages enable row level security;
 --                                      migration for why this replaced
 --                                      the earlier, broken approach of
 --                                      inserting a fake bookings row).
+-- is_admin() must be checked here too, not just on select/update: admin
+-- needs to be able to send the FIRST message in a brand new
+-- direct-<userId> thread, which the direct-% clause below can't grant
+-- since <userId> there is never the admin's own id (found live —
+-- admin could reply once a user wrote first, but never start a chat).
 drop policy if exists messages_insert on public.messages;
 create policy messages_insert on public.messages for insert
   with check (
     sender_id = auth.uid()
     and (
-      exists (
+      public.is_admin()
+      or exists (
         select 1 from public.bookings b
         where b.id::text = booking_id
           and (
