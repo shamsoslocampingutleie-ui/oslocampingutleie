@@ -108,7 +108,7 @@ Deno.serve(async (req) => {
     await sendEmail(to, subject, html);
   } catch (e) {
     console.error("[auth-email-hook] sendEmail error:", e);
-    return new Response(JSON.stringify({ error: "Email send failed" }), { status: 500 });
+    return hookError(500, "Email send failed");
   }
 
   return new Response(JSON.stringify({}), {
