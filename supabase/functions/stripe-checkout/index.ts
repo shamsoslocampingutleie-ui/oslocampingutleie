@@ -17,6 +17,20 @@ function nights(from: string, to: string) {
   return Math.max(1, Math.round(ms / 86400000));
 }
 
+// Only ever redirect back to our own site — a client-supplied
+// successUrl/cancelUrl must not be trusted as-is, or an attacker could
+// redirect a paying customer to an external phishing page right after
+// a real Stripe checkout completes.
+function safeRedirect(url: unknown): string {
+  const fallback = "https://leieplattform.no/";
+  if (typeof url !== "string") return fallback;
+  try {
+    const u = new URL(url);
+    if (u.origin === "https://leieplattform.no") return url;
+  } catch { /* fall through */ }
+  return fallback;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -173,8 +187,6 @@ Deno.serve(async (req) => {
       ? Math.round(platformFee * 100)
       : amountTotalOre;
 
-    const fallback = "https://leieplattform.no/";
-
     const renterIp = req.headers.get("x-forwarded-for")?.split(",")[0]
       .trim() ||
       req.headers.get("cf-connecting-ip") || "";
@@ -217,8 +229,8 @@ Deno.serve(async (req) => {
         discount_pct: String(discountPct),
         transport_fee_ore: String(Math.round(transportFeeAmount * 100)),
       },
-      success_url: successUrl || fallback,
-      cancel_url: cancelUrl || fallback,
+      success_url: safeRedirect(successUrl),
+      cancel_url: safeRedirect(cancelUrl),
     });
 
     return new Response(JSON.stringify({ url: session.url }), {
