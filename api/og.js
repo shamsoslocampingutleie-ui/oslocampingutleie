@@ -5,17 +5,17 @@ function esc(str) {
   return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-const BOT_RE = /facebookexternalhit|Twitterbot|LinkedInBot|Pinterest|Slackbot|instagram|WhatsApp|TelegramBot|Discordbot|Google|bingbot|Yandex|Baiduspider|DuckDuckBot/i;
-
 export default async function handler(req, res) {
   const id = req.query.id;
   if (!id || id.length < 10) return res.redirect(302, '/');
 
-  const ua = req.headers['user-agent'] || '';
-  const isBot = BOT_RE.test(ua);
-
-  if (!isBot) return res.redirect(302, `/?listing=${id}`);
-
+  // Serve the same rich-preview HTML (with a same-page JS redirect) to every
+  // visitor, bot or human. Branching this on User-Agent used to be textbook
+  // cloaking -- Google's own crawler matched the bot regex and got this
+  // page, while every real visitor was silently redirected elsewhere before
+  // ever seeing it. Serving one document to everyone keeps social-preview
+  // scrapers (which don't run JS) and Googlebot (which does) both happy,
+  // without treating any visitor differently.
   try {
     const r = await fetch(
       `${SUPABASE_URL}/rest/v1/listings?id=eq.${encodeURIComponent(id)}&select=id,title,description,price,location,images&status=eq.active&limit=1`,

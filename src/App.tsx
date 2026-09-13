@@ -22,6 +22,11 @@ export default function App() {
     window.addEventListener("popstate", onPop);
 
     function onLoad() {
+      const listingId = new URLSearchParams(window.location.search).get("listing");
+      if (listingId) {
+        ref.current?.contentWindow?.postMessage({ type: "route", view: "listing/" + listingId }, "*");
+        return;
+      }
       const initialView = window.location.pathname.replace(/^\//, "") || "home";
       if (initialView !== "home") {
         ref.current?.contentWindow?.postMessage({ type: "route", view: initialView }, "*");
