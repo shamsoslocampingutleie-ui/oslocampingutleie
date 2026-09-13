@@ -647,17 +647,39 @@ create table if not exists public.messages (
 );
 alter table public.messages enable row level security;
 
+-- NOTE: booking_id also accepts two text-based (non-FK) conventions,
+-- neither of which points at a real bookings row:
+--   'direct-<userId>'              — admin <-> user 1:1 support chat
+--   'inquiry:<listingId>:<renterId>' — pre-booking question about a
+--                                      listing, before any booking
+--                                      exists (see 20260913090000
+--                                      migration for why this replaced
+--                                      the earlier, broken approach of
+--                                      inserting a fake bookings row).
 drop policy if exists messages_insert on public.messages;
 create policy messages_insert on public.messages for insert
   with check (
     sender_id = auth.uid()
-    and exists (
-      select 1 from public.bookings b
-      where b.id = booking_id
+    and (
+      exists (
+        select 1 from public.bookings b
+        where b.id::text = booking_id
+          and (
+            b.renter = auth.uid()
+            or exists (select 1 from public.listings l where l.id = b.listing_id and l.owner = auth.uid())
+          )
+      )
+      or (booking_id like 'direct-%' and booking_id = 'direct-' || auth.uid()::text)
+      or (
+        booking_id like 'inquiry:%'
         and (
-          b.renter = auth.uid()
-          or exists (select 1 from public.listings l where l.id = b.listing_id and l.owner = auth.uid())
+          split_part(booking_id, ':', 3) = auth.uid()::text
+          or exists (
+            select 1 from public.listings l
+            where l.id::text = split_part(booking_id, ':', 2) and l.owner = auth.uid()
+          )
         )
+      )
     )
   );
 
@@ -674,7 +696,21 @@ create policy messages_select on public.messages for select
         )
     )
     or (booking_id like 'direct-%' and booking_id = 'direct-' || auth.uid()::text)
+    or (
+      booking_id like 'inquiry:%'
+      and (
+        split_part(booking_id, ':', 3) = auth.uid()::text
+        or exists (
+          select 1 from public.listings l
+          where l.id::text = split_part(booking_id, ':', 2) and l.owner = auth.uid()
+        )
+      )
+    )
   );
+
+drop policy if exists "messages_delete" on public.messages;
+create policy "messages_delete" on public.messages for delete
+  using (public.is_admin());
 
 -- Manglet helt: uten denne feilet all "merk som lest" (read_at) stille,
 -- både i vanlig booking-chat og i admin sin direktemelding-varselprikk.
@@ -701,6 +737,16 @@ create policy messages_update on public.messages for update
         )
     )
     or (booking_id like 'direct-%' and booking_id = 'direct-' || auth.uid()::text)
+    or (
+      booking_id like 'inquiry:%'
+      and (
+        split_part(booking_id, ':', 3) = auth.uid()::text
+        or exists (
+          select 1 from public.listings l
+          where l.id::text = split_part(booking_id, ':', 2) and l.owner = auth.uid()
+        )
+      )
+    )
   )
   with check (
     public.is_admin()
@@ -713,6 +759,16 @@ create policy messages_update on public.messages for update
         )
     )
     or (booking_id like 'direct-%' and booking_id = 'direct-' || auth.uid()::text)
+    or (
+      booking_id like 'inquiry:%'
+      and (
+        split_part(booking_id, ':', 3) = auth.uid()::text
+        or exists (
+          select 1 from public.listings l
+          where l.id::text = split_part(booking_id, ':', 2) and l.owner = auth.uid()
+        )
+      )
+    )
   );
 
 create or replace function public.protect_message_fields()
