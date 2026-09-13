@@ -1,5 +1,6 @@
 import Stripe from "npm:stripe@17";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { sendEmail, emailLayout, escapeHtml } from "../_shared/email.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "https://leieplattform.no",
@@ -134,6 +135,35 @@ Deno.serve(async (req) => {
   }
 
   const bookingId = booking.id as string;
+
+  // Non-instant bookings need the host's approval — without this email
+  // the host has no way to know a request exists at all until they
+  // happen to open the dashboard. Instant-book bookings are covered
+  // separately once payment completes (stripe-webhook).
+  if (!listing.instant_book) {
+    try {
+      const hostAuth = await sb.auth.admin.getUserById(listing.owner);
+      const hostEmail = hostAuth.data?.user?.email;
+      if (hostEmail) {
+        await sendEmail(
+          hostEmail,
+          `Ny leieforespørsel — ${listing.title}`,
+          emailLayout(
+            "Du har fått en leieforespørsel 🎉",
+            `<p><strong>${escapeHtml(renter_name as string)}</strong> ønsker å leie <strong>${escapeHtml(listing.title)}</strong>.</p>
+            <div class="info-box">
+              <p><strong>Periode:</strong> ${escapeHtml(from_date as string)} → ${escapeHtml(to_date as string)}</p>
+              <p><strong>Leietaker:</strong> ${escapeHtml(renter_name as string)}</p>
+            </div>
+            <p>Logg inn og gå til <strong>Utleier-dashbord</strong> for å godkjenne eller avvise forespørselen.</p>
+            <a href="https://leieplattform.no" class="btn">Se forespørsel →</a>`,
+          ),
+        );
+      }
+    } catch (notifyErr) {
+      console.error("[guest-checkout] host notification failed:", notifyErr);
+    }
+  }
 
   let idUploadUrl: string | null = null;
   let idUploadPath: string | null = null;
