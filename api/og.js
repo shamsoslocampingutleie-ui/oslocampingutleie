@@ -18,7 +18,7 @@ export default async function handler(req, res) {
   // without treating any visitor differently.
   try {
     const r = await fetch(
-      `${SUPABASE_URL}/rest/v1/listings?id=eq.${encodeURIComponent(id)}&select=id,title,description,price,location,images&status=eq.active&limit=1`,
+      `${SUPABASE_URL}/rest/v1/listings?id=eq.${encodeURIComponent(id)}&select=id,title,description,price_per_day,location,images&status=eq.active&limit=1`,
       { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` } }
     );
     const [listing] = await r.json();
@@ -26,8 +26,8 @@ export default async function handler(req, res) {
 
     const title = `${listing.title} — Leieplattform`;
     const desc = listing.description
-      ? `${listing.description.slice(0, 155)} — ${listing.price} kr/dag`
-      : `Lei for ${listing.price} kr/dag. Finn campingvogn, bobil, taktelt og mer på Leieplattform.`;
+      ? `${listing.description.slice(0, 155)} — ${listing.price_per_day} kr/dag`
+      : `Lei for ${listing.price_per_day} kr/dag. Finn campingvogn, bobil, taktelt og mer på Leieplattform.`;
     const image = (listing.images || [])[0] || 'https://leieplattform.no/og-image.jpg';
     const url = `https://leieplattform.no/listing/${id}`;
 
