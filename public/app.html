@@ -1331,7 +1331,7 @@ body.appendChild(prev);clickArea.appendChild(body);
 const meta=el("div",null);meta.style.cssText="text-align:right;flex-shrink:0";
 const cnt=el("span",null,bMsgs.length+" meld.");cnt.style.cssText="font-size:11px;color:var(--ink-3);display:block";
 meta.appendChild(cnt);
-if(flagged.length>0){const fl=el("span",null,"\U0001f6a9 "+flagged.length);fl.style.cssText="font-size:11px;color:#854D0E;font-weight:700";meta.appendChild(fl);}
+if(flagged.length>0){const fl=el("span",null,"🚩 "+flagged.length);fl.style.cssText="font-size:11px;color:#854D0E;font-weight:700";meta.appendChild(fl);}
 clickArea.appendChild(meta);
 row.appendChild(clickArea);
 const delBtn=el("button","btn btn-ghost btn-sm","🗑");delBtn.title="Slett samtale";delBtn.style.cssText="flex-shrink:0;color:var(--red)";
@@ -1556,7 +1556,7 @@ if(!toDelete.length){toast("Alt er ryddig!","success");await _renderErrorLog(e);
 const CHUNK=100;for(let ci=0;ci<toDelete.length;ci+=CHUNK){await sb.from("error_logs").delete().in("id",toDelete.slice(ci,ci+CHUNK));}
 toast("Slettet "+toDelete.length+" oppf\xf8ringer","success");await _renderErrorLog(e);};
 btnWrap.appendChild(autoBtn);
-const clearBtn=el("button","btn btn-ghost btn-sm","\U0001f5d1");
+const clearBtn=el("button","btn btn-ghost btn-sm","🗑");
 clearBtn.title="Slett alle";
 clearBtn.style.cssText="padding:6px 10px";
 clearBtn.onclick=async()=>{if(!confirm("Slette alle feiloppf\xf8ringer?"))return;
@@ -1565,7 +1565,7 @@ if(ce)toast("Feil: "+ce.message,"warn");else{toast("Slettet","success");await _r
 btnWrap.appendChild(clearBtn);hdr.appendChild(btnWrap);surf.appendChild(hdr);
 const{data:n,error:i}=await sb.from("error_logs").select("*").order("created_at",{ascending:!1}).limit(200);
 if(i)return surf.appendChild(el("p","muted","Kunne ikke laste: "+i.message)),void e.appendChild(surf);
-if(!n||!n.length){const ok=el("p","muted","Ingen feil registrert \U0001f389");surf.appendChild(ok);}
+if(!n||!n.length){const ok=el("p","muted","Ingen feil registrert 🎉");surf.appendChild(ok);}
 else{
 function _parseUA(ua){if(!ua)return"";
 var m=ua.match(/(iPhone|iPad|Android)/i);var dev=m?m[1]:"PC";
@@ -1610,7 +1610,7 @@ if(row.user_agent){const uaEl=el("span",null,_parseUA(row.user_agent));uaEl.titl
 body.appendChild(metaEl);
 if(row.stack){const sd=el("details",null);sd.style.cssText="margin-top:4px";const sm=el("summary","muted","Stack");sm.style.cssText="font-size:11px;cursor:pointer";sd.appendChild(sm);const sp=el("pre",null,String(row.stack).slice(0,400));sp.style.cssText="font-size:10px;overflow:auto;max-height:100px;background:#f5f5f5;padding:6px 8px;border-radius:6px;margin:4px 0 0";sd.appendChild(sp);body.appendChild(sd);}
 wrap.appendChild(body);
-const delBtn=el("button","btn btn-ghost btn-sm","\U0001f5d1");
+const delBtn=el("button","btn btn-ghost btn-sm","🗑");
 delBtn.title="Slett gruppe";delBtn.style.cssText="padding:4px 8px;font-size:13px;flex-shrink:0";
 delBtn.onclick=async()=>{delBtn.disabled=true;
 const ids=rows.map(r=>r.id);
