@@ -1,6 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 import { sendEmail, emailLayout, escapeHtml } from "../_shared/email.ts";
+import { sendWebPush } from "../_shared/webpush.ts";
 
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL")!,
@@ -92,6 +93,30 @@ Deno.serve(async (req) => {
               <a href="https://leieplattform.no" class="btn">Gå til Admin → Meldinger</a>`,
             ),
           );
+        }
+
+        // Push notification (lock-screen alert on devices that opted in)
+        const { data: subs } = await supabase
+          .from("push_subscriptions")
+          .select("id, endpoint, p256dh, auth")
+          .eq("user_id", admin.id);
+        if (subs && subs.length > 0) {
+          const goneIds: string[] = [];
+          await Promise.all(subs.map(async (sub) => {
+            const result = await sendWebPush(
+              { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+              {
+                title: `Ny melding fra ${safeSenderName}`,
+                body: String(messageText).slice(0, 140),
+                url: "/",
+                tag: "lp-admin-chat",
+              },
+            );
+            if (result === "gone") goneIds.push(sub.id);
+          }));
+          if (goneIds.length > 0) {
+            await supabase.from("push_subscriptions").delete().in("id", goneIds);
+          }
         }
       }
     }

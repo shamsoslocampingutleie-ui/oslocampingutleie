@@ -66,7 +66,7 @@ export function emailLayout(title: string, body: string): string {
   </div>
   <div class="ftr">
     <p>Leieplattform · <a href="https://leieplattform.no">leieplattform.no</a></p>
-    <p style="margin-top:4px">Spørsmål? Kontakt oss på <a href="mailto:kundeservice@oslocampingutleie.no">kundeservice@oslocampingutleie.no</a></p>
+    <p style="margin-top:4px">Spørsmål? Vi svarer ikke på denne adressen — <a href="https://leieplattform.no">kontakt oss i chatten på leieplattform.no</a></p>
   </div>
 </div>
 </body></html>`;
