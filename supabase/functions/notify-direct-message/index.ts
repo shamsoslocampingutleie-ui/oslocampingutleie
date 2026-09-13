@@ -8,6 +8,25 @@ const supabase = createClient(
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
 );
 
+async function pushTo(userId: string, title: string, body: string) {
+  const { data: subs } = await supabase
+    .from("push_subscriptions")
+    .select("id, endpoint, p256dh, auth")
+    .eq("user_id", userId);
+  if (!subs || subs.length === 0) return;
+  const goneIds: string[] = [];
+  await Promise.all(subs.map(async (sub) => {
+    const result = await sendWebPush(
+      { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+      { title, body, url: "/", tag: "lp-admin-chat" },
+    );
+    if (result === "gone") goneIds.push(sub.id);
+  }));
+  if (goneIds.length > 0) {
+    await supabase.from("push_subscriptions").delete().in("id", goneIds);
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -62,6 +81,7 @@ Deno.serve(async (req) => {
           ),
         );
       }
+      await pushTo(hostUserId, "Ny melding fra Leieplattform", String(messageText).slice(0, 140));
     } else {
       // Utleier svarte → verify the caller is actually the host being represented
       if (userData.user.id !== hostUserId) {
@@ -95,29 +115,7 @@ Deno.serve(async (req) => {
           );
         }
 
-        // Push notification (lock-screen alert on devices that opted in)
-        const { data: subs } = await supabase
-          .from("push_subscriptions")
-          .select("id, endpoint, p256dh, auth")
-          .eq("user_id", admin.id);
-        if (subs && subs.length > 0) {
-          const goneIds: string[] = [];
-          await Promise.all(subs.map(async (sub) => {
-            const result = await sendWebPush(
-              { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-              {
-                title: `Ny melding fra ${safeSenderName}`,
-                body: String(messageText).slice(0, 140),
-                url: "/",
-                tag: "lp-admin-chat",
-              },
-            );
-            if (result === "gone") goneIds.push(sub.id);
-          }));
-          if (goneIds.length > 0) {
-            await supabase.from("push_subscriptions").delete().in("id", goneIds);
-          }
-        }
+        await pushTo(admin.id, `Ny melding fra ${safeSenderName}`, String(messageText).slice(0, 140));
       }
     }
 
