@@ -12,6 +12,16 @@ const corsHeaders = {
 // keeps working) but a warning is logged on every call.
 const hookSecret = Deno.env.get("SEND_EMAIL_HOOK_SECRET");
 
+// Supabase Auth Hooks require hook errors in this exact shape to surface a
+// real message to the client — anything else (e.g. a plain `{error: "..."}`)
+// gets swallowed and the caller sees an empty error / "{}".
+function hookError(httpCode: number, message: string): Response {
+  return new Response(JSON.stringify({ error: { http_code: httpCode, message } }), {
+    status: httpCode,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -22,7 +32,7 @@ Deno.serve(async (req) => {
       new Webhook(hookSecret).verify(rawBody, Object.fromEntries(req.headers));
     } catch (e) {
       console.error("[auth-email-hook] signature verification failed:", e);
-      return new Response(JSON.stringify({ error: "Invalid signature" }), { status: 401 });
+      return hookError(401, "Invalid signature");
     }
   } else {
     console.warn(
@@ -35,7 +45,7 @@ Deno.serve(async (req) => {
   try {
     payload = JSON.parse(rawBody);
   } catch {
-    return new Response(JSON.stringify({ error: "Invalid JSON" }), { status: 400 });
+    return hookError(400, "Invalid JSON");
   }
 
   const user = payload.user as Record<string, unknown>;
@@ -43,7 +53,7 @@ Deno.serve(async (req) => {
   const to = user?.email as string;
 
   if (!to || !emailData) {
-    return new Response(JSON.stringify({ error: "Missing user or email_data" }), { status: 400 });
+    return hookError(400, "Missing user or email_data");
   }
 
   const actionType = emailData.email_action_type as string;
