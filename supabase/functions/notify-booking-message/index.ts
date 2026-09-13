@@ -265,6 +265,84 @@ Deno.serve(async (req) => {
       }
     }
 
+    // --- HANDOVER CONFIRMED BY ONE PARTY → nudge the other to confirm too ---
+    // Without this, a booking can sit stuck (deposit/payout unreleased)
+    // simply because the other party has no idea they still need to act.
+    if (event === "handover_confirmed") {
+      const { data: booking } = await supabase
+        .from("bookings")
+        .select("id, renter, renter_email, listing_id, host_confirmed_handover, renter_confirmed_handover")
+        .eq("id", bookingId)
+        .single();
+      if (!booking) {
+        return new Response(JSON.stringify({ error: "Booking not found" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const { data: listing } = await supabase
+        .from("listings")
+        .select("title, owner")
+        .eq("id", booking.listing_id)
+        .single();
+
+      const callerId = userData.user.id;
+      const callerIsRenter = booking.renter === callerId;
+      const callerIsHost = listing?.owner === callerId;
+      if (!callerIsRenter && !callerIsHost) {
+        return new Response(JSON.stringify({ error: "Forbidden" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Once both have confirmed the booking is complete and
+      // stripe-release-payout already emails the host — no nudge needed.
+      const bothConfirmed = booking.host_confirmed_handover && booking.renter_confirmed_handover;
+      if (!bothConfirmed) {
+        const title = listing?.title ?? "utstyret";
+        if (callerIsHost) {
+          if (booking.renter_email) {
+            await sendEmail(
+              booking.renter_email,
+              `Utleier har bekreftet overlevering — ${title}`,
+              emailLayout(
+                "Bekreft overlevering du også",
+                `<p>Utleier har bekreftet at <strong>${escapeHtml(title)}</strong> er overlevert. Bekreft det samme fra din side for å frigi depositumet.</p>
+                <a href="https://leieplattform.no" class="btn">Bekreft overlevering →</a>`,
+              ),
+            );
+          }
+          if (booking.renter) {
+            const t = "Bekreft overlevering";
+            const b = `Utleier har bekreftet overlevering av ${title} — bekreft fra din side.`;
+            await insertNotification(supabase, booking.renter, "handover_confirmed", t, b,
+              { bookingId, listingTitle: listing?.title });
+            firePush(booking.renter, t, b);
+          }
+        } else if (listing?.owner) {
+          const hostAuth = await supabase.auth.admin.getUserById(listing.owner);
+          const hostEmail = hostAuth.data?.user?.email;
+          if (hostEmail) {
+            await sendEmail(
+              hostEmail,
+              `Leietaker har bekreftet overlevering — ${title}`,
+              emailLayout(
+                "Bekreft overlevering du også",
+                `<p>Leietaker har bekreftet at <strong>${escapeHtml(title)}</strong> er hentet/levert. Bekreft det samme fra din side for å frigi utbetalingen.</p>
+                <a href="https://leieplattform.no" class="btn">Bekreft overlevering →</a>`,
+              ),
+            );
+          }
+          const t = "Bekreft overlevering";
+          const b = `Leietaker har bekreftet overlevering av ${title} — bekreft fra din side for å få utbetalt.`;
+          await insertNotification(supabase, listing.owner, "handover_confirmed", t, b,
+            { bookingId, listingTitle: listing?.title });
+          firePush(listing.owner, t, b);
+        }
+      }
+    }
+
     return new Response(JSON.stringify({ ok: true }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
