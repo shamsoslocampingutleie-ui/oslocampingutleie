@@ -1316,7 +1316,7 @@ else if(_isInquiry){const _parts=bookingId.split(":");const _lid=_parts[1];const
 else{const bk=BOOKINGS.find(b=>b.id===bookingId);const li=bk?_LS(bk.listingId):null;_title=(li?li.title:"Booking")+(bk?" · "+bk.renterName:"");_openFn=()=>openChat(bookingId);}
 const flagged=bMsgs.filter(m=>m.flagged);
 const row=el("div",null);
-row.style.cssText="display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line)";
+row.style.cssText="display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:10px 0;border-top:1px solid var(--line)";
 const clickArea=el("div",null);clickArea.style.cssText="display:flex;align-items:center;gap:12px;flex:1;min-width:0;cursor:pointer";
 clickArea.onclick=_openFn;
 const icon=el("div",null);
