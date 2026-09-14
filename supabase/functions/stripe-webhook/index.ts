@@ -188,7 +188,12 @@ Deno.serve(async (req) => {
           .single();
         const alreadyPaid = existingBooking?.paid === true;
 
-        const { error: updateErr } = await supabase
+        // Only transition a booking that is still awaiting payment. Without
+        // this guard, a booking the renter cancelled (or that lost a
+        // double-booking race) in the window between Stripe redirect and
+        // webhook delivery would get silently resurrected as accepted+paid
+        // by a payment that completes after the fact.
+        const { error: updateErr, data: updatedRows } = await supabase
           .from("bookings")
           .update({
             paid: true,
@@ -198,14 +203,26 @@ Deno.serve(async (req) => {
             platform_fee: platformFee,
             stripe_customer_details: session.customer_details ?? null,
           })
-          .eq("id", bookingId);
+          .eq("id", bookingId)
+          .eq("status", "pending_payment")
+          .select("id");
 
-        if (updateErr) {
+        if (alreadyPaid) {
+          // Webhook replay of an already-fully-processed payment. The
+          // conditional update above correctly matched nothing (status is
+          // already 'accepted', not 'pending_payment') -- that's expected,
+          // not a failure, so skip both the refund branch and re-sending
+          // confirmation emails.
+        } else if (updateErr || !updatedRows?.length) {
           // The renter has already been charged, but the booking could not be
           // confirmed (most likely: another renter's request for the same
-          // dates was accepted first — see prevent_double_booking trigger).
+          // dates was accepted first — see prevent_double_booking trigger —
+          // or the renter cancelled it themselves before payment completed).
           // Refund immediately rather than leave them charged with nothing.
-          console.error("[webhook] Booking update failed after payment:", updateErr.message);
+          console.error(
+            "[webhook] Booking update failed after payment:",
+            updateErr?.message ?? "booking was no longer pending_payment",
+          );
           try {
             if (piId) {
               await stripe.refunds.create({ payment_intent: piId, reason: "requested_by_customer" });
