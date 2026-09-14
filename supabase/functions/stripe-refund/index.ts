@@ -148,19 +148,55 @@ Deno.serve(async (req) => {
     const refundAmount = Math.round(amountTotal * refundPct / 100);
     const refundAmountOre = Math.round(refundAmount * 100);
 
-    const refund = await stripe.refunds.create({
-      payment_intent: booking.payment_intent_id,
-      amount: refundAmountOre,
-      reason: "requested_by_customer",
-      metadata: { booking_id: bookingId },
-    });
-
-    await supabase
+    // Atomically claim the cancellation before calling Stripe. A plain
+    // read-then-write here would let a double-click, a retry, or two open
+    // tabs both pass every check above and both create a real refund.
+    // Only proceed if THIS call is the one that actually flips the status
+    // away from what we just read (and payout hasn't been released in the
+    // meantime by a concurrent handover-confirmation).
+    const { data: claimed, error: claimErr } = await supabase
       .from("bookings")
       .update({
         status: "cancelled",
         cancelled_by: isAdmin ? "admin" : "renter",
         cancelled_at: now.toISOString(),
+      })
+      .eq("id", bookingId)
+      .eq("status", booking.status)
+      .eq("payout_released", false)
+      .select("id");
+    if (claimErr) throw claimErr;
+    if (!claimed || claimed.length === 0) {
+      return new Response(
+        JSON.stringify({ error: "Bookingen ble endret av en annen forespørsel akkurat nå. Last siden på nytt og prøv igjen." }),
+        { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    let refund;
+    try {
+      refund = await stripe.refunds.create({
+        payment_intent: booking.payment_intent_id,
+        amount: refundAmountOre,
+        reason: "requested_by_customer",
+        metadata: { booking_id: bookingId },
+      }, {
+        // Extra safety net beyond the DB claim above.
+        idempotencyKey: `refund-${bookingId}`,
+      });
+    } catch (refundErr) {
+      // Stripe call failed -- roll back our claim so the booking isn't
+      // left marked cancelled with no actual refund issued.
+      await supabase
+        .from("bookings")
+        .update({ status: booking.status, cancelled_by: null, cancelled_at: null })
+        .eq("id", bookingId);
+      throw refundErr;
+    }
+
+    await supabase
+      .from("bookings")
+      .update({
         refund_id: refund.id,
         refund_amount: refundAmount,
       })
@@ -170,13 +206,13 @@ Deno.serve(async (req) => {
     try {
       const { data: listing } = await supabase
         .from("listings")
-        .select("title")
+        .select("title, owner")
         .eq("id", booking.listing_id)
         .single();
 
       const [renterAuth, hostAuth] = await Promise.all([
         supabase.auth.admin.getUserById(booking.renter),
-        supabase.auth.admin.getUserById(booking.host_id),
+        supabase.auth.admin.getUserById(listing?.owner ?? ""),
       ]);
 
       const title = escapeHtml(listing?.title ?? "leieforholdet");

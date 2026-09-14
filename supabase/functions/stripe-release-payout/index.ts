@@ -117,47 +117,80 @@ Deno.serve(async (req) => {
     const platformFee = Number(booking.platform_fee || 0);
     const payoutAmount = Math.round((amountTotal - platformFee) * 100);
 
+    // Atomically claim this payout before doing anything irreversible. The
+    // earlier "if (!booking.paid || booking.payout_released) return" check
+    // above is a plain read and does NOT prevent two concurrent calls (a
+    // client-side trigger racing the daily cron failsafe, a network retry,
+    // two browser tabs) from both passing it and both calling Stripe --
+    // that would double-pay the host. Only proceed if THIS call is the one
+    // that flips payout_released from false to true.
+    const { data: claimed, error: claimErr } = await supabase
+      .from("bookings")
+      .update({ payout_released: true })
+      .eq("id", bookingId)
+      .eq("payout_released", false)
+      .select("id");
+    if (claimErr) throw claimErr;
+    if (!claimed || claimed.length === 0) {
+      // Another call already claimed (or is claiming) this payout.
+      return new Response(JSON.stringify({ released: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     if (!host.stripe_account_id || payoutAmount <= 0) {
-      // Platform-owned listing or nothing left to pay out.
-      await supabase
-        .from("bookings")
-        .update({ payout_released: true })
-        .eq("id", bookingId);
+      // Platform-owned listing or nothing left to pay out -- claim is
+      // already recorded above, nothing else to do.
       return new Response(JSON.stringify({ released: true, transferred: 0 }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const pi = await stripe.paymentIntents.retrieve(booking.payment_intent_id);
-    const transfer = await stripe.transfers.create({
-      amount: payoutAmount,
-      currency: "nok",
-      destination: host.stripe_account_id,
-      source_transaction: pi.latest_charge as string,
-      metadata: { booking_id: bookingId },
-    });
+    try {
+      const pi = await stripe.paymentIntents.retrieve(booking.payment_intent_id);
+      const transfer = await stripe.transfers.create({
+        amount: payoutAmount,
+        currency: "nok",
+        destination: host.stripe_account_id,
+        source_transaction: pi.latest_charge as string,
+        metadata: { booking_id: bookingId },
+      }, {
+        // Extra safety net beyond the DB claim above: if this exact
+        // transfer is somehow submitted twice, Stripe itself dedupes it.
+        idempotencyKey: `payout-${bookingId}`,
+      });
 
-    await supabase
-      .from("bookings")
-      .update({ payout_released: true, transfer_id: transfer.id })
-      .eq("id", bookingId);
+      await supabase
+        .from("bookings")
+        .update({ transfer_id: transfer.id })
+        .eq("id", bookingId);
+    } catch (transferErr) {
+      // The Stripe transfer itself failed -- release our claim so the
+      // daily cron failsafe (or a manual retry) can try again instead of
+      // the booking being stuck marked "released" with no actual transfer.
+      await supabase
+        .from("bookings")
+        .update({ payout_released: false })
+        .eq("id", bookingId);
+      throw transferErr;
+    }
 
     // Send payout confirmation email to host
     try {
       const { data: bookingFull } = await supabase
         .from("bookings")
-        .select("renter, host_id, listing_id, from_date, to_date")
+        .select("renter, listing_id, from_date, to_date")
         .eq("id", bookingId)
         .single();
       if (bookingFull) {
-        const { data: listing } = await supabase
+        const { data: listingTitleRow } = await supabase
           .from("listings")
           .select("title")
           .eq("id", bookingFull.listing_id)
           .single();
-        const hostAuth = await supabase.auth.admin.getUserById(bookingFull.host_id);
+        const title = listingTitleRow?.title ?? "leieforholdet";
+        const hostAuth = await supabase.auth.admin.getUserById(listing.owner);
         const hostEmail = hostAuth.data?.user?.email;
-        const title = listing?.title ?? "leieforholdet";
         const payoutKr = (payoutAmount / 100).toLocaleString("nb-NO") + " kr";
         const fromFmt = new Date(bookingFull.from_date).toLocaleDateString("nb-NO", { day: "numeric", month: "long", year: "numeric" });
         const toFmt = new Date(bookingFull.to_date).toLocaleDateString("nb-NO", { day: "numeric", month: "long", year: "numeric" });
