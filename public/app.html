@@ -1591,14 +1591,22 @@ function hostProfile(){PENDING_AVATAR=null;const e=document.getElementById("hp-p
   }
   e.appendChild(licSurf);
   const st=el("div","surface");
-// Prominent warning when Stripe not connected
-if(!session.stripeChargesEnabled){
+// Prominent warning when Stripe not connected -- doesn't apply to admin,
+// whose own listings are paid straight into the platform's own Stripe
+// account (the escrow account admin already controls), so there is
+// nothing to "connect" and no payment is actually blocked for them.
+if(!session.stripeChargesEnabled&&"admin"!==session.role){
   const warn=el("div");
   warn.style.cssText="background:#FEF3C7;border:2px solid #F59E0B;border-radius:14px;padding:16px 18px;margin-bottom:16px;display:flex;gap:12px;align-items:flex-start";
   warn.innerHTML='<div style="font-size:24px;line-height:1">⚠️</div><div><b style="display:block;font-size:15px;color:#92400E;margin-bottom:4px">'+(!session.stripeAccountId?"Stripe ikke koblet til — du kan ikke motta betaling":"Stripe-oppsett ikke fullført — du kan ikke motta betaling")+'</b><p style="font-size:13px;color:#78350F;margin:0;line-height:1.5">'+(!session.stripeAccountId?"Koble til Stripe for å motta utbetalinger automatisk fra leietakere. Uten dette kan du ikke ta imot betaling på plattformen.":"Du har startet Stripe-oppsett men det er ikke fullført. Klikk «Fullfør Stripe-oppsett» og følg stegene.")+'</p></div>';
   e.insertBefore(warn, e.firstChild);
+}else if(!session.stripeChargesEnabled&&"admin"===session.role){
+  const note=el("div");
+  note.style.cssText="background:var(--green-50);border:1px solid var(--line);border-radius:14px;padding:14px 18px;margin-bottom:16px";
+  note.innerHTML='<b style="display:block;font-size:14px;margin-bottom:2px">ℹ️ Ingen Stripe-tilkobling nødvendig</b><p style="font-size:13px;color:var(--ink-2);margin:0;line-height:1.5">Som admin går betalinger for dine egne annonser direkte til plattformens Stripe-konto (kontoen din). Du trenger ikke koble til en egen Stripe-konto for å ta imot betaling.</p>';
+  e.insertBefore(note, e.firstChild);
 }
-st.appendChild(el("h3",null,"Utbetalinger (Stripe)")),st.appendChild(el("p","sub",session.stripeChargesEnabled?"Stripe-kontoen din er koblet til. Betalinger fra leietakere går til kontoen din, minus plattformavgift.":"Koble til en Stripe-konto for å få utbetalinger automatisk når leietakere betaler online."));
+st.appendChild(el("h3",null,"Utbetalinger (Stripe)")),st.appendChild(el("p","sub","admin"===session.role?"Betalinger for dine egne annonser går rett til plattformens Stripe-konto. Å koble til en egen Stripe-konto her er valgfritt.":session.stripeChargesEnabled?"Stripe-kontoen din er koblet til. Betalinger fra leietakere går til kontoen din, minus plattformavgift.":"Koble til en Stripe-konto for å få utbetalinger automatisk når leietakere betaler online."));
 if(session.stripeChargesEnabled){const b=document.createElement("div");b.innerHTML='<span class="badge b-verified">Tilkoblet ✓</span>';st.appendChild(b);}
 const cb=el("button","btn btn-primary btn-sm",session.stripeAccountId?session.stripeChargesEnabled?"Administrer Stripe-konto":"Fullfør Stripe-oppsett":"Koble til Stripe");
 cb.style.justifySelf="start";cb.onclick=connectStripe;st.appendChild(cb);
