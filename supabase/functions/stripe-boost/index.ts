@@ -1,4 +1,4 @@
-// Creates a Stripe Checkout Session for a 99 NOK listing boost (7 days).
+// Creates a Stripe Checkout Session for a 90 NOK listing boost (7 days).
 // On success the webhook marks listings.boosted_until = now + 7 days.
 import Stripe from "npm:stripe@17";
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -30,6 +30,8 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    if (!await checkRateLimit(req, 10, 300_000)) return rateLimitResponse(corsHeaders);
 
     const { listingId, successUrl, cancelUrl } = await req.json();
     if (!listingId) {
@@ -71,7 +73,7 @@ Deno.serve(async (req) => {
               name: `Annonseløft 7 dager — ${listing.title}`,
               description: "Annonsen vises øverst i søkeresultater i 7 dager.",
             },
-            unit_amount: 9900,
+            unit_amount: 9000,
           },
           quantity: 1,
         },
