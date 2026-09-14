@@ -2030,8 +2030,7 @@ async function adminHosts(){
     main.appendChild(idEl);
     const acts=el("div","row-actions");
     const aBtn=el("button","btn btn-primary btn-sm","✓ Godkjenn");
-    if(idSt!=='approved'&&idSt!=='pending'){aBtn.disabled=true;aBtn.title="Krever godkjent ID-dokument";aBtn.style.opacity="0.4";}
-    aBtn.onclick=()=>{if(idSt!=='approved'&&idSt!=='pending'){toast("Kan ikke godkjenne: brukeren har ikke lastet opp ID-dokument ennå.","warn");return;}approveHost(u.id,u.full_name||u.email,u.email);};
+    aBtn.onclick=()=>approveHost(u.id,u.full_name||u.email,u.email);
     const rBtn=el("button","btn btn-danger btn-sm","✗ Avslå");
     rBtn.onclick=()=>rejectHost(u.id,u.email);
     acts.append(aBtn,rBtn);
