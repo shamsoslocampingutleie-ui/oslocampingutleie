@@ -181,23 +181,24 @@ Deno.serve(async (req) => {
   let stripeUrl: string | null = null;
   if (listing.instant_book) {
     try {
-      const { data: host } = await sb
-        .from("profiles")
-        .select("stripe_account_id,stripe_charges_enabled")
-        .eq("id", listing.owner)
-        .single();
-
       const n = nights(from_date as string, to_date as string);
       const rent = Number(listing.price_per_day) * n;
       const serviceFee = Math.round(rent * 0.10);
       const cleaningFee = Number(listing.cleaning_fee || 0);
       const deposit = listing.deposit_mode !== "incident" ? Number(listing.deposit || 0) : 0;
       const amountTotal = rent + serviceFee + cleaningFee + deposit;
+      // Platform fee = 10% from renter + 10% from host = 20% of rent. Host gets 90%.
       const platformFee = serviceFee + Math.round(rent * 0.10);
-      const hasConnected = !!host?.stripe_account_id && !!host?.stripe_charges_enabled;
       const amountTotalOre = Math.round(amountTotal * 100);
-      const platformFeeOre = hasConnected ? Math.round(platformFee * 100) : amountTotalOre;
+      const platformFeeOre = Math.round(platformFee * 100);
 
+      // The platform always receives the full payment up front, exactly
+      // like the logged-in stripe-checkout flow -- no application_fee /
+      // transfer_data here. The host's share is only transferred out later
+      // by stripe-release-payout, once BOTH parties confirm handover. A
+      // Stripe Connect "destination charge" here would pay the host
+      // instantly at booking time, defeating that escrow guarantee for
+      // every guest booking.
       const stripeSession = await stripe.checkout.sessions.create({
         mode: "payment",
         payment_method_types: ["card"],
@@ -211,13 +212,7 @@ Deno.serve(async (req) => {
           },
           quantity: 1,
         }],
-        payment_intent_data: {
-          metadata: { booking_id: bookingId },
-          ...(hasConnected ? {
-            application_fee_amount: platformFeeOre,
-            transfer_data: { destination: host!.stripe_account_id },
-          } : {}),
-        },
+        payment_intent_data: { metadata: { booking_id: bookingId } },
         metadata: {
           booking_id: bookingId,
           platform_fee_ore: String(platformFeeOre),
