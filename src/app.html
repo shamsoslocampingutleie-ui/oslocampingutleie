@@ -1687,7 +1687,7 @@ const clearBtn=el("button","btn btn-ghost btn-sm","🗑");
 clearBtn.title="Slett alle";
 clearBtn.style.cssText="padding:6px 10px";
 clearBtn.onclick=async()=>{if(!confirm("Slette alle feiloppf\xf8ringer?"))return;
-const{error:ce}=await sb.from("error_logs").delete().neq("id","00000000-0000-0000-0000-000000000000");
+const{error:ce}=await sb.from("error_logs").delete().not("id","is",null);
 if(ce)toast("Feil: "+ce.message,"warn");else{toast("Slettet","success");await _renderErrorLog(e);}};
 btnWrap.appendChild(clearBtn);hdr.appendChild(btnWrap);surf.appendChild(hdr);
 const{data:n,error:i}=await sb.from("error_logs").select("*").order("created_at",{ascending:!1}).limit(200);
