@@ -285,6 +285,11 @@ create policy "Owners can delete their listings"
   on public.listings for delete
   using (owner = auth.uid());
 
+drop policy if exists "Admins can delete any listing" on public.listings;
+create policy "Admins can delete any listing"
+  on public.listings for delete
+  using (public.is_admin());
+
 -- BOOKINGS
 drop policy if exists "Renters can view own bookings" on public.bookings;
 create policy "Renters can view own bookings"
@@ -315,6 +320,11 @@ create policy "Renters can create bookings"
 drop policy if exists "Renter can update own non-critical fields" on public.bookings;
 drop policy if exists "Host can update own listing bookings" on public.bookings;
 drop policy if exists "Renter or host can update bookings" on public.bookings;
+drop policy if exists "Admins can delete any booking" on public.bookings;
+create policy "Admins can delete any booking"
+  on public.bookings for delete
+  using (public.is_admin());
+
 create policy "bookings_update_owner"
   on public.bookings for update
   using (
@@ -1065,11 +1075,12 @@ create table if not exists public.booking_documents (
 );
 alter table public.booking_documents enable row level security;
 
--- Utleier og leietaker i samme booking kan se dokumenter
+-- Utleier og leietaker i samme booking kan se dokumenter, samt admin
 drop policy if exists "booking_docs_select" on public.booking_documents;
 create policy "booking_docs_select" on public.booking_documents for select
   using (
     auth.uid() = user_id
+    or public.is_admin()
     or auth.uid() in (
       select b.renter from public.bookings b where b.id = booking_id
       union
@@ -1078,6 +1089,10 @@ create policy "booking_docs_select" on public.booking_documents for select
        where b.id = booking_id
     )
   );
+
+drop policy if exists "booking_docs_delete" on public.booking_documents;
+create policy "booking_docs_delete" on public.booking_documents for delete
+  using (public.is_admin());
 
 drop policy if exists "booking_docs_insert" on public.booking_documents;
 create policy "booking_docs_insert" on public.booking_documents for insert
