@@ -591,6 +591,9 @@ create policy error_logs_insert on public.error_logs for insert with check (true
 drop policy if exists error_logs_read on public.error_logs;
 create policy error_logs_read on public.error_logs for select using (public.is_admin());
 
+drop policy if exists error_logs_delete on public.error_logs;
+create policy error_logs_delete on public.error_logs for delete using (public.is_admin());
+
 create index if not exists error_logs_created_at_idx on public.error_logs (created_at desc);
 
 -- 17) Tighten the (unused) "listing-photos" storage bucket to match
