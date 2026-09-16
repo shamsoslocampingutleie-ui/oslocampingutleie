@@ -42,6 +42,15 @@ begin
   insert into public.profiles (id, email, full_name)
   values (new.id, new.email, coalesce(new.raw_user_meta_data->>'full_name', new.email))
   on conflict (id) do nothing;
+
+  insert into public.registration_log (user_id, email, full_name, phone)
+  values (
+    new.id,
+    new.email,
+    new.raw_user_meta_data->>'full_name',
+    new.raw_user_meta_data->>'phone'
+  );
+
   return new;
 end;
 $$;
