@@ -59,6 +59,15 @@ Deno.serve(async (req) => {
     const isIdentity = type === "identity";
     const isHostId = type === "host_id";
 
+    // Hent brukerinfo først, slik at AI-en kan sammenligne navnet på
+    // dokumentet med navnet brukeren er registrert med.
+    const { data: profile } = await supabase.from("profiles").select("full_name, email").eq("id", user.id).single();
+    const expectedName = (profile?.full_name && profile.full_name !== profile.email) ? profile.full_name : null;
+
+    const nameInstruction = expectedName
+      ? `\n\nBrukeren er registrert med navnet "${expectedName}". Les navnet som står skrevet på dokumentet, og vurder om det rimelig samsvarer med det registrerte navnet (små forskjeller i stavemåte, mellomnavn, rekkefølge på for-/etternavn er OK — men et tydelig annet navn er IKKE en match).`
+      : `\n\nDet er ikke oppgitt noe registrert navn å sammenligne med.`;
+
     const prompt = (isIdentity || isHostId)
       ? `Du er et dokumentverifiseringssystem. Analyser dette bildet og avgjør om det er et gyldig identitetsdokument.
 
@@ -68,24 +77,29 @@ Godkjente dokumenter:
 - Offisielt brev eller dokument som inneholder personens fulle navn og adresse (bankbrev, offentlig brev, fakturaer fra offentlige etater)
 - Oppholdstillatelse eller annet offentlig ID-dokument
 
-IKKE godkjent: bilder av personer, selfies, tilfeldige bilder, kvitteringer, uoffisielle dokumenter.
+IKKE godkjent: bilder av personer, selfies, tilfeldige bilder, kvitteringer, uoffisielle dokumenter.${nameInstruction}
 
 Svar KUN med gyldig JSON:
 {
   "isValid": true or false,
   "documentType": "kort type beskrivelse på norsk, eller null",
   "confidence": "high", "medium", or "low",
-  "reason": "én setning på norsk"
+  "reason": "én setning på norsk",
+  "extractedName": "navnet slik det står på dokumentet, eller null hvis ikke lesbart",
+  "nameMatches": true, false, or null (null hvis det ikke var noe registrert navn å sammenligne med, eller navnet på dokumentet ikke er lesbart)
 }`
       : `You are a document verification system. Analyze this image and determine if it is a valid European driver's license.
-European countries include all EU member states plus Norway, Iceland, Liechtenstein, Switzerland, UK, Serbia, Montenegro, Albania, North Macedonia, Bosnia, Moldova and other European nations.
+European countries include all EU member states plus Norway, Iceland, Liechtenstein, Switzerland, UK, Serbia, Montenegro, Albania, North Macedonia, Bosnia, Moldova and other European nations.${nameInstruction.replace("Brukeren er registrert", "The user is registered").replace("Les navnet", "Read the name").replace("Det er ikke oppgitt", "No registered name")}
+
 Respond ONLY with valid JSON:
 {
   "isDriversLicense": true or false,
   "isEuropean": true or false,
   "country": "country name in Norwegian, or null",
   "confidence": "high", "medium", or "low",
-  "reason": "one sentence in Norwegian"
+  "reason": "one sentence in Norwegian",
+  "extractedName": "the name as printed on the document, or null if unreadable",
+  "nameMatches": true, false, or null (null if there was no registered name to compare against, or the document's name is unreadable)
 }`;
 
     const message = await anthropic.messages.create({
@@ -99,12 +113,10 @@ Respond ONLY with valid JSON:
     try { result = JSON.parse(rawText); }
     catch { return new Response(JSON.stringify({ error: "Analyse feilet, prøv igjen." }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }); }
 
+    const nameOk = result.nameMatches !== false; // true or null (no name to check) both pass; explicit false blocks
     const verified = (isIdentity || isHostId)
-      ? result.isValid === true && (result.confidence === "high" || result.confidence === "medium")
-      : result.isDriversLicense === true && result.isEuropean === true && (result.confidence === "high" || result.confidence === "medium");
-
-    // Hent brukerinfo for admin-varselet
-    const { data: profile } = await supabase.from("profiles").select("full_name, email").eq("id", user.id).single();
+      ? result.isValid === true && (result.confidence === "high" || result.confidence === "medium") && nameOk
+      : result.isDriversLicense === true && result.isEuropean === true && (result.confidence === "high" || result.confidence === "medium") && nameOk;
 
     if (isHostId) {
       // Host identity: save to host_id_ai_* fields (NOT drivers_license_*)
@@ -112,6 +124,7 @@ Respond ONLY with valid JSON:
         host_id_ai_result: verified,
         host_id_ai_confidence: (result.confidence ?? null) as string | null,
         host_id_ai_reason: (result.reason ?? null) as string | null,
+        host_id_ai_name_match: (result.nameMatches ?? null) as boolean | null,
       }).eq("id", user.id);
     } else {
       // Renter license or identity: save to drivers_license_* fields
@@ -121,6 +134,7 @@ Respond ONLY with valid JSON:
         drivers_license_admin_reviewed: false,
         drivers_license_doc_type: type,
         drivers_license_country: (result.country ?? result.documentType ?? null) as string | null,
+        drivers_license_ai_name_match: (result.nameMatches ?? null) as boolean | null,
       }).eq("id", user.id);
     }
 
@@ -129,6 +143,11 @@ Respond ONLY with valid JSON:
     const aiLabel = verified ? "✅ Godkjent av AI" : "❌ Avvist av AI";
     const userName = profile?.full_name || profile?.email || user.email || user.id;
     const adminUrl = "https://leieplattform.no/app.html#admin";
+    const nameMatchLabel = result.nameMatches === false
+      ? "❌ Navnet stemmer IKKE overens"
+      : result.nameMatches === true
+        ? "✅ Navnet stemmer overens"
+        : "— Ikke sjekket";
 
     await sendEmail(
       ADMIN_EMAIL,
@@ -144,6 +163,8 @@ Respond ONLY with valid JSON:
 <tr><td style="padding:4px 0;font-size:14px;color:#3D4A41;"><b>E-post:</b> ${escapeHtml(profile?.email || user.email)}</td></tr>
 <tr><td style="padding:4px 0;font-size:14px;color:#3D4A41;"><b>Dokumenttype:</b> ${escapeHtml(docLabel)}</td></tr>
 <tr><td style="padding:4px 0;font-size:14px;color:#3D4A41;"><b>AI-vurdering:</b> ${escapeHtml(aiLabel)} (${escapeHtml(result.confidence || "?")})</td></tr>
+<tr><td style="padding:4px 0;font-size:14px;color:#3D4A41;"><b>Navn p&aring; dokument:</b> ${escapeHtml((result.extractedName as string) || "-")}</td></tr>
+<tr><td style="padding:4px 0;font-size:14px;color:#3D4A41;"><b>Navnesjekk:</b> ${escapeHtml(nameMatchLabel)}</td></tr>
 <tr><td style="padding:4px 0;font-size:14px;color:#3D4A41;"><b>Grunn (AI):</b> ${escapeHtml(result.reason || "-")}</td></tr>
 </table>
 <p style="margin:0 0 8px;font-size:14px;color:#3D4A41;">Se bildet og godkjenn eller avvis i admin-panelet:</p>
@@ -158,7 +179,15 @@ Respond ONLY with valid JSON:
     ).catch(e => console.warn("[verify-license] Admin email failed:", e));
 
     return new Response(
-      JSON.stringify({ verified, country: result.country ?? null, documentType: result.documentType ?? null, reason: result.reason, confidence: result.confidence }),
+      JSON.stringify({
+        verified,
+        country: result.country ?? null,
+        documentType: result.documentType ?? null,
+        reason: result.reason,
+        confidence: result.confidence,
+        nameMatches: result.nameMatches ?? null,
+        extractedName: result.extractedName ?? null,
+      }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
