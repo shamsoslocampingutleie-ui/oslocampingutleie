@@ -109,9 +109,20 @@ Respond ONLY with valid JSON:
     });
 
     const rawText = message.content[0].type === "text" ? message.content[0].text.trim() : "";
-    let result: Record<string, unknown>;
-    try { result = JSON.parse(rawText); }
-    catch { return new Response(JSON.stringify({ error: "Analyse feilet, prøv igjen." }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }); }
+    // Claude occasionally wraps the JSON in a ```json fence or adds a short
+    // preamble even when told to respond with JSON only. Strip fences and
+    // fall back to extracting the first {...} block before giving up.
+    const fenceMatch = rawText.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+    const braceMatch = rawText.match(/\{[\s\S]*\}/);
+    const candidates = [rawText, fenceMatch?.[1], braceMatch?.[0]].filter(Boolean) as string[];
+    let result: Record<string, unknown> | undefined;
+    for (const candidate of candidates) {
+      try { result = JSON.parse(candidate); break; } catch { /* try next candidate */ }
+    }
+    if (!result) {
+      console.error("[verify-license] could not parse AI response:", rawText);
+      return new Response(JSON.stringify({ error: "Analyse feilet, prøv igjen." }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
 
     const nameOk = result.nameMatches !== false; // true or null (no name to check) both pass; explicit false blocks
     const verified = (isIdentity || isHostId)
