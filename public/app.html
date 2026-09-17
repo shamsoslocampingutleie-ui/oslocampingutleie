@@ -1278,7 +1278,8 @@ async function openLicenseUploadModal(opts){
           await sb.from('profiles').update({drivers_license_front:upd.image_url}).eq('id',session.id);
           qrBox.style.background='#D1FAE5';qrBox.style.borderColor='#6EE7B7';
           document.getElementById('_qrHint').innerHTML='<b style="color:#065F46">✓ Bilde mottatt! Verifiserer…</b>';
-          await _verifyLicenseImage(upd.image_url,_idType);
+          const signedForAi=await _signedSrc(upd.image_url);
+          await _verifyLicenseImage(signedForAi||upd.image_url,_idType);
         }
       },2500);
     })();
@@ -1307,7 +1308,10 @@ async function openLicenseUploadModal(opts){
       const col=idx===0?'drivers_license_front':'drivers_license_back';
       await sb.from('profiles').update({[col]:url}).eq('id',session.id);
       prev.src=URL.createObjectURL(f);prev.style.display='block';
-      if(idx===0)await _verifyLicenseImage(url,_idType);
+      if(idx===0){
+        const{data:signedForAi}=await sb.storage.from('drivers-license').createSignedUrl(path,300);
+        await _verifyLicenseImage(signedForAi?.signedUrl||url,_idType);
+      }
     };
     wrap.append(lbl,inp,prev);body.appendChild(wrap);
   });
@@ -1800,11 +1804,11 @@ surf.appendChild(wrap);});}e.appendChild(surf);}let _analyticsInterval=null;asyn
     try{
       const compressed=await compressImage(file,1400,0.85);
       const ext=compressed.type.includes("png")?"png":"jpg";
-      const path=`host-verification/${session.id}/${Date.now()}.${ext}`;
+      const path=`${session.id}/host-verification/${Date.now()}.${ext}`;
       const{error:upErr}=await sb.storage.from("drivers-license").upload(path,compressed,{upsert:true,contentType:compressed.type});
       if(upErr){errP.textContent="Opplasting feilet. Prøv igjen.";submitBtn.disabled=false;submitBtn.textContent="Send inn legitimasjon →";return;}
-      const{data:urlData}=sb.storage.from("drivers-license").getPublicUrl(path);
-      const docUrl=urlData?.publicUrl||path;
+      const{data:signedData}=await sb.storage.from("drivers-license").createSignedUrl(path,300);
+      const docUrl=signedData?.signedUrl||path;
       const{error:dbErr}=await sb.from("profiles").update({
         host_id_status:"pending",
         host_id_doc_url:path,
