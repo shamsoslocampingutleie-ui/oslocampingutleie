@@ -5,9 +5,25 @@
 # structure already established by the hand-built Oslo/Bergen pages.
 
 import os
+from urllib.parse import quote
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PUBLIC = os.path.join(ROOT, "public")
+
+# URL slug (used in /leie-{cat}-{city} paths) -> internal category code the
+# app itself uses for the ?cat= deep-link filter (see CAT_LABEL in
+# api/og.js / CAT_NAME in src/app.html). Keep in sync with both.
+CAT_CODE = {
+    "campingvogn": "camping",
+    "bobil": "mobil",
+    "taktelt": "tent",
+    "tilhenger": "trailer",
+    "maskiner": "maskiner",
+    "bil": "car",
+    "bat": "boat",
+    "verktoy": "tool",
+    "fritidsutstyr": "fritid",
+}
 
 # (slug, display name)
 CITIES = [
@@ -219,6 +235,9 @@ def light_page(cat_slug, city_slug):
     title = f"Lei {cat_lower} i {city} 2026{title_price} | Leieplattform"
     desc = f"Finn {cat_lower} til leie i {city}-området fra verifiserte private utleiere. Digital kontrakt, trygg betaling og depositumsbeskyttelse."
     url = f"https://leieplattform.no/leie-{cat_slug}-{city_slug}"
+    # Deep-link the CTAs straight into a pre-filtered search instead of the
+    # bare homepage, so a visitor doesn't have to re-search manually.
+    search_url = f"/?cat={CAT_CODE[cat_slug]}&loc={quote(city)}"
 
     faq_ld = ",".join(
         '{"@type":"Question","name":"%s","acceptedAnswer":{"@type":"Answer","text":"%s"}}'
@@ -270,7 +289,7 @@ def light_page(cat_slug, city_slug):
   <h1>Lei {cat_lower} i {city}
 — direkte fra private eiere</h1>
   <p class="lead">{desc}</p>
-  <a href="/" class="btn">Se {cat_lower} til leie →</a>
+  <a href="{search_url}" class="btn">Se {cat_lower} til leie →</a>
   <div class="trust">
     <span>Verifiserte utleiere</span><span>Digital leieavtale</span>
     <span>Trygg betaling via Stripe</span><span>Depositumsbeskyttelse</span>
@@ -300,7 +319,7 @@ def light_page(cat_slug, city_slug):
   <div class="cta-box">
     <h2>Klar til å komme i gang?</h2>
     <p style="color:#444;margin-bottom:20px">Se tilgjengelig {cat_lower} i {city} og bestill direkte.</p>
-    <a href="/" class="btn">Se {cat_lower} til leie →</a>
+    <a href="{search_url}" class="btn">Se {cat_lower} til leie →</a>
   </div>
   <section>
     <h2>Ofte stilte spørsmål</h2>

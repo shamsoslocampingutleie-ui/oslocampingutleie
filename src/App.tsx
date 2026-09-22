@@ -22,14 +22,20 @@ export default function App() {
     window.addEventListener("popstate", onPop);
 
     function onLoad() {
-      const listingId = new URLSearchParams(window.location.search).get("listing");
+      const params = new URLSearchParams(window.location.search);
+      const listingId = params.get("listing");
       if (listingId) {
         ref.current?.contentWindow?.postMessage({ type: "route", view: "listing/" + listingId }, "*");
         return;
       }
+      // cat/loc let SEO landing pages deep-link straight into a pre-filtered
+      // search (e.g. /?cat=trailer&loc=Oslo) instead of dumping visitors on
+      // the unfiltered homepage.
+      const cat = params.get("cat") || undefined;
+      const loc = params.get("loc") || undefined;
       const initialView = window.location.pathname.replace(/^\//, "") || "home";
-      if (initialView !== "home") {
-        ref.current?.contentWindow?.postMessage({ type: "route", view: initialView }, "*");
+      if (initialView !== "home" || cat || loc) {
+        ref.current?.contentWindow?.postMessage({ type: "route", view: initialView, cat, loc }, "*");
       }
     }
     const iframe = ref.current;
