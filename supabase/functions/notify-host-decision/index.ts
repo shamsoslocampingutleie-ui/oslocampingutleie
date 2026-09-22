@@ -59,7 +59,7 @@ Deno.serve(async (req) => {
             "Godkjent som utleier 🎉",
             `<p>Bra nytt! Søknaden din om å bli utleier på Leieplattform er godkjent.</p>
             <p>Du kan nå legge ut annonser og begynne å tjene penger på utstyret ditt.</p>
-            <a href="https://leieplattform.no" class="btn">Legg ut din første annonse →</a>`,
+            <a href="https://leieplattform.no/legg-ut" class="btn">Legg ut din første annonse →</a>`,
           )
           : emailLayout(
             "Søknaden din ble ikke godkjent",
