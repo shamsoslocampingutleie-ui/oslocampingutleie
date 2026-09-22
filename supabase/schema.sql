@@ -1260,3 +1260,46 @@ create policy "btransport_access" on public.booking_transport for all
     union
     select l.owner from public.bookings b join public.listings l on l.id = b.listing_id where b.id = booking_id
   ));
+
+-- ============================================================
+-- DISPOSABLE EMAIL BLOCKING (2026-09-22)
+-- ============================================================
+-- Server-side backstop for the client-side check in authRegister()
+-- (src/app.html) -- see migrations/20260922130000_block_disposable_email_domains.sql
+-- for the full explanation. Blocks signup via auth.users insert directly,
+-- so it can't be bypassed by calling supabase.auth.signUp() outside the UI.
+
+create or replace function public.reject_disposable_email()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  domain text;
+  blocked text[] := array[
+    'mailinator.com','tempmail.com','temp-mail.org','10minutemail.com','10minutemail.net',
+    'guerrillamail.com','guerrillamail.info','guerrillamail.biz','guerrillamail.de',
+    'sharklasers.com','yopmail.com','yopmail.fr','yopmail.net','throwawaymail.com',
+    'trashmail.com','trashmail.net','getnada.com','fakeinbox.com','mailnesia.com',
+    'mintemail.com','maildrop.cc','dispostable.com','spamgourmet.com','mytemp.email',
+    'moakt.com','emailondeck.com','tempinbox.com','tempmailo.com','tempr.email',
+    'harakirimail.com','mohmal.com','burnermail.io','33mail.com','mailcatch.com',
+    'inboxkitten.com','discard.email','discardmail.com','spambog.com',
+    'tempmailaddress.com','luxusmail.org','anonbox.net','mailsac.com','emailfake.com',
+    'fakemailgenerator.com','crazymailing.com'
+  ];
+begin
+  domain := lower(split_part(new.email, '@', 2));
+  if domain = any(blocked) then
+    raise exception 'Engangs-/midlertidige e-postadresser er ikke tillatt. Bruk din vanlige e-post.'
+      using errcode = '23514';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists reject_disposable_email_trigger on auth.users;
+create trigger reject_disposable_email_trigger
+  before insert on auth.users
+  for each row execute function public.reject_disposable_email();
