@@ -181,14 +181,25 @@ Deno.serve(async (req) => {
   let stripeUrl: string | null = null;
   if (listing.instant_book) {
     try {
+      // fee_waiver_until: while in the future for this host (first year
+      // after approval -- see protect_profile_fields()), the host-side 10%
+      // is waived. The renter-side 10% service fee is unaffected.
+      const { data: hostProfile } = await sb
+        .from("profiles")
+        .select("fee_waiver_until")
+        .eq("id", listing.owner)
+        .maybeSingle();
+      const hostFeeWaived = !!hostProfile?.fee_waiver_until &&
+        new Date(hostProfile.fee_waiver_until) > new Date();
+
       const n = nights(from_date as string, to_date as string);
       const rent = Number(listing.price_per_day) * n;
       const serviceFee = Math.round(rent * 0.10);
       const cleaningFee = Number(listing.cleaning_fee || 0);
       const deposit = listing.deposit_mode !== "incident" ? Number(listing.deposit || 0) : 0;
       const amountTotal = rent + serviceFee + cleaningFee + deposit;
-      // Platform fee = 10% from renter + 10% from host = 20% of rent. Host gets 90%.
-      const platformFee = serviceFee + Math.round(rent * 0.10);
+      // Platform fee = 10% from renter + 10% from host (unless waived) = up to 20% of rent.
+      const platformFee = serviceFee + (hostFeeWaived ? 0 : Math.round(rent * 0.10));
       const amountTotalOre = Math.round(amountTotal * 100);
       const platformFeeOre = Math.round(platformFee * 100);
 

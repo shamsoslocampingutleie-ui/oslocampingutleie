@@ -562,40 +562,60 @@ create index if not exists reviews_listing_id_idx on public.reviews (listing_id)
 -- or fake stripe_account_id/stripe_charges_enabled. Admins (checked via
 -- is_admin()) and the service role (used by edge functions) can still
 -- change these fields normally.
+-- fee_waiver_until (added 2026-09-22): a host keeps 100% of rent (no
+-- host-side platform fee) on bookings until this timestamp. Set
+-- automatically for one year the instant host_approved transitions to
+-- true, below — never directly client-writable, same protection pattern
+-- as host_approved/host_id_status. See migrations/20260922120000_*.sql.
+alter table public.profiles
+  add column if not exists fee_waiver_until timestamptz default null;
+
 create or replace function public.protect_profile_fields()
 returns trigger
 language plpgsql
 security definer
 set search_path = public
 as $$
+declare
+  is_privileged boolean;
 begin
-  if auth.role() = 'service_role' then
-    return new;
-  end if;
-  if exists (select 1 from public.profiles where id = auth.uid() and role = 'admin') then
-    return new;
-  end if;
+  is_privileged := auth.role() = 'service_role'
+    or exists (select 1 from public.profiles where id = auth.uid() and role = 'admin');
 
-  new.role := old.role;
-  new.suspended := old.suspended;
-  new.stripe_account_id := old.stripe_account_id;
-  new.stripe_charges_enabled := old.stripe_charges_enabled;
+  if not is_privileged then
+    new.role := old.role;
+    new.suspended := old.suspended;
+    new.stripe_account_id := old.stripe_account_id;
+    new.stripe_charges_enabled := old.stripe_charges_enabled;
 
-  new.drivers_license_verified := old.drivers_license_verified;
-  new.drivers_license_admin_reviewed := old.drivers_license_admin_reviewed;
-  new.host_id_reviewed_at := old.host_id_reviewed_at;
-  new.host_id_reject_reason := old.host_id_reject_reason;
+    new.drivers_license_verified := old.drivers_license_verified;
+    new.drivers_license_admin_reviewed := old.drivers_license_admin_reviewed;
+    new.host_id_reviewed_at := old.host_id_reviewed_at;
+    new.host_id_reject_reason := old.host_id_reject_reason;
 
-  if new.host_approved is distinct from old.host_approved then
-    if new.host_approved is distinct from false then
-      new.host_approved := old.host_approved;
+    if new.host_approved is distinct from old.host_approved then
+      if new.host_approved is distinct from false then
+        new.host_approved := old.host_approved;
+      end if;
     end if;
+
+    if new.host_id_status is distinct from old.host_id_status then
+      if new.host_id_status is distinct from 'pending' then
+        new.host_id_status := old.host_id_status;
+      end if;
+    end if;
+
+    -- Never directly client-writable; only the block below (which runs
+    -- for every actor, privileged or not) sets it.
+    new.fee_waiver_until := old.fee_waiver_until;
   end if;
 
-  if new.host_id_status is distinct from old.host_id_status then
-    if new.host_id_status is distinct from 'pending' then
-      new.host_id_status := old.host_id_status;
-    end if;
+  -- Start (or restart) the free-year clock exactly when host_approved
+  -- legitimately flips to true. For a non-privileged actor this only
+  -- fires if new.host_approved somehow survived the block above as true,
+  -- which it can't -- so a self-approval attempt never grants a waiver.
+  if new.host_approved is true and old.host_approved is distinct from true then
+    new.fee_waiver_until := now() + interval '1 year';
   end if;
 
   return new;

@@ -154,7 +154,7 @@ def render_page(slug):
     faq_extra_q, faq_extra_a = c["faq_extra"]
 
     faq_ld = ",\n      ".join([
-        '{"@type": "Question","name": "Er det gratis å legge ut %s på Leieplattform?","acceptedAnswer": {"@type": "Answer", "text": "Ja, det er helt gratis å opprette profil og legge ut utstyr. Du betaler kun 10 %% plattformgebyr når du faktisk tjener penger på en godkjent og gjennomført leie."}}'
+        '{"@type": "Question","name": "Er det gratis å legge ut %s på Leieplattform?","acceptedAnswer": {"@type": "Answer", "text": "Ja, det er helt gratis å opprette profil og legge ut utstyr. Det første året som utleier betaler du 0 %% plattformgebyr — du beholder alt du tjener. Deretter er plattformgebyret 10 %% av det du faktisk tjener på en gjennomført leie."}}'
         % slug,
         '{"@type": "Question","name": "Hvorfor er det ingen andre annonser i denne kategorien ennå?","acceptedAnswer": {"@type": "Answer", "text": "Kategorien er ny på Leieplattform — det betyr du kan bli den første og synlige utleieren i ditt område, uten konkurranse fra andre annonser."}}',
         '{"@type": "Question","name": "Hva skjer hvis noe blir skadet?","acceptedAnswer": {"@type": "Answer", "text": "Alle leier kan inkludere depositum satt av deg som utleier. Depositumet holdes trygt på plattformen og frigis til deg ved godkjent skadeoppgjør."}}',
@@ -166,7 +166,7 @@ def render_page(slug):
 
     faq_html = f"""<details>
       <summary>Er det gratis å legge ut {slug} på Leieplattform?</summary>
-      <p>Ja, det er helt gratis å opprette profil og legge ut utstyr. Du betaler kun 10 % plattformgebyr når du faktisk tjener penger på en gjennomført leie.</p>
+      <p>Ja, det er helt gratis å opprette profil og legge ut utstyr. Det første året som utleier betaler du 0 % plattformgebyr — du beholder alt du tjener. Deretter er plattformgebyret 10 % av det du faktisk tjener på en gjennomført leie.</p>
     </details>
     <details>
       <summary>Hvorfor er det ingen andre annonser i denne kategorien ennå?</summary>

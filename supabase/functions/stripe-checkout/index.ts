@@ -1,8 +1,13 @@
 // Creates a Stripe Checkout Session for a booking.
 // Fee structure:
 //   - Renter pays: rent + 10% service fee + cleaning fee + deposit + transport
-//   - Platform keeps: 10% service fee (from renter) + 10% platform fee (from host) = 20% of rent
-//   - Host receives: 90% of rent + cleaning fee + deposit + transport (paid out after handover)
+//   - Platform normally keeps: 10% service fee (from renter) + 10% platform fee
+//     (from host) = 20% of rent. Host normally receives 90% of rent.
+//   - New-host fee waiver: while profiles.fee_waiver_until is in the future
+//     for the listing's owner (set automatically for a host's first year —
+//     see protect_profile_fields()), the host-side 10% is waived and the
+//     host receives 100% of rent instead of 90%. The renter-side 10%
+//     service fee is unaffected either way.
 import Stripe from "npm:stripe@17";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
@@ -126,7 +131,7 @@ Deno.serve(async (req) => {
 
     const { data: host, error: hostErr } = await supabase
       .from("profiles")
-      .select("stripe_account_id, stripe_charges_enabled")
+      .select("stripe_account_id, stripe_charges_enabled, fee_waiver_until")
       .eq("id", listing.owner)
       .single();
     if (hostErr || !host) {
@@ -171,8 +176,9 @@ Deno.serve(async (req) => {
       ? Math.round(Number(listing.transport_fee))
       : 0;
     const amountTotal = rentAfterDiscount + serviceFee + cleaningFee + deposit + transportFeeAmount;
-    // Platform fee = 10% from renter + 10% from host = 20% of rent. Host gets 90%.
-    const platformFee = serviceFee + Math.round(rentAfterDiscount * 0.10);
+    const hostFeeWaived = !!host.fee_waiver_until && new Date(host.fee_waiver_until) > new Date();
+    // Platform fee = 10% from renter + 10% from host (unless waived) = up to 20% of rent.
+    const platformFee = serviceFee + (hostFeeWaived ? 0 : Math.round(rentAfterDiscount * 0.10));
 
     const amountTotalOre = Math.round(amountTotal * 100);
     // The platform always receives the full payment up front. The host's
