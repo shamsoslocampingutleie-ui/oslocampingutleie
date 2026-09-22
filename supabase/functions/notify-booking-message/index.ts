@@ -84,7 +84,7 @@ Deno.serve(async (req) => {
 
       const preview = escapeHtml((messageText ?? "").slice(0, 200));
       const safeSenderName = escapeHtml(senderName || "Bruker");
-      const appUrl = "https://leieplattform.no";
+      const appUrl = `https://leieplattform.no/booking/${bookingId}`;
 
       if (callerIsRenter) {
         // Renter sent → notify host
@@ -175,7 +175,7 @@ Deno.serve(async (req) => {
               <p><strong>Leietaker:</strong> ${booking.renter_name}</p>
             </div>
             <p>Logg inn og gå til <strong>Utleier-dashbord</strong> for å godkjenne eller avvise forespørselen.</p>
-            <a href="https://leieplattform.no" class="btn">Se forespørsel →</a>`,
+            <a href="https://leieplattform.no/booking/${bookingId}" class="btn">Se forespørsel →</a>`,
           ),
         );
       }
@@ -214,7 +214,7 @@ Deno.serve(async (req) => {
               <p><strong>Periode:</strong> ${booking.from_date} → ${booking.to_date}</p>
             </div>
             <p>Logg inn for å se detaljer, betale og sende meldinger til utleier.</p>
-            <a href="https://leieplattform.no" class="btn">Se booking →</a>`,
+            <a href="https://leieplattform.no/booking/${bookingId}" class="btn">Se booking →</a>`,
           ),
         );
       }
@@ -309,7 +309,7 @@ Deno.serve(async (req) => {
               emailLayout(
                 "Bekreft overlevering du også",
                 `<p>Utleier har bekreftet at <strong>${escapeHtml(title)}</strong> er overlevert. Bekreft det samme fra din side for å frigi depositumet.</p>
-                <a href="https://leieplattform.no" class="btn">Bekreft overlevering →</a>`,
+                <a href="https://leieplattform.no/booking/${bookingId}" class="btn">Bekreft overlevering →</a>`,
               ),
             );
           }
@@ -330,7 +330,7 @@ Deno.serve(async (req) => {
               emailLayout(
                 "Bekreft overlevering du også",
                 `<p>Leietaker har bekreftet at <strong>${escapeHtml(title)}</strong> er hentet/levert. Bekreft det samme fra din side for å frigi utbetalingen.</p>
-                <a href="https://leieplattform.no" class="btn">Bekreft overlevering →</a>`,
+                <a href="https://leieplattform.no/booking/${bookingId}" class="btn">Bekreft overlevering →</a>`,
               ),
             );
           }

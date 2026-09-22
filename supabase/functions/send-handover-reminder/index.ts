@@ -181,7 +181,7 @@ Deno.serve(async (req) => {
               "Utbetaling frigitt automatisk",
               `<p>Leieperioden for <strong>${title}</strong> (${fmt(b.from_date)} – ${fmt(b.to_date)}) ble automatisk avsluttet fordi ingen av partene bekreftet overlevering innen 7 dager.</p>
               <p>Vi har frigitt utbetalingen til din Stripe-konto. Beløpet vil vises innen 3–5 virkedager.</p>
-              <a href="https://leieplattform.no" class="btn">Gå til Mine bookinger</a>
+              <a href="https://leieplattform.no/booking/${b.id}" class="btn">Gå til Mine bookinger</a>
               <div class="info-box"><p>Fremover: husk å bekrefte «Utlevering» i appen etter at leietaker har hentet utstyret.</p></div>`,
             ),
           );
@@ -194,7 +194,7 @@ Deno.serve(async (req) => {
               "Leieperioden er avsluttet",
               `<p>Leieperioden for <strong>${title}</strong> (${fmt(b.from_date)} – ${fmt(b.to_date)}) ble automatisk avsluttet.</p>
               <p>Fremover: husk å bekrefte «Mottak» i appen etter at du har returnert utstyret — dette sikrer at depositumet ditt frigjøres raskere.</p>
-              <a href="https://leieplattform.no" class="btn">Se mine bookinger</a>`,
+              <a href="https://leieplattform.no/booking/${b.id}" class="btn">Se mine bookinger</a>`,
             ),
           );
         }
@@ -229,13 +229,13 @@ Deno.serve(async (req) => {
         if (hostEmail) {
           await sendEmail(hostEmail, "Utbetaling frigitt automatisk", emailLayout("Utbetaling frigitt automatisk",
             `<p>Leieperioden for <strong>${listingTitle}</strong> (${fmt(b.from_date)} – ${fmt(b.to_date)}) ble automatisk avsluttet. Utbetalingen er frigitt til din Stripe-konto.</p>
-            <a href="https://leieplattform.no" class="btn">Gå til Mine bookinger</a>`,
+            <a href="https://leieplattform.no/booking/${b.id}" class="btn">Gå til Mine bookinger</a>`,
           ));
         }
         if (renterEmail) {
           await sendEmail(renterEmail, "Leieperioden er avsluttet", emailLayout("Leieperioden er avsluttet",
             `<p>Leieperioden for <strong>${listingTitle}</strong> (${fmt(b.from_date)} – ${fmt(b.to_date)}) ble automatisk avsluttet.</p>
-            <a href="https://leieplattform.no" class="btn">Se mine bookinger</a>`,
+            <a href="https://leieplattform.no/booking/${b.id}" class="btn">Se mine bookinger</a>`,
           ));
         }
         continue;
@@ -260,7 +260,7 @@ Deno.serve(async (req) => {
             "Husk å bekrefte utlevering",
             `<p>Leieperioden for <strong>${title}</strong> er avsluttet (${fmt(b.from_date)} – ${fmt(b.to_date)}), men du har ikke bekreftet utlevering ennå.</p>
             <p><strong>Pengene kan ikke utbetales til deg før du bekrefter.</strong></p>
-            <a href="https://leieplattform.no" class="btn">Bekreft utlevering nå →</a>
+            <a href="https://leieplattform.no/booking/${b.id}" class="btn">Bekreft utlevering nå →</a>
             <div class="info-box">
               <p>Logg inn → Mine bookinger → <strong>Bekreft utlevering</strong></p>
               <p>Hvis du ikke bekrefter innen 7 dager etter leieperiodens slutt, vil utbetalingen frigis automatisk.</p>
@@ -286,7 +286,7 @@ Deno.serve(async (req) => {
           emailLayout(
             "Husk å bekrefte mottak",
             `<p>Leieperioden for <strong>${title}</strong> er avsluttet (${fmt(b.from_date)} – ${fmt(b.to_date)}), men du har ikke bekreftet mottak og retur ennå.</p>
-            <a href="https://leieplattform.no" class="btn">Bekreft mottak nå →</a>
+            <a href="https://leieplattform.no/booking/${b.id}" class="btn">Bekreft mottak nå →</a>
             <div class="info-box">
               <p>Logg inn → Mine bookinger → <strong>Bekreft mottak</strong></p>
               <p>Bekreftelsen er viktig for at depositumet ditt frigjøres og utleieren får betalt.</p>

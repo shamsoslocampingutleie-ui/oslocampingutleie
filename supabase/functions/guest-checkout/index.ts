@@ -156,7 +156,7 @@ Deno.serve(async (req) => {
               <p><strong>Leietaker:</strong> ${escapeHtml(renter_name as string)}</p>
             </div>
             <p>Logg inn og gå til <strong>Utleier-dashbord</strong> for å godkjenne eller avvise forespørselen.</p>
-            <a href="https://leieplattform.no" class="btn">Se forespørsel →</a>`,
+            <a href="https://leieplattform.no/booking/${bookingId}" class="btn">Se forespørsel →</a>`,
           ),
         );
       }

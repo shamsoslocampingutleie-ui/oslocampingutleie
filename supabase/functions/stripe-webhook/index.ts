@@ -72,7 +72,7 @@ async function sendPaymentConfirmationEmails(bookingId: string, amountTotal: num
             <p><strong>Betalt totalt:</strong> ${nok(amountTotal)}</p>
           </div>
           <p><strong>Viktig:</strong> Etter at du har hentet og returnert utstyret må du bekrefte dette i appen. Depositumet frigjøres etter begge parters bekreftelse.</p>
-          <a href="https://leieplattform.no" class="btn">Gå til Mine bookinger →</a>
+          <a href="https://leieplattform.no/booking/${bookingId}" class="btn">Gå til Mine bookinger →</a>
           <div class="info-box">
             <p>Pengene overføres til utleier <strong>kun</strong> etter at dere begge har bekreftet overlevering i appen. Ingen betaling skjer uten din bekreftelse.</p>
           </div>`,
@@ -99,7 +99,7 @@ async function sendPaymentConfirmationEmails(bookingId: string, amountTotal: num
             <li>Klikk <strong>"Bekreft utlevering"</strong> i appen</li>
             <li>Etter at leietaker også bekrefter mottak → pengene utbetales til din Stripe-konto</li>
           </ol>
-          <a href="https://leieplattform.no" class="btn">Gå til Mine bookinger →</a>
+          <a href="https://leieplattform.no/booking/${bookingId}" class="btn">Gå til Mine bookinger →</a>
           <div class="info-box">
             <p>Har ingen av dere bekreftet innen 7 dager etter leieperiodens slutt, frigis utbetalingen automatisk.</p>
           </div>`,
