@@ -252,7 +252,7 @@ def render_page(slug):
       <div class="step">
         <div class="num">2</div>
         <h3>Legg ut annonse</h3>
-        <p>Last opp bilder, beskriv utstyret, sett pris og velg tilgjengelighet i kalenderen.</p>
+        <p>Bilde, tittel, sted og pris er alt som kreves for å starte — resten fyller du inn når du vil.</p>
       </div>
       <div class="step">
         <div class="num">3</div>
