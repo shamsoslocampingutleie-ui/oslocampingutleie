@@ -288,7 +288,7 @@ def render_page(slug):
 
   <div class="cta-box">
     <h2>Klar til å bli den første?</h2>
-    <p>Det er gratis å starte. Ingen bindingstid, ingen månedskostnad.</p>
+    <p>Det er gratis å starte, og <strong style="color:#fff">det første året betaler du 0 % i plattformgebyr</strong> — du beholder alt du tjener.</p>
     <a href="/" class="btn-light">Legg ut gratis →</a>
   </div>
 
