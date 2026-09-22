@@ -116,7 +116,7 @@
     /* Safety */
     .safety-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin:24px 0}
     .safety-card{background:var(--bg);border-radius:14px;padding:20px}
-    .safety-card .icon{font-size:1.6rem;margin-bottom:10px}
+    .safety-card .icon{width:40px;height:40px;border-radius:10px;background:#fff;display:grid;place-items:center;color:var(--g);margin-bottom:12px}
     .safety-card h3{font-size:.95rem;font-weight:700;color:var(--ink);margin-bottom:6px}
     .safety-card p{font-size:.88rem;color:var(--ink-3);margin:0}
 
@@ -331,22 +331,22 @@
     <h2>Du er beskyttet hele veien</h2>
     <div class="safety-grid">
       <div class="safety-card">
-        <div class="icon">🔒</div>
+        <div class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2 4 5v6c0 5 3.5 8 8 11 4.5-3 8-6 8-11V5z"/><path d="m9 12 2 2 4-4"/></svg></div>
         <h3>Verifiserte leietakere</h3>
         <p>Alle brukere bekrefter e-post og er registrert med fullt navn. Omdømme bygges gjennom anmeldelser.</p>
       </div>
       <div class="safety-card">
-        <div class="icon">📄</div>
+        <div class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></div>
         <h3>Digital leieavtale</h3>
         <p>Juridisk bindende digital kontrakt med dine vilkår sendes og signeres automatisk ved hver leie.</p>
       </div>
       <div class="safety-card">
-        <div class="icon">🏦</div>
+        <div class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/></svg></div>
         <h3>Trygg betaling</h3>
         <p>Betaling går gjennom Stripe. Pengene overføres til deg etter at utstyret er returnert godkjent.</p>
       </div>
       <div class="safety-card">
-        <div class="icon">💬</div>
+        <div class="icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
         <h3>Loggført kommunikasjon</h3>
         <p>All kontakt med leietaker skjer i appen og loggføres. Du har full historikk hvis noe skjer.</p>
       </div>
@@ -416,19 +416,19 @@
     <h2>Hva kan du leie ut?</h2>
     <div class="control-grid">
       <a class="control-card" href="/leie-campingvogn-oslo" style="text-decoration:none">
-        <div class="control-icon">🏕</div>
+        <div class="control-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2 18 12 6l10 12"/><path d="M2 18h20"/><path d="M12 6v12"/></svg></div>
         <div><h3>Campingvogner</h3><p>Den mest populære kategorien — høy etterspørsel hele sesongen.</p></div>
       </a>
       <a class="control-card" href="/leie-bobil-oslo" style="text-decoration:none">
-        <div class="control-icon">🚐</div>
+        <div class="control-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="7" width="15" height="9" rx="2"/><path d="M17 9h3l2 3v4h-5z"/><circle cx="7" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg></div>
         <div><h3>Bobilar</h3><p>Høy pris per dag og lang leieperiode — gir god inntekt.</p></div>
       </a>
       <div class="control-card">
-        <div class="control-icon">🔗</div>
+        <div class="control-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="8" width="14" height="7" rx="1"/><path d="M17 13h4"/><circle cx="8" cy="17" r="2"/></svg></div>
         <div><h3>Tilhengere</h3><p>Enkel logistikk, lav risiko og stabil etterspørsel.</p></div>
       </div>
       <div class="control-card">
-        <div class="control-icon">🚗</div>
+        <div class="control-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M5 16 6.5 9h11L19 16"/><rect x="3" y="16" width="18" height="3" rx="1"/><circle cx="7" cy="19" r="1.6"/><circle cx="17" cy="19" r="1.6"/></svg></div>
         <div><h3>Biler</h3><p>SUVer og stasjonsvogner med tilhengerkopling er spesielt populære.</p></div>
       </div>
     </div>
