@@ -348,6 +348,43 @@ create policy "Admins can delete any listing"
   on public.listings for delete
   using (public.is_admin());
 
+-- Row ownership alone isn't enough for DELETE: bookings.listing_id is
+-- "on delete cascade", so without this a host could delete a listing
+-- with a paid/accepted/completed booking still attached and silently
+-- wipe out that booking's entire financial/audit trail (and any review
+-- referencing it) -- e.g. to destroy evidence after a payment dispute.
+-- See 20260925130000_prevent_listing_deletion_with_booking_history.sql.
+create or replace function public.prevent_listing_deletion_with_history()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if auth.role() = 'service_role' then
+    return old;
+  end if;
+  if public.is_admin() then
+    return old;
+  end if;
+
+  if exists (
+    select 1 from public.bookings b
+    where b.listing_id = old.id
+      and (b.paid = true or b.status in ('pending_payment', 'accepted', 'completed'))
+  ) then
+    raise exception 'LISTING_HAS_BOOKINGS: Denne annonsen har bookinger med betaling eller en gjennomført leie, og kan ikke slettes. Sett den til Pauset i stedet.';
+  end if;
+
+  return old;
+end;
+$$;
+
+drop trigger if exists prevent_listing_deletion_with_history_trigger on public.listings;
+create trigger prevent_listing_deletion_with_history_trigger
+  before delete on public.listings
+  for each row execute function public.prevent_listing_deletion_with_history();
+
 -- BOOKINGS
 drop policy if exists "Renters can view own bookings" on public.bookings;
 create policy "Renters can view own bookings"
