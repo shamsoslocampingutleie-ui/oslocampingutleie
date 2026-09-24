@@ -285,6 +285,18 @@ begin
     end if;
   end if;
 
+  -- reviews_insert requires status = 'completed' before a review can be
+  -- posted, so 'completed' must never be reachable without a real mutual
+  -- handover -- otherwise a renter could fabricate a review on any
+  -- listing via a free, never-accepted booking request. Only allow it
+  -- when both confirmation flags are genuinely true in this same row
+  -- (see 20260925120000_protect_completed_status.sql).
+  if new.status is distinct from old.status and new.status = 'completed' then
+    if not (coalesce(new.host_confirmed_handover, false) and coalesce(new.renter_confirmed_handover, false)) then
+      new.status := old.status;
+    end if;
+  end if;
+
   return new;
 end;
 $$;
