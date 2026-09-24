@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { checkRateLimit, rateLimitResponse } from "../_shared/rateLimit.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -8,6 +9,12 @@ const CORS = {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
+  // Fully public, no auth -- the per-email uniqueness check below stops a
+  // repeat submission from the same address, but nothing previously
+  // stopped a burst of inserts (junk campaign_entries rows, or using the
+  // 409 "already registered" response to enumerate whether a specific
+  // email entered) using a fresh email each time.
+  if (!await checkRateLimit(req, 5, 300_000)) return rateLimitResponse(CORS);
 
   const sb = createClient(
     Deno.env.get("SUPABASE_URL")!,
