@@ -1,6 +1,7 @@
 import Stripe from "npm:stripe@17";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { sendEmail, emailLayout, escapeHtml } from "../_shared/email.ts";
+import { checkRateLimit, rateLimitResponse } from "../_shared/rateLimit.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "https://leieplattform.no",
@@ -38,6 +39,11 @@ function safeRedirect(url: unknown): string {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return err(405, "Method not allowed");
+  // No auth on this endpoint at all -- it's the guest (not-logged-in)
+  // booking path by design -- so IP-based limiting is the only thing
+  // stopping it from being spammed to flood a host's inbox with fake
+  // booking-request emails or hammer Stripe checkout-session creation.
+  if (!await checkRateLimit(req, 8, 300_000)) return rateLimitResponse(corsHeaders);
 
   const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") ?? "", {
     apiVersion: "2024-06-20",

@@ -1177,13 +1177,40 @@ create policy "license_delete" on storage.objects for delete
   using (bucket_id = 'drivers-license' and (auth.uid()::text = (storage.foldername(name))[1] or public.is_admin()));
 
 -- Tilgangspolicyer for booking-photos (partene i bookingen)
+
+
+-- Scoped 2026-09-24 (see migrations/20260924100000_scope_booking_photos_access.sql):
+-- previously any authenticated user could read/write any booking's photo
+-- folder here, not just its actual renter/host.
 drop policy if exists "booking_photos_upload" on storage.objects;
 create policy "booking_photos_upload" on storage.objects for insert
-  with check (bucket_id = 'booking-photos' and auth.uid() is not null);
+  with check (
+    bucket_id = 'booking-photos'
+    and (
+      public.is_admin()
+      or exists (
+        select 1 from public.bookings b
+        left join public.listings l on l.id = b.listing_id
+        where b.id::text = (storage.foldername(name))[1]
+          and (b.renter = auth.uid() or l.owner = auth.uid())
+      )
+    )
+  );
 
 drop policy if exists "booking_photos_read" on storage.objects;
 create policy "booking_photos_read" on storage.objects for select
-  using (bucket_id = 'booking-photos' and auth.uid() is not null);
+  using (
+    bucket_id = 'booking-photos'
+    and (
+      public.is_admin()
+      or exists (
+        select 1 from public.bookings b
+        left join public.listings l on l.id = b.listing_id
+        where b.id::text = (storage.foldername(name))[1]
+          and (b.renter = auth.uid() or l.owner = auth.uid())
+      )
+    )
+  );
 
 -- ============================================================
 -- EXTRAS + TRANSPORT SYSTEM (2026-06-23)
