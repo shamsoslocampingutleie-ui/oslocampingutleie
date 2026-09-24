@@ -2,6 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 import { sendEmail, emailLayout, escapeHtml } from "../_shared/email.ts";
 import { sendWebPush } from "../_shared/webpush.ts";
+import { checkRateLimit, rateLimitResponse } from "../_shared/rateLimit.ts";
 
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL")!,
@@ -31,6 +32,10 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
+  // Authenticated, but every call sends real email (to a host or to
+  // every admin) -- without this, a normal logged-in host could loop
+  // this endpoint and flood every admin's inbox.
+  if (!await checkRateLimit(req, 10, 60_000)) return rateLimitResponse(corsHeaders);
 
   try {
     const authHeader = req.headers.get("Authorization") ?? "";

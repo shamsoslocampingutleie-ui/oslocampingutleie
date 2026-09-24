@@ -5,6 +5,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 import { sendEmail, emailLayout } from "../_shared/email.ts";
+import { checkRateLimit, rateLimitResponse } from "../_shared/rateLimit.ts";
 
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL")!,
@@ -15,6 +16,10 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
+  // Admin-only (checked below), but rate-limit anyway for consistency --
+  // cheap, and stops a compromised/careless admin session from being
+  // looped to spam a specific applicant.
+  if (!await checkRateLimit(req, 10, 60_000)) return rateLimitResponse(corsHeaders);
 
   try {
     const authHeader = req.headers.get("Authorization") ?? "";

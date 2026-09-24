@@ -13,6 +13,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 import { sendEmail, emailLayout, escapeHtml } from "../_shared/email.ts";
+import { checkRateLimit, rateLimitResponse } from "../_shared/rateLimit.ts";
 
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL")!,
@@ -24,6 +25,10 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
+  // The host_approved !== false check below already stops this being
+  // spammed once a decision is made, but while still pending a caller
+  // could otherwise loop this and flood ADMIN_EMAIL repeatedly.
+  if (!await checkRateLimit(req, 5, 60_000)) return rateLimitResponse(corsHeaders);
 
   try {
     const authHeader = req.headers.get("Authorization") ?? "";
