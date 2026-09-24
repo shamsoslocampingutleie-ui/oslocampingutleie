@@ -248,6 +248,43 @@ begin
   new.renter := old.renter;
   new.from_date := old.from_date;
   new.to_date := old.to_date;
+
+  -- host_confirmed_handover / renter_confirmed_handover are deliberately
+  -- client-settable (that's how confirmHandover() works), but each can
+  -- only be changed by the party it actually represents -- otherwise
+  -- either side could fake the OTHER party's confirmation and force
+  -- stripe-release-payout to fire without a real mutual handover. See
+  -- 20260925100000_protect_handover_confirmation_fields.sql.
+  if new.host_confirmed_handover is distinct from old.host_confirmed_handover then
+    if not exists (
+      select 1 from public.listings l
+      where l.id = old.listing_id and l.owner = auth.uid()
+    ) then
+      new.host_confirmed_handover := old.host_confirmed_handover;
+    end if;
+  end if;
+
+  if new.renter_confirmed_handover is distinct from old.renter_confirmed_handover then
+    if old.renter is distinct from auth.uid() then
+      new.renter_confirmed_handover := old.renter_confirmed_handover;
+    end if;
+  end if;
+
+  -- Only the listing owner (or admin/service_role, already returned above)
+  -- may move a booking into 'accepted' or 'declined' -- that's the host's
+  -- approval decision. Without this a renter could self-accept their own
+  -- pending request via a direct client update, skipping host approval
+  -- entirely (and, for non-instant-book listings, unlocking the "Betal
+  -- med Stripe" button, which only checks status === 'accepted').
+  if new.status is distinct from old.status and new.status in ('accepted', 'declined') then
+    if not exists (
+      select 1 from public.listings l
+      where l.id = old.listing_id and l.owner = auth.uid()
+    ) then
+      new.status := old.status;
+    end if;
+  end if;
+
   return new;
 end;
 $$;
