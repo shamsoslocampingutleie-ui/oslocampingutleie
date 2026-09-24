@@ -1006,7 +1006,34 @@ else if(_sortMode==='rating')t=t.slice().sort(function(a,b){return (b.rating||0)
 document.getElementById("resultCount").textContent=t.length+" treff";
 if(!t.length){
   var _emEl=document.createElement('div');_emEl.style.cssText='text-align:center;padding:40px 20px';
-  _emEl.innerHTML='<div style="font-size:48px;margin-bottom:12px">&#128269;</div><p style="font-weight:700;font-size:17px;margin-bottom:6px">Ingen treff</p><p style="color:var(--ink-3);margin-bottom:20px">Prøv en annen kategori, sted eller periode.</p>';
+  // Real conversion-funnel data (admin → Analyse, last 30 days) shows the
+  // single biggest drop in the whole site is page view → listing opened
+  // (2664 → 66, ~97.5%) -- with only 12 live listings total, most SEO/
+  // category/city landing pages currently lead to a search with zero
+  // matching listings, so this empty state is where most visitors
+  // actually leave. A generic "no results, try again" here just wastes
+  // that traffic. When the empty result is filtered (came from a
+  // category/location search, i.e. exactly the SEO-landing-page case),
+  // turn the dead end into a concrete supply ask instead -- this
+  // platform's real bottleneck right now is listings, not visitors.
+  var _hasFilter=('all'!==activeCat)||!!searchLoc;
+  var _catLbl=CAT_NAME[activeCat]||'';
+  if(_hasFilter){
+    var _isEn="en"===LANG;
+    var _catTxtNo=_catLbl?escHtml(_catLbl.toLowerCase()):'utstyr';
+    var _catTxtEn=_catLbl&&T_EN[_catLbl]?escHtml(T_EN[_catLbl].toLowerCase()):(_catLbl?escHtml(_catLbl.toLowerCase()):'equipment');
+    if(_isEn){
+      var _locTxtEn=searchLoc?' in '+escHtml(searchLoc):'';
+      _emEl.innerHTML='<div style="font-size:48px;margin-bottom:12px">&#127991;</div><p style="font-weight:700;font-size:17px;margin-bottom:6px">No '+_catTxtEn+_locTxtEn+' listed for rent yet</p><p style="color:var(--ink-3);margin-bottom:20px;max-width:420px;margin-left:auto;margin-right:auto">Got '+_catTxtEn+' sitting mostly unused? Be the first to list it'+_locTxtEn+' — free, and 0% platform fee for your first year.</p>';
+      var _emPrimary=document.createElement('button');_emPrimary.className='btn btn-primary';_emPrimary.style.marginRight='8px';_emPrimary.textContent='List your '+_catTxtEn+_locTxtEn+' →';_emPrimary.addEventListener('click',function(){startNewListing();});_emEl.appendChild(_emPrimary);
+    }else{
+      var _locTxt=searchLoc?' i '+escHtml(searchLoc):'';
+      _emEl.innerHTML='<div style="font-size:48px;margin-bottom:12px">&#127991;</div><p style="font-weight:700;font-size:17px;margin-bottom:6px">Ingen '+_catTxtNo+_locTxt+' ute til leie ennå</p><p style="color:var(--ink-3);margin-bottom:20px;max-width:420px;margin-left:auto;margin-right:auto">Har du '+_catTxtNo+' som mest står ubrukt? Vær den første til å legge den ut'+_locTxt+' — gratis, og 0 % i plattformgebyr det første året.</p>';
+      var _emPrimary=document.createElement('button');_emPrimary.className='btn btn-primary';_emPrimary.style.marginRight='8px';_emPrimary.textContent='Legg ut '+_catTxtNo+_locTxt+' →';_emPrimary.addEventListener('click',function(){startNewListing();});_emEl.appendChild(_emPrimary);
+    }
+  }else{
+    _emEl.innerHTML='<div style="font-size:48px;margin-bottom:12px">&#128269;</div><p style="font-weight:700;font-size:17px;margin-bottom:6px">Ingen treff</p><p style="color:var(--ink-3);margin-bottom:20px">Prøv en annen kategori, sted eller periode.</p>';
+  }
   var _emBtn=document.createElement('button');_emBtn.className='btn btn-ghost';_emBtn.textContent='Vis alle annonser';_emBtn.addEventListener('click',function(){activeCat='all';searchDates={from:null,to:null};searchLoc='';var _sl=document.getElementById('sLoc');if(_sl)_sl.value='';buildCats();renderGrid();});_emEl.appendChild(_emBtn);e.appendChild(_emEl);
   return;
 }
