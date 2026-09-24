@@ -17,6 +17,13 @@
 //     account_type/company_name/org_number/org_verified=true using the
 //     service role. See protect_profile_fields() in the matching
 //     migration for why org_verified can never be set any other way.
+//  3. Authenticated AND admin, with a target_user_id: same as (2) but
+//     writes onto that other user's profile instead of the caller's own
+//     -- for the admin "Endre bruker" panel switching an existing
+//     account between private/company. Still always re-verifies against
+//     Brreg itself first; target_user_id is silently ignored (falls back
+//     to self) for a non-admin caller, so this can never be used to write
+//     to someone else's profile without an admin token.
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 import { checkRateLimit, rateLimitResponse } from "../_shared/rateLimit.ts";
@@ -94,12 +101,26 @@ Deno.serve(async (req) => {
       );
       const { data: userData } = await sb.auth.getUser(token);
       if (userData?.user) {
+        let writeId = userData.user.id;
+        const requestedTarget = typeof body.target_user_id === "string" ? body.target_user_id : null;
+        if (requestedTarget && requestedTarget !== userData.user.id) {
+          const { data: callerProfile } = await sb
+            .from("profiles")
+            .select("role")
+            .eq("id", userData.user.id)
+            .maybeSingle();
+          // Only an admin caller may target someone else's profile --
+          // anyone else's target_user_id is silently ignored and this
+          // just verifies/persists onto their own account instead, same
+          // as if they hadn't sent it at all.
+          if (callerProfile?.role === "admin") writeId = requestedTarget;
+        }
         await sb.from("profiles").update({
           account_type: "company",
           company_name: name,
           org_number: raw,
           org_verified: true,
-        }).eq("id", userData.user.id);
+        }).eq("id", writeId);
       }
     } catch (e) {
       console.error("[verify-org-number] persist failed:", e);
