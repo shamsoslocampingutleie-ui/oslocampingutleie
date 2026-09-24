@@ -1401,6 +1401,13 @@ begin
     new.status := 'paused';
   end if;
 
+  -- boosted_until (only stripe-boost's webhook, after real payment) and
+  -- featured (only an admin, manually) were fully client-writable by the
+  -- listing's own owner before this -- see
+  -- 20260925110000_protect_listing_featured_and_boost.sql.
+  new.featured := old.featured;
+  new.boosted_until := old.boosted_until;
+
   return new;
 end;
 $$;
