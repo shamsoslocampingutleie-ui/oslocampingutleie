@@ -961,6 +961,11 @@ alter table public.listings add column if not exists featured boolean not null d
 --     Separate from featured (permanent admin highlight).
 alter table public.listings add column if not exists boosted_until timestamptz;
 
+-- 25b) awaiting_host_approval — see protect_listing_approval_gate() below
+--      for the full explanation. True while the listing was created
+--      before its owner was an approved host.
+alter table public.listings add column if not exists awaiting_host_approval boolean not null default false;
+
 -- 26) Cancellation & refund tracking on bookings.
 alter table public.bookings add column if not exists cancelled_by text;
 alter table public.bookings add column if not exists cancelled_at timestamptz;
@@ -1303,3 +1308,40 @@ drop trigger if exists reject_disposable_email_trigger on auth.users;
 create trigger reject_disposable_email_trigger
   before insert on auth.users
   for each row execute function public.reject_disposable_email();
+
+-- ============================================================
+-- LISTINGS AWAIT HOST APPROVAL (2026-09-24)
+-- ============================================================
+-- See migrations/20260924090000_listings_await_host_approval.sql for the
+-- full explanation. Hosts can create listings while their application is
+-- pending; this trigger stops the existing self-service Pause/Activate
+-- toggle (hostListings() in src/app.html) from being used to bring one
+-- live before an admin has actually approved the host.
+
+create or replace function public.protect_listing_approval_gate()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if auth.role() = 'service_role' then
+    return new;
+  end if;
+  if exists (select 1 from public.profiles where id = auth.uid() and role = 'admin') then
+    return new;
+  end if;
+
+  if old.awaiting_host_approval is true then
+    new.awaiting_host_approval := true;
+    new.status := 'paused';
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists protect_listing_approval_gate_trigger on public.listings;
+create trigger protect_listing_approval_gate_trigger
+  before update on public.listings
+  for each row execute function public.protect_listing_approval_gate();
