@@ -88,11 +88,20 @@ Deno.serve(async (req) => {
     );
   }
 
-  // Fetch all host users
+  // Fetch all host users. role is just 'user'/'admin' for every account
+  // (hosts and renters aren't distinguished by role -- the same account
+  // can be both, switchable via session.mode) -- filtering on
+  // role === 'user' alone, as this used to, actually matched EVERY
+  // non-admin account, including renters who have never hosted anything.
+  // A "bulk email hosts" campaign would have silently reached every
+  // renter too. host_approved === true is how the rest of the app (e.g.
+  // adminUsers()'s "🏠 Utleier" badge) determines someone is an actual,
+  // approved host.
   const { data: hosts, error: hostErr } = await supabase
     .from("profiles")
     .select("id, full_name, email")
     .eq("role", "user")
+    .eq("host_approved", true)
     .not("email", "is", null)
     .neq("email", "");
 
