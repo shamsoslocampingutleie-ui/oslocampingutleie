@@ -131,7 +131,7 @@ Deno.serve(async (req) => {
 
     const { data: host, error: hostErr } = await supabase
       .from("profiles")
-      .select("stripe_account_id, stripe_charges_enabled, fee_waiver_until")
+      .select("role, stripe_account_id, stripe_charges_enabled, fee_waiver_until")
       .eq("id", listing.owner)
       .single();
     if (hostErr || !host) {
@@ -141,6 +141,30 @@ Deno.serve(async (req) => {
       });
     }
     const hasConnectedAccount = !!host.stripe_account_id;
+    // Found via a live data check: 4 of 7 approved hosts had never
+    // started Stripe Connect at all (host.stripe_account_id null). This
+    // previously fell through the check below (which only fired once an
+    // account existed but charges weren't enabled yet) and proceeded to
+    // charge the renter in full, with platformFeeOre set to the WHOLE
+    // amount -- since stripe-release-payout only ever transfers to an
+    // existing connected account, that host's share would then sit in
+    // the platform's Stripe balance forever with no transfer mechanism
+    // at all. Now blocked the same way an incomplete Connect setup
+    // already was, unless the listing owner is an admin -- a
+    // platform-owned listing keeping 100% is a real, intentional case
+    // (e.g. seed/demo listings), not this bug.
+    if (!hasConnectedAccount && host.role !== "admin") {
+      return new Response(
+        JSON.stringify({
+          error:
+            "Utleieren har ikke koblet til Stripe for utbetalinger ennå. Kontakt utleier.",
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
     if (hasConnectedAccount && !host.stripe_charges_enabled) {
       return new Response(
         JSON.stringify({

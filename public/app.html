@@ -1909,6 +1909,22 @@ p.appendChild(surf);}
 function renderHost(){document.getElementById("hostName").textContent="Hei, "+session.name.split(" ")[0]+" 👋";const ha=document.getElementById("hostAvatar");ha.innerHTML="",(function(){if(session.avatar){const i=document.createElement("img");i.src=session.avatar,i.alt=session.name,i.style.cssText="width:48px;height:48px;border-radius:50%;object-fit:cover;display:block",ha.appendChild(i)}else{const d=el("div","avatar",session.name.split(" ").map(e=>e[0]).join("").slice(0,2));d.style.cssText="width:48px;height:48px;font-size:16px;cursor:default",ha.appendChild(d)}})();const e=document.getElementById("hostModeSwitch");if(e){e.innerHTML="";if(session&&"user"===session.role){const t=el("button","btn btn-ghost btn-sm","↺ Bytt til å leie");t.onclick=switchMode,e.appendChild(t)}else if(session&&"admin"===session.role){const t=el("button","btn btn-ghost btn-sm","⚙️ Tilbake til Admin");t.onclick=()=>route("admin"),e.appendChild(t)}}hostTab(currentHostTab||"overview");const t=myBookings().filter(e=>"pending"===e.status).length;document.getElementById("reqDot").innerHTML=t?'<span class="badge b-pending" style="padding:1px 8px">'+t+"</span>":"";_checkHostUnreadMsgs();if(!_hostMsgSub){_hostMsgSub=sb.channel("host-unread-msgs-"+session.id).on("postgres_changes",{event:"INSERT",schema:"public",table:"messages"},function(){_checkHostUnreadMsgs();}).subscribe();}}
 var _hostMsgSub=null;
 function _checkHostUnreadMsgs(){sb.from("messages").select("id,booking_id").neq("sender_id",session.id).is("read_at",null).then(({data})=>{const dot=document.getElementById("hostMsgDot");if(!dot)return;const _isMine=_makeMyHostThreadFilter();const relevant=(data||[]).filter(m=>_isMine(m.booking_id));dot.style.display=relevant.length>0?"inline-block":"none";});}let currentHostTab="overview";function hostTab(e,t){if(currentHostTab=e,document.querySelectorAll("#hostNav button").forEach(e=>e.classList.remove("on")),t)t.classList.add("on");else{const t={profile:0,overview:1,requests:2,messages:3,listings:4,calendar:5,economy:6,terms:7,refer:8}[e];document.querySelectorAll("#hostNav button")[t]?.classList.add("on")}document.querySelectorAll("#hostPanels .panel").forEach(e=>e.classList.remove("on")),document.getElementById("hp-"+e).classList.add("on"),{overview:hostOverview,requests:hostRequests,messages:hostMessages,listings:hostListings,calendar:hostCalendar,economy:hostEconomy,terms:hostTerms,profile:hostProfile,refer:hostRefer}[e]()||hostOverview()}function hostOverview(){const e=document.getElementById("hp-overview");e.innerHTML="";if(session&&!isProfileComplete(session)){e.appendChild(_profileBanner(function(){var bt=document.querySelector("[data-tab='profile']");if(bt)bt.click();else hostTab("profile",null);},true));}
+// Found via a live data check: 4 of 7 approved hosts had never connected
+// Stripe at all. stripe-checkout/guest-checkout now block a renter's
+// payment for this (rather than silently taking it with no way to ever
+// pay the host out) -- but that only catches it once someone tries to
+// book. This surfaces it proactively, before any booking is at risk,
+// for any host with at least one active listing.
+if(myListings().some(_l=>"active"===_l.status)&&!session.stripeChargesEnabled){
+  const _stripeBanner=el("div");
+  _stripeBanner.style.cssText="background:#FEF3C7;border:1.5px solid #FCD34D;border-radius:14px;padding:16px 20px;margin-bottom:16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap";
+  const _sbText=el("div");_sbText.style.cssText="flex:1 1 240px";
+  _sbText.innerHTML='<b style="font-size:15px;display:block;margin-bottom:4px;color:#92400E">⚠️ Fullfør Stripe-oppsettet for å kunne motta betaling</b><p style="font-size:13px;color:#92400E;margin:0">Uten dette kan ikke leietakere betale for annonsene dine ennå — og du kan ikke motta utbetalinger.</p>';
+  const _sbBtn=el("button","btn btn-primary btn-sm",session.stripeAccountId?"Fullfør Stripe-oppsett":"Koble til Stripe");
+  _sbBtn.onclick=()=>connectStripe();
+  _stripeBanner.append(_sbText,_sbBtn);
+  e.appendChild(_stripeBanner);
+}
 // Passive, always-on growth nudge (no manual outreach needed): hosts
 // with only 1-2 listings are the highest-probability conversion for
 // "list one more thing you already own" -- found via a live admin check

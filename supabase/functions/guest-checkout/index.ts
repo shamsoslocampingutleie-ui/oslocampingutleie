@@ -115,6 +115,26 @@ Deno.serve(async (req) => {
   if (listingErr || !listing) return err(404, "Annonsen ble ikke funnet.");
   if (listing.status !== "active") return err(400, "Annonsen er ikke lenger tilgjengelig.");
 
+  // Same check as stripe-checkout (the logged-in flow), added there
+  // after finding live that 4 of 7 approved hosts had never connected
+  // Stripe at all -- without this, a guest's payment goes through in
+  // full but the host's share can never actually be transferred out
+  // (stripe-release-payout only pays a connected account), so it sits
+  // in the platform's balance permanently. Checked before the paid AI
+  // verification call below so a doomed booking doesn't burn that cost.
+  const { data: hostProfileForCheck } = await sb
+    .from("profiles")
+    .select("role, stripe_account_id, stripe_charges_enabled")
+    .eq("id", listing.owner)
+    .maybeSingle();
+  const hostHasConnect = !!hostProfileForCheck?.stripe_account_id;
+  if (!hostHasConnect && hostProfileForCheck?.role !== "admin") {
+    return err(400, "Utleieren har ikke koblet til Stripe for utbetalinger ennå. Kontakt utleier.");
+  }
+  if (hostHasConnect && !hostProfileForCheck?.stripe_charges_enabled) {
+    return err(400, "Utleieren har ikke fullført Stripe-oppsettet sitt ennå. Kontakt utleier.");
+  }
+
   const { data: conflicts } = await sb
     .from("bookings")
     .select("id")
