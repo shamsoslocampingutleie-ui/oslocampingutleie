@@ -728,6 +728,9 @@ function _detectOffPlatform(txt){var t=txt||'';var blocks=[/betale?\s*(utenom|di
 async function loadMessages(bookingId){const{data,error}=await sb.from('messages').select('*').eq('booking_id',bookingId).order('created_at',{ascending:true});if(error){console.error('[chat] load error',error);return;}MESSAGES=MESSAGES.filter(m=>m.bookingId!==bookingId);(data||[]).forEach(r=>MESSAGES.push(mapMessage(r)));markMessagesRead(bookingId);}
 async function markMessagesRead(bookingId){if(!session)return;const myRole=session.role==='admin'?'admin':(function(){const _cbk=BOOKINGS.find(b=>b.id===bookingId);return _cbk?myChatRole(_cbk):null;})();if(!myRole)return;const unread=MESSAGES.filter(m=>m.bookingId===bookingId&&m.sender!==myRole&&!m.readAt);if(!unread.length)return;const ids=unread.map(m=>m.id);await sb.from('messages').update({read_at:new Date().toISOString()}).in('id',ids);unread.forEach(m=>{m.readAt=Date.now();});}
 function mapListingRow(e){return{id:e.id,owner:e.owner,cat:e.category,title:e.title,loc:e.location,price:Number(e.price_per_day),deposit:Number(e.deposit),cleaningFee:Number(e.cleaning_fee||0),depositMode:e.deposit_mode,minDays:e.min_days,rating:e.rating?Number(e.rating):null,reviews:e.reviews_count||0,status:e.status,specs:e.specs||[],feats:e.feats||[],desc:e.description,terms:e.terms,blocked:e.blocked_dates||[],stripeLink:e.stripe_link||"",instantBook:!!e.instant_book,images:e.images||[],createdAt:e.created_at||null,cancelPolicy:e.cancel_policy||"host",transportFee:Number(e.transport_fee||0),transportDesc:e.transport_desc||"",featured:!!e.featured,boostedUntil:e.boosted_until||null,lat:e.lat||null,lng:e.lng||null,weeklyDiscount:Number(e.weekly_discount||0),monthlyDiscount:Number(e.monthly_discount||0),awaitingHostApproval:!!e.awaiting_host_approval,kmIncluded:e.included_km_per_day??null,kmExtraPrice:e.extra_km_price??null,idCheckMode:e.id_check_mode||"upload"}}function mapBookingRow(e){return{id:e.id,listingId:e.listing_id,renterId:e.renter||null,renterName:e.renter_name,renterEmail:e.renter_email,renterPhone:e.renter_phone||"",renterAddress:e.renter_address||"",from:e.from_date,to:e.to_date,status:e.status,paid:!!e.paid,hostConfirmed:!!e.host_confirmed_handover,renterConfirmed:!!e.renter_confirmed_handover,hostReturnConfirmed:!!e.host_confirmed_return,renterReturnConfirmed:!!e.renter_confirmed_return,payoutReleased:!!e.payout_released,wantsTransport:!!e.wants_transport,extraCharges:e.extra_charges||{},reviewed:!!e.reviewed,createdAt:e.created_at||null,amountTotal:Number(e.amount_total)||0,depositAmount:Number(e.deposit_amount)||0,depositRefunded:!!e.deposit_refunded}}function openHostHandoverModal(bookingId){const bk=BOOKINGS.find(b=>b.id===bookingId);if(!bk)return;const li=_LS(bk.listingId);const m=document.getElementById("genModal");m.innerHTML="";const top=el("div","modal-top");const h2=el("h2",null,"Bekreft utlevering");const cx=el("button","x","✕");cx.setAttribute("aria-label","Lukk");cx.onclick=closeAll;top.append(h2,cx);m.appendChild(top);m.appendChild(el("p","muted","Bekreft at utstyret er levert til leietaker. Husk å bekrefte «Retur» når leieperioden er over — det er det som frigir betalingen og depositumet."));
+  const idCheckNote=el("div");idCheckNote.style.cssText="background:#EFF6FF;border:1.5px solid #BFDBFE;border-radius:12px;padding:12px 14px;margin-bottom:14px";
+  idCheckNote.innerHTML='<b style="font-size:14px;display:block;margin-bottom:4px">🪪 Kontroller legitimasjon før du leverer ut</b><p style="font-size:12.5px;color:var(--ink-2);margin:0">Ikke utlever utstyret før du har sjekket leietakers legitimasjon og bekreftet at personen som møter opp er den samme som er godkjent i systemet. Digital verifisering på plattformen erstatter ikke fysisk kontroll ved utlevering.</p>';
+  m.appendChild(idCheckNote);
   const beforePhotoSec=makePhotoUploadSection(bookingId,'before_photos','📸 Dokumenter tilstand FØR utlevering (anbefalt)');
   m.appendChild(beforePhotoSec);const errP=el("p","field err");errP.id="hhErr";m.appendChild(errP);const cfmBtn=el("button","btn btn-amber btn-block","Bekreft utlevering ✓");cfmBtn.style.cssText="width:100%;margin-top:4px";cfmBtn.onclick=async function(){cfmBtn.disabled=true;cfmBtn.textContent="Lagrer...";closeAll();await confirmHandover(bookingId,"host");};m.appendChild(cfmBtn);openGen();}
 function openHostReturnModal(bookingId){const bk=BOOKINGS.find(b=>b.id===bookingId);if(!bk)return;const m=document.getElementById("genModal");m.innerHTML="";const top=el("div","modal-top");const h2=el("h2",null,"Bekreft retur");const cx=el("button","x","✕");cx.setAttribute("aria-label","Lukk");cx.onclick=closeAll;top.append(h2,cx);m.appendChild(top);m.appendChild(el("p","muted","Bekreft at utstyret er levert tilbake av leietaker. Registrer eventuelle skader eller tilleggsgebyrer før du bekrefter — depositumet refunderes automatisk til leietaker så snart begge har bekreftet retur."));
@@ -2467,7 +2470,8 @@ async function adminIdVerify(){
         await sb.from("profiles").update({
           host_id_status:"approved",
           host_id_doc_url:null,
-          host_id_reviewed_at:new Date().toISOString()
+          host_id_reviewed_at:new Date().toISOString(),
+          host_id_reviewed_by:session.id
         }).eq("id",host.id);
         // Notify host via direct message
         await sb.from("messages").insert({
@@ -2492,7 +2496,8 @@ async function adminIdVerify(){
           host_id_status:"rejected",
           host_id_doc_url:null,
           host_id_reject_reason:reason||"Ikke godkjent.",
-          host_id_reviewed_at:new Date().toISOString()
+          host_id_reviewed_at:new Date().toISOString(),
+          host_id_reviewed_by:session.id
         }).eq("id",host.id);
         await sb.from("messages").insert({
           booking_id:`direct-${host.id}`,
@@ -2653,7 +2658,7 @@ async function adminIdVerify(){
     if(!reviewed){
       const approveBtn=el("button","btn btn-primary btn-sm","✓ Godkjenn");
       approveBtn.onclick=async()=>{
-        const{error:err}=await sb.from("profiles").update({drivers_license_verified:true,drivers_license_admin_reviewed:true}).eq("id",p.id);
+        const{error:err}=await sb.from("profiles").update({drivers_license_verified:true,drivers_license_admin_reviewed:true,drivers_license_reviewed_at:new Date().toISOString(),drivers_license_reviewed_by:session.id}).eq("id",p.id);
         if(err)return toast("Feil: "+err.message,"error");
         toast("Godkjent ✓","success");adminIdVerify();
       };
@@ -2663,7 +2668,7 @@ async function adminIdVerify(){
         if(!confirm("Avvis og slett bilde for "+(p.full_name||p.email)+"?"))return;
         const paths=[p.id+"/front",p.id+"/back",p.id+"/front.jpg",p.id+"/back.jpg",p.id+"/front.jpeg",p.id+"/back.jpeg",p.id+"/front.png",p.id+"/back.png"];
         await sb.storage.from("drivers-license").remove(paths).catch(()=>{});
-        await sb.from("profiles").update({drivers_license_verified:false,drivers_license_front:null,drivers_license_back:null,drivers_license_admin_reviewed:true,drivers_license_ai_result:false}).eq("id",p.id);
+        await sb.from("profiles").update({drivers_license_verified:false,drivers_license_front:null,drivers_license_back:null,drivers_license_admin_reviewed:true,drivers_license_ai_result:false,drivers_license_reviewed_at:new Date().toISOString(),drivers_license_reviewed_by:session.id}).eq("id",p.id);
         toast("Avvist og bilde slettet","success");adminIdVerify();
       };
       actions.append(approveBtn,rejectBtn);
