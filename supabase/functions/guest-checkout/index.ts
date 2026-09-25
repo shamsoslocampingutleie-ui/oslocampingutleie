@@ -1,4 +1,5 @@
 import Stripe from "npm:stripe@17";
+import Anthropic from "npm:@anthropic-ai/sdk";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { sendEmail, emailLayout, escapeHtml } from "../_shared/email.ts";
 import { checkRateLimit, rateLimitResponse } from "../_shared/rateLimit.ts";
@@ -42,7 +43,8 @@ Deno.serve(async (req) => {
   // No auth on this endpoint at all -- it's the guest (not-logged-in)
   // booking path by design -- so IP-based limiting is the only thing
   // stopping it from being spammed to flood a host's inbox with fake
-  // booking-request emails or hammer Stripe checkout-session creation.
+  // booking-request emails, hammer Stripe checkout-session creation, or
+  // burn Anthropic API budget on the ID check below.
   if (!await checkRateLimit(req, 8, 300_000)) return rateLimitResponse(corsHeaders);
 
   const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") ?? "", {
@@ -64,7 +66,8 @@ Deno.serve(async (req) => {
   const {
     listing_id, from_date, to_date,
     renter_name, renter_email, renter_phone, renter_address,
-    wants_transport, id_check_mode,
+    wants_transport, needs_license,
+    id_image_base64, id_image_content_type,
     success_url, cancel_url,
   } = body as Record<string, string | boolean | null>;
 
@@ -77,6 +80,22 @@ Deno.serve(async (req) => {
   if (typeof renter_phone !== "string" || renter_phone.replace(/\D/g, "").length < 8) {
     return err(400, "Ugyldig telefonnummer.");
   }
+  // ID-opplasting er ALLTID påkrevd for en gjeste-booking (som alltid er
+  // direktebooking -- ikke-innloggede kan ikke sende forespørsler, se
+  // sendRequest() sin login-gate) -- uavhengig av hva utleier har valgt
+  // under "Legitimasjonssjekk" på annonsen. Det valget avgjør kun om
+  // utleier I TILLEGG dobbeltsjekker fysisk ved oppmøte; det fjerner
+  // aldri den digitale kontrollen her. Se også notify at ingen booking
+  // (og ingen betaling) skal opprettes før dette er verifisert.
+  if (typeof id_image_base64 !== "string" || id_image_base64.length < 100) {
+    return err(400, "Du må laste opp et bilde av gyldig legitimasjon for å booke.");
+  }
+  if (id_image_base64.length > 20_000_000) {
+    return err(400, "Bildet er for stort.");
+  }
+  const contentType = typeof id_image_content_type === "string" && id_image_content_type.startsWith("image/")
+    ? id_image_content_type
+    : "image/jpeg";
 
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0].trim() ||
     req.headers.get("cf-connecting-ip") || "unknown";
@@ -105,6 +124,95 @@ Deno.serve(async (req) => {
     .gt("to_date", from_date);
   if (conflicts && conflicts.length > 0) {
     return err(409, "Disse datoene er allerede reservert. Velg andre datoer.");
+  }
+
+  // --- Legitimasjonskontroll (AI + navnesammenligning) -----------------
+  // Kjøres FØR bookingen i det hele tatt opprettes: en gjeste-booking er
+  // alltid en direktebooking (betaling skjer med en gang), så brukerens
+  // eget krav -- "ved umiddelbar booking uten ventetid, går bookingen kun
+  // gjennom hvis legitimasjonen blir godkjent" -- betyr her et strengt,
+  // deterministisk ja/nei uten en "venter på manuell gjennomgang"-mellomting
+  // (i motsetning til den innloggede flyten, der en forespørsel uten
+  // umiddelbar betaling kan vente på admin). Samme vurderingslogikk som
+  // verify-license (identisk prompt/kriterier), duplisert her fordi den
+  // funksjonen krever et innlogget Supabase-brukertoken denne gjesten ikke
+  // har.
+  let aiResult: { verified: boolean; reason: string; extractedName: string | null; nameMatches: boolean | null; confidence: string | null } | null = null;
+  try {
+    const anthropic = new Anthropic({ apiKey: Deno.env.get("ANTHROPIC_API_KEY")! });
+    const docType = needs_license ? "license" : "identity";
+    const nameInstruction = `\n\nPersonen som booker har oppgitt navnet "${(renter_name as string).replace(/[\n\r"]/g, " ")}". Les navnet som står skrevet på dokumentet, og vurder om det rimelig samsvarer med det oppgitte navnet (små forskjeller i stavemåte, mellomnavn, rekkefølge på for-/etternavn er OK — men et tydelig annet navn er IKKE en match).`;
+    const prompt = docType === "identity"
+      ? `Du er et dokumentverifiseringssystem. Analyser dette bildet og avgjør om det er et gyldig identitetsdokument.
+
+Godkjente dokumenter:
+- Nasjonalt ID-kort (fra hvilket som helst land)
+- Pass
+- Offisielt brev eller dokument som inneholder personens fulle navn og adresse (bankbrev, offentlig brev, fakturaer fra offentlige etater)
+- Oppholdstillatelse eller annet offentlig ID-dokument
+
+IKKE godkjent: bilder av personer, selfies, tilfeldige bilder, kvitteringer, uoffisielle dokumenter.${nameInstruction}
+
+Svar KUN med gyldig JSON:
+{
+  "isValid": true or false,
+  "confidence": "high", "medium", or "low",
+  "reason": "én setning på norsk",
+  "extractedName": "navnet slik det står på dokumentet, eller null hvis ikke lesbart",
+  "nameMatches": true, false, or null
+}`
+      : `Du er et dokumentverifiseringssystem. Analyser dette bildet og avgjør om det er et gyldig europeisk førerkort (EU/EØS + Storbritannia, Sveits m.fl.).${nameInstruction}
+
+Svar KUN med gyldig JSON:
+{
+  "isValid": true or false,
+  "confidence": "high", "medium", or "low",
+  "reason": "én setning på norsk",
+  "extractedName": "navnet slik det står på dokumentet, eller null hvis ikke lesbart",
+  "nameMatches": true, false, or null
+}`;
+
+    const message = await anthropic.messages.create({
+      model: "claude-sonnet-4-6",
+      max_tokens: 300,
+      messages: [{
+        role: "user",
+        content: [
+          { type: "image", source: { type: "base64", media_type: contentType as "image/jpeg" | "image/png" | "image/webp" | "image/gif", data: id_image_base64 as string } },
+          { type: "text", text: prompt },
+        ],
+      }],
+    });
+    const rawText = message.content[0].type === "text" ? message.content[0].text.trim() : "";
+    const fenceMatch = rawText.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+    const braceMatch = rawText.match(/\{[\s\S]*\}/);
+    const candidates = [rawText, fenceMatch?.[1], braceMatch?.[0]].filter(Boolean) as string[];
+    let parsed: Record<string, unknown> | undefined;
+    for (const candidate of candidates) {
+      try { parsed = JSON.parse(candidate); break; } catch { /* try next */ }
+    }
+    if (!parsed) {
+      console.error("[guest-checkout] could not parse AI response:", rawText);
+      return err(500, "Kunne ikke kontrollere legitimasjonen. Prøv igjen, eller logg inn for å booke.");
+    }
+    const nameOk = parsed.nameMatches !== false;
+    aiResult = {
+      verified: parsed.isValid === true && (parsed.confidence === "high" || parsed.confidence === "medium") && nameOk,
+      reason: (parsed.reason as string) || "",
+      extractedName: (parsed.extractedName as string) || null,
+      nameMatches: (parsed.nameMatches as boolean | null) ?? null,
+      confidence: (parsed.confidence as string) || null,
+    };
+  } catch (aiErr) {
+    console.error("[guest-checkout] AI verification failed:", aiErr);
+    return err(500, "Kunne ikke kontrollere legitimasjonen akkurat nå. Prøv igjen om litt, eller logg inn for å booke.");
+  }
+
+  if (!aiResult.verified) {
+    const msg = aiResult.nameMatches === false
+      ? "Navnet på dokumentet stemmer ikke overens med navnet du oppga. Sørg for at det er ditt eget dokument, eller logg inn og prøv på nytt."
+      : "Vi kunne ikke bekrefte legitimasjonen automatisk. Last opp et tydeligere bilde av et gyldig ID-dokument, eller logg inn og prøv på nytt.";
+    return err(400, msg);
   }
 
   let renterId: string | null = null;
@@ -142,6 +250,33 @@ Deno.serve(async (req) => {
 
   const bookingId = booking.id as string;
 
+  // Store the already-verified ID image server-side (service role, so no
+  // RLS/schema issues like the old client-side post-hoc insert had) and
+  // record the AI result for admin visibility in the samme oppslag som
+  // det innloggede løpet.
+  try {
+    const ext = contentType.split("/")[1]?.replace(/[^a-z0-9]/gi, "") || "jpg";
+    const path = `${bookingId}/renter_id/${Date.now()}.${ext}`;
+    const bytes = Uint8Array.from(atob(id_image_base64 as string), (c) => c.charCodeAt(0));
+    const { error: upErr } = await sb.storage.from("booking-photos").upload(path, bytes, { contentType, upsert: true });
+    if (!upErr) {
+      const { data: pu } = sb.storage.from("booking-photos").getPublicUrl(path);
+      if (pu?.publicUrl) {
+        await sb.from("booking_documents").insert({
+          booking_id: bookingId,
+          user_id: renterId,
+          type: "drivers_license",
+          url: pu.publicUrl,
+          note: `AI-verifisert ✓ (${aiResult.confidence ?? "?"})${aiResult.extractedName ? " — navn på dokument: " + aiResult.extractedName : ""}`,
+        });
+      }
+    } else {
+      console.error("[guest-checkout] ID storage upload failed:", upErr);
+    }
+  } catch (storeErr) {
+    console.error("[guest-checkout] ID storage step failed:", storeErr);
+  }
+
   // Non-instant bookings need the host's approval — without this email
   // the host has no way to know a request exists at all until they
   // happen to open the dashboard. Instant-book bookings are covered
@@ -168,24 +303,6 @@ Deno.serve(async (req) => {
       }
     } catch (notifyErr) {
       console.error("[guest-checkout] host notification failed:", notifyErr);
-    }
-  }
-
-  // A signed upload URL is created whenever the host's listing wants ID
-  // checked digitally (the default) -- previously this only happened when
-  // needs_license (vehicle driver's-license requirement) was true, which
-  // silently discarded the identity document a guest was required to pick
-  // on non-vehicle listings: the client asked for it, then threw it away.
-  let idUploadUrl: string | null = null;
-  let idUploadPath: string | null = null;
-  if (id_check_mode !== "in_person") {
-    const path = `${bookingId}/renter_id/${Date.now()}.jpg`;
-    const { data: signed } = await sb.storage
-      .from("booking-photos")
-      .createSignedUploadUrl(path, { upsert: true });
-    if (signed?.signedUrl) {
-      idUploadUrl = signed.signedUrl;
-      idUploadPath = path;
     }
   }
 
@@ -252,8 +369,6 @@ Deno.serve(async (req) => {
     booking_id: bookingId,
     status: listing.instant_book ? "accepted" : "pending",
     stripe_url: stripeUrl,
-    id_upload_url: idUploadUrl,
-    id_upload_path: idUploadPath,
     instant_book: listing.instant_book,
   }), {
     headers: { ...corsHeaders, "Content-Type": "application/json" },

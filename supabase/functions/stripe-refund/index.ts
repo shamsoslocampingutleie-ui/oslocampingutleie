@@ -1,9 +1,13 @@
-// Cancels a booking and issues a Stripe refund based on cancellation policy.
-//
-// Policy (days until from_date at time of cancellation):
-//   ≥ 7 days : 100% refund
-//   1–6 days : 50% refund
-//   < 1 day  : no automatic refund — contact admin
+// Cancels a booking and issues a Stripe refund based on the LISTING'S OWN
+// cancellation policy (listings.cancel_policy — host/flexible/moderate/
+// strict), the same one shown to the renter on the listing page and in
+// the public FAQ:
+//   host     : no self-service refund — renter must contact the host
+//   strict   : no refund ever (booking still cancels, 0% refund)
+//   flexible : 100% refund if ≥ 48h before start, else 0%
+//   moderate : 100% if ≥ 7 days, 50% if 1–6 days, blocked (<1 day, must
+//              contact support) — this is also the fallback for any
+//              unrecognized/legacy policy value.
 //
 // Only the renter or an admin can call this. Payout must not be released yet.
 import Stripe from "npm:stripe@17";
@@ -70,6 +74,24 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Which cancellation policy applies -- this used to be ignored
+    // entirely: every booking got the same hardcoded 7-day/50% ladder no
+    // matter what the host picked in "Avbestillingspolicy" (host/
+    // flexible/moderate/strict), even though the listing page and the
+    // public FAQ both explicitly promise renters the policy the host
+    // chose. A "strict" listing (promised: no refund after confirmation)
+    // was actually refunding 100% for cancellations a week out, and a
+    // "flexible" listing (promised: free within 48 hours) was actually
+    // denying refunds inside that window. See cancelBooking()'s
+    // _cancelPreview() in src/app.html for the identical client-side
+    // preview shown before the renter confirms.
+    const { data: policyListing } = await supabase
+      .from("listings")
+      .select("cancel_policy")
+      .eq("id", booking.listing_id)
+      .maybeSingle();
+    const cancelPolicy = policyListing?.cancel_policy || "host";
+
     const { data: profile } = await supabase
       .from("profiles")
       .select("role")
@@ -129,21 +151,49 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Samme dag — ikke automatisk refusjon
-    if (daysUntilStart < 1) {
+    // "host"-policy betyr utleier har valgt at avbestilling avtales
+    // direkte med dem (se listingens "Avbestillingspolicy") -- ingen
+    // automatisk selvbetjent refusjon her, samme prinsipp som FAQ-siden
+    // og booking-detaljvisningen allerede lover renteren.
+    if (cancelPolicy === "host") {
       return new Response(
         JSON.stringify({
-          error: "Avbestilling mindre enn 24 timer før oppstart gir ikke automatisk refusjon. Kontakt oss på kundeservice@oslocampingutleie.no.",
+          error: "Utleieren har valgt at avbestilling avtales direkte. Kontakt utleier via meldingsfunksjonen for å avtale avbestilling og eventuell refusjon.",
         }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
     const amountTotal = Number(booking.amount_total || 0);
-    const refundPct = daysUntilStart >= 7 ? 100 : 50;
-    const refundMsg = daysUntilStart >= 7
-      ? "Hele beløpet refunderes (100%)."
-      : "50% refunderes (avbestilling 1–6 dager før oppstart).";
+    let refundPct: number;
+    let refundMsg: string;
+    if (cancelPolicy === "strict") {
+      refundPct = 0;
+      refundMsg = "Ingen refusjon (streng avbestillingspolicy) — bookingen kanselleres uten refusjon.";
+    } else if (cancelPolicy === "flexible") {
+      if (daysUntilStart >= 2) {
+        refundPct = 100;
+        refundMsg = "Hele beløpet refunderes (100%) — fleksibel avbestillingspolicy.";
+      } else {
+        refundPct = 0;
+        refundMsg = "Mindre enn 48 timer til oppstart — fleksibel policy dekker fri avbestilling frem til 48 timer før oppstart, så ingen refusjon gis.";
+      }
+    } else {
+      // "moderate" (og enhver ukjent/eldre verdi) -- den opprinnelige,
+      // globale standardpolicyen denne funksjonen alltid brukte.
+      if (daysUntilStart < 1) {
+        return new Response(
+          JSON.stringify({
+            error: "Avbestilling mindre enn 24 timer før oppstart gir ikke automatisk refusjon. Kontakt oss på kundeservice@oslocampingutleie.no.",
+          }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+      refundPct = daysUntilStart >= 7 ? 100 : 50;
+      refundMsg = daysUntilStart >= 7
+        ? "Hele beløpet refunderes (100%)."
+        : "50% refunderes (avbestilling 1–6 dager før oppstart).";
+    }
 
     const refundAmount = Math.round(amountTotal * refundPct / 100);
     const refundAmountOre = Math.round(refundAmount * 100);
@@ -173,31 +223,37 @@ Deno.serve(async (req) => {
       );
     }
 
-    let refund;
-    try {
-      refund = await stripe.refunds.create({
-        payment_intent: booking.payment_intent_id,
-        amount: refundAmountOre,
-        reason: "requested_by_customer",
-        metadata: { booking_id: bookingId },
-      }, {
-        // Extra safety net beyond the DB claim above.
-        idempotencyKey: `refund-${bookingId}`,
-      });
-    } catch (refundErr) {
-      // Stripe call failed -- roll back our claim so the booking isn't
-      // left marked cancelled with no actual refund issued.
-      await supabase
-        .from("bookings")
-        .update({ status: booking.status, cancelled_by: null, cancelled_at: null })
-        .eq("id", bookingId);
-      throw refundErr;
+    // A 0% outcome (strict policy, or flexible cancelled inside the
+    // 48-hour window) is a real, valid cancellation with nothing to
+    // refund -- Stripe's refunds.create rejects a zero amount, so skip
+    // the API call entirely rather than treating it as an error.
+    let refund: { id: string } | null = null;
+    if (refundAmountOre > 0) {
+      try {
+        refund = await stripe.refunds.create({
+          payment_intent: booking.payment_intent_id,
+          amount: refundAmountOre,
+          reason: "requested_by_customer",
+          metadata: { booking_id: bookingId },
+        }, {
+          // Extra safety net beyond the DB claim above.
+          idempotencyKey: `refund-${bookingId}`,
+        });
+      } catch (refundErr) {
+        // Stripe call failed -- roll back our claim so the booking isn't
+        // left marked cancelled with no actual refund issued.
+        await supabase
+          .from("bookings")
+          .update({ status: booking.status, cancelled_by: null, cancelled_at: null })
+          .eq("id", bookingId);
+        throw refundErr;
+      }
     }
 
     await supabase
       .from("bookings")
       .update({
-        refund_id: refund.id,
+        refund_id: refund?.id ?? null,
         refund_amount: refundAmount,
       })
       .eq("id", bookingId);
