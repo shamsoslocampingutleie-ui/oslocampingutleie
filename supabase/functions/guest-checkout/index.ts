@@ -268,6 +268,13 @@ Svar KUN med gyldig JSON:
           type: "drivers_license",
           url: pu.publicUrl,
           note: `AI-verifisert ✓ (${aiResult.confidence ?? "?"})${aiResult.extractedName ? " — navn på dokument: " + aiResult.extractedName : ""}`,
+          // Retention (masterprompt section 11 -- don't keep ID docs
+          // longer than necessary): same 14-days-after-rental-end window
+          // as the logged-in flow, picked up by auto-clean-errors' daily
+          // sweep. Without this, delete_after stayed null forever and
+          // the sweep's `.not("delete_after","is",null)` filter never
+          // matched a single row.
+          delete_after: new Date(new Date(to_date as string).getTime() + 14 * 86400000).toISOString(),
         });
       }
     } else {
