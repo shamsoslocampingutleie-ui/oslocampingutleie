@@ -86,6 +86,11 @@
     .cat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin:20px 0}
     .cat{display:block;background:var(--bg);border:2px solid transparent;border-radius:10px;padding:16px;text-align:center;text-decoration:none;color:var(--g);font-weight:600;transition:border-color .2s}
     .cat:hover{border-color:var(--g)}
+    .explore-sub{font-size:1rem;color:#666;margin:26px 0 4px;font-weight:600}
+    .explore-sub:first-of-type{margin-top:8px}
+    .explore-actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:26px}
+    .explore-actions a{background:var(--g);color:#fff;padding:11px 20px;border-radius:999px;text-decoration:none;font-weight:600;font-size:.9rem}
+    .explore-actions a:hover{opacity:.9}
     .highlight-box{background:var(--bg);border-left:4px solid var(--g);border-radius:0 12px 12px 0;padding:18px 22px;margin:20px 0}
     .highlight-box p{margin:0;color:#333}
     .route-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin:20px 0}
@@ -249,31 +254,37 @@
 
   <section>
     <h2>Se også</h2>
+    <h3 class="explore-sub">Bobil i flere byer</h3>
     <div class="cat-grid">
-      <a class="cat" href="/leie-bobil-oslo">🚐 Oslo</a>
-      <a class="cat" href="/leie-bobil-bergen">🚐 Bergen</a>
-      <a class="cat" href="/leie-bobil-trondheim">🚐 Trondheim</a>
-      <a class="cat" href="/leie-bobil-stavanger">🚐 Stavanger</a>
-      <a class="cat" href="/leie-bobil-kristiansand">🚐 Kristiansand</a>
-      <a class="cat" href="/leie-bobil-jessheim">🚐 Jessheim</a>
-      <a class="cat" href="/leie-bobil-drammen">🚐 Drammen</a>
-      <a class="cat" href="/leie-bobil-fredrikstad">🚐 Fredrikstad</a>
-      <a class="cat" href="/leie-bobil-sandnes">🚐 Sandnes</a>
-      <a class="cat" href="/leie-bobil-tromso">🚐 Tromsø</a>
-      <a class="cat" href="/leie-bobil-sarpsborg">🚐 Sarpsborg</a>
-      <a class="cat" href="/leie-bobil-skien">🚐 Skien</a>
-      <a class="cat" href="/leie-bobil-alesund">🚐 Ålesund</a>
-      <a class="cat" href="/leie-bobil-haugesund">🚐 Haugesund</a>
-      <a class="cat" href="/leie-campingvogn-gardermoen">🏕️ Campingvogn Gardermoen</a>
-      <a class="cat" href="/leie-taktelt-gardermoen">⛺ Taktelt Gardermoen</a>
-      <a class="cat" href="/leie-tilhenger-gardermoen">🚚 Tilhenger Gardermoen</a>
-      <a class="cat" href="/leie-maskiner-gardermoen">🚜 Maskiner Gardermoen</a>
-      <a class="cat" href="/leie-bil-gardermoen">🚗 Bil Gardermoen</a>
-      <a class="cat" href="/leie-bat-gardermoen">⛵ Båt Gardermoen</a>
-      <a class="cat" href="/leie-verktoy-gardermoen">🔧 Verktøy Gardermoen</a>
-      <a class="cat" href="/leie-fritidsutstyr-gardermoen">🏄 Fritidsutstyr Gardermoen</a>
-      <a class="cat" href="/bli-utleier">💰 Lei ut</a>
-      <a class="cat" href="/faq">❓ Ofte stilte spørsmål</a>
+      <a class="cat" href="/leie-bobil-oslo">📍 Oslo</a>
+      <a class="cat" href="/leie-bobil-bergen">📍 Bergen</a>
+      <a class="cat" href="/leie-bobil-trondheim">📍 Trondheim</a>
+      <a class="cat" href="/leie-bobil-stavanger">📍 Stavanger</a>
+      <a class="cat" href="/leie-bobil-kristiansand">📍 Kristiansand</a>
+      <a class="cat" href="/leie-bobil-jessheim">📍 Jessheim</a>
+      <a class="cat" href="/leie-bobil-drammen">📍 Drammen</a>
+      <a class="cat" href="/leie-bobil-fredrikstad">📍 Fredrikstad</a>
+      <a class="cat" href="/leie-bobil-sandnes">📍 Sandnes</a>
+      <a class="cat" href="/leie-bobil-tromso">📍 Tromsø</a>
+      <a class="cat" href="/leie-bobil-sarpsborg">📍 Sarpsborg</a>
+      <a class="cat" href="/leie-bobil-skien">📍 Skien</a>
+      <a class="cat" href="/leie-bobil-alesund">📍 Ålesund</a>
+      <a class="cat" href="/leie-bobil-haugesund">📍 Haugesund</a>
+    </div>
+    <h3 class="explore-sub">Annet å leie i Gardermoen</h3>
+    <div class="cat-grid">
+      <a class="cat" href="/leie-campingvogn-gardermoen">🏕️ Campingvogn</a>
+      <a class="cat" href="/leie-taktelt-gardermoen">⛺ Taktelt</a>
+      <a class="cat" href="/leie-tilhenger-gardermoen">🚚 Tilhenger</a>
+      <a class="cat" href="/leie-maskiner-gardermoen">🚜 Maskiner</a>
+      <a class="cat" href="/leie-bil-gardermoen">🚗 Bil</a>
+      <a class="cat" href="/leie-bat-gardermoen">⛵ Båt</a>
+      <a class="cat" href="/leie-verktoy-gardermoen">🔧 Verktøy</a>
+      <a class="cat" href="/leie-fritidsutstyr-gardermoen">🏄 Fritidsutstyr</a>
+    </div>
+    <div class="explore-actions">
+      <a href="/bli-utleier">💰 Bli utleier</a>
+      <a href="/faq">❓ Ofte stilte spørsmål</a>
     </div>
   </section>
 </main>

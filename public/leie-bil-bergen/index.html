@@ -48,9 +48,14 @@
     details[open] summary::after{content:"−"}
     details[open] summary{color:var(--g);margin-bottom:10px}
     details p{color:#444;font-size:.95rem;margin:0}
-    .cat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin:20px 0}
+    .cat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin:12px 0 8px}
     .cat{display:block;background:var(--bg);border:2px solid transparent;border-radius:10px;padding:16px;text-align:center;text-decoration:none;color:var(--g);font-weight:600;transition:border-color .2s}
     .cat:hover{border-color:var(--g)}
+    .explore-sub{font-size:1rem;color:#666;margin:26px 0 4px;font-weight:600}
+    .explore-sub:first-of-type{margin-top:8px}
+    .explore-actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:26px}
+    .explore-actions a{background:var(--g);color:#fff;padding:11px 20px;border-radius:999px;text-decoration:none;font-weight:600;font-size:.9rem}
+    .explore-actions a:hover{opacity:.9}
     footer{background:#f5f5f5;padding:36px 24px;text-align:center;color:#666;font-size:.9rem;margin-top:56px}
     footer a{color:var(--g);text-decoration:none}
     .footer-links{display:flex;justify-content:center;gap:24px;flex-wrap:wrap;margin-bottom:16px}
@@ -103,16 +108,6 @@
     </ul>
     <p>Utstyret eies og leies ut av private eiere i ditt område — sjekk hver annonse for nøyaktig spesifikasjon og hva som er inkludert.</p>
   </section>
-  <!-- LOCAL-CONTENT-START -->
-  <section>
-    <h2>Populære turmål fra Bergen</h2>
-    <ul>
-      <li><strong>Hardangerfjorden</strong> — ca. 2 t. fjord, fossefall og fruktbygder</li>
-      <li><strong>Sognefjorden</strong> — ca. 2,5 t. Norges lengste og dypeste fjord</li>
-      <li><strong>Voss</strong> — ca. 1 t. fjell, ekstremsport og skianlegg</li>
-    </ul>
-  </section>
-<!-- LOCAL-CONTENT-END -->
   <div class="cta-box">
     <h2>Klar til å komme i gang?</h2>
     <p style="color:#444;margin-bottom:20px">Se tilgjengelig bil i Bergen og bestill direkte.</p>
@@ -135,31 +130,37 @@
   </section>
   <section>
     <h2>Utforsk mer</h2>
+    <h3 class="explore-sub">Bil i flere byer</h3>
     <div class="cat-grid">
-      <a class="cat" href="/leie-bil-oslo">🚗 Oslo</a>
-      <a class="cat" href="/leie-bil-trondheim">🚗 Trondheim</a>
-      <a class="cat" href="/leie-bil-stavanger">🚗 Stavanger</a>
-      <a class="cat" href="/leie-bil-kristiansand">🚗 Kristiansand</a>
-      <a class="cat" href="/leie-bil-jessheim">🚗 Jessheim</a>
-      <a class="cat" href="/leie-bil-gardermoen">🚗 Gardermoen</a>
-      <a class="cat" href="/leie-bil-drammen">🚗 Drammen</a>
-      <a class="cat" href="/leie-bil-fredrikstad">🚗 Fredrikstad</a>
-      <a class="cat" href="/leie-bil-sandnes">🚗 Sandnes</a>
-      <a class="cat" href="/leie-bil-tromso">🚗 Tromsø</a>
-      <a class="cat" href="/leie-bil-sarpsborg">🚗 Sarpsborg</a>
-      <a class="cat" href="/leie-bil-skien">🚗 Skien</a>
-      <a class="cat" href="/leie-bil-alesund">🚗 Ålesund</a>
-      <a class="cat" href="/leie-bil-haugesund">🚗 Haugesund</a>
-      <a class="cat" href="/leie-campingvogn-bergen">🏕️ Campingvogn Bergen</a>
-      <a class="cat" href="/leie-bobil-bergen">🚐 Bobil Bergen</a>
-      <a class="cat" href="/leie-taktelt-bergen">⛺ Taktelt Bergen</a>
-      <a class="cat" href="/leie-tilhenger-bergen">🚚 Tilhenger Bergen</a>
-      <a class="cat" href="/leie-maskiner-bergen">🚜 Maskiner Bergen</a>
-      <a class="cat" href="/leie-bat-bergen">⛵ Båt Bergen</a>
-      <a class="cat" href="/leie-verktoy-bergen">🔧 Verktøy Bergen</a>
-      <a class="cat" href="/leie-fritidsutstyr-bergen">🏄 Fritidsutstyr Bergen</a>
-      <a class="cat" href="/bli-utleier">💰 Lei ut</a>
-      <a class="cat" href="/faq">❓ Ofte stilte spørsmål</a>
+      <a class="cat" href="/leie-bil-oslo">📍 Oslo</a>
+      <a class="cat" href="/leie-bil-trondheim">📍 Trondheim</a>
+      <a class="cat" href="/leie-bil-stavanger">📍 Stavanger</a>
+      <a class="cat" href="/leie-bil-kristiansand">📍 Kristiansand</a>
+      <a class="cat" href="/leie-bil-jessheim">📍 Jessheim</a>
+      <a class="cat" href="/leie-bil-gardermoen">📍 Gardermoen</a>
+      <a class="cat" href="/leie-bil-drammen">📍 Drammen</a>
+      <a class="cat" href="/leie-bil-fredrikstad">📍 Fredrikstad</a>
+      <a class="cat" href="/leie-bil-sandnes">📍 Sandnes</a>
+      <a class="cat" href="/leie-bil-tromso">📍 Tromsø</a>
+      <a class="cat" href="/leie-bil-sarpsborg">📍 Sarpsborg</a>
+      <a class="cat" href="/leie-bil-skien">📍 Skien</a>
+      <a class="cat" href="/leie-bil-alesund">📍 Ålesund</a>
+      <a class="cat" href="/leie-bil-haugesund">📍 Haugesund</a>
+    </div>
+    <h3 class="explore-sub">Annet å leie i Bergen</h3>
+    <div class="cat-grid">
+      <a class="cat" href="/leie-campingvogn-bergen">🏕️ Campingvogn</a>
+      <a class="cat" href="/leie-bobil-bergen">🚐 Bobil</a>
+      <a class="cat" href="/leie-taktelt-bergen">⛺ Taktelt</a>
+      <a class="cat" href="/leie-tilhenger-bergen">🚚 Tilhenger</a>
+      <a class="cat" href="/leie-maskiner-bergen">🚜 Maskiner</a>
+      <a class="cat" href="/leie-bat-bergen">⛵ Båt</a>
+      <a class="cat" href="/leie-verktoy-bergen">🔧 Verktøy</a>
+      <a class="cat" href="/leie-fritidsutstyr-bergen">🏄 Fritidsutstyr</a>
+    </div>
+    <div class="explore-actions">
+      <a href="/bli-utleier">💰 Bli utleier</a>
+      <a href="/faq">❓ Ofte stilte spørsmål</a>
     </div>
   </section>
 </main>

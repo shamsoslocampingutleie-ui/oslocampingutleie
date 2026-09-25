@@ -196,9 +196,14 @@ CSS = """    *{box-sizing:border-box;margin:0;padding:0}
     details[open] summary::after{content:"−"}
     details[open] summary{color:var(--g);margin-bottom:10px}
     details p{color:#444;font-size:.95rem;margin:0}
-    .cat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin:20px 0}
+    .cat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin:12px 0 8px}
     .cat{display:block;background:var(--bg);border:2px solid transparent;border-radius:10px;padding:16px;text-align:center;text-decoration:none;color:var(--g);font-weight:600;transition:border-color .2s}
     .cat:hover{border-color:var(--g)}
+    .explore-sub{font-size:1rem;color:#666;margin:26px 0 4px;font-weight:600}
+    .explore-sub:first-of-type{margin-top:8px}
+    .explore-actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:26px}
+    .explore-actions a{background:var(--g);color:#fff;padding:11px 20px;border-radius:999px;text-decoration:none;font-weight:600;font-size:.9rem}
+    .explore-actions a:hover{opacity:.9}
     footer{background:#f5f5f5;padding:36px 24px;text-align:center;color:#666;font-size:.9rem;margin-top:56px}
     footer a{color:var(--g);text-decoration:none}
     .footer-links{display:flex;justify-content:center;gap:24px;flex-wrap:wrap;margin-bottom:16px}
@@ -208,18 +213,40 @@ CSS = """    *{box-sizing:border-box;margin:0;padding:0}
 
 
 def explore_grid(cur_cat, cur_city_slug):
-    links = []
-    for slug, name in CITIES:
-        if slug == cur_city_slug:
-            continue
-        links.append(f'<a class="cat" href="/leie-{cur_cat}-{slug}">{CAT_EMOJI[cur_cat]} {name}</a>')
-    for slug, name, emoji in ALL_CATS:
-        if slug == cur_cat:
-            continue
-        links.append(f'<a class="cat" href="/leie-{slug}-{cur_city_slug}">{emoji} {name} {CITIES_DISPLAY[cur_city_slug]}</a>')
-    links.append('<a class="cat" href="/bli-utleier">💰 Lei ut</a>')
-    links.append('<a class="cat" href="/faq">❓ Ofte stilte spørsmål</a>')
-    return "\n      ".join(links)
+    # Was one flat 24-item grid mixing "same category, other city" links
+    # (14 of them, all stamped with the SAME category emoji repeated 14
+    # times -- pure visual noise) with "same city, other category" links
+    # (8, each with a different, actually-meaningful emoji) and two
+    # unrelated action links, in no particular order. Reported live as
+    # looking messy. Split into two clearly labelled groups (their own
+    # sub-heading gives the shared context, so labels don't need to
+    # repeat "Oslo"/the category emoji 14 times) plus a visually
+    # separate actions row for the two CTAs that aren't "explore" links
+    # at all.
+    cat_name = CAT_NAME[cur_cat]
+    city_name = CITIES_DISPLAY[cur_city_slug]
+    city_links = "\n      ".join(
+        f'<a class="cat" href="/leie-{cur_cat}-{slug}">📍 {name}</a>'
+        for slug, name in CITIES
+        if slug != cur_city_slug
+    )
+    cat_links = "\n      ".join(
+        f'<a class="cat" href="/leie-{slug}-{cur_city_slug}">{emoji} {name}</a>'
+        for slug, name, emoji in ALL_CATS
+        if slug != cur_cat
+    )
+    return f"""<h3 class="explore-sub">{cat_name} i flere byer</h3>
+    <div class="cat-grid">
+      {city_links}
+    </div>
+    <h3 class="explore-sub">Annet å leie i {city_name}</h3>
+    <div class="cat-grid">
+      {cat_links}
+    </div>
+    <div class="explore-actions">
+      <a href="/bli-utleier">💰 Bli utleier</a>
+      <a href="/faq">❓ Ofte stilte spørsmål</a>
+    </div>"""
 
 
 CITIES_DISPLAY = {slug: name for slug, name in CITIES}
@@ -327,9 +354,7 @@ def light_page(cat_slug, city_slug):
   </section>
   <section>
     <h2>Utforsk mer</h2>
-    <div class="cat-grid">
-      {explore_grid(cat_slug, city_slug)}
-    </div>
+    {explore_grid(cat_slug, city_slug)}
   </section>
 </main>
 <footer>
