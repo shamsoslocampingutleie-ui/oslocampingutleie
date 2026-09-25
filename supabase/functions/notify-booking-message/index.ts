@@ -265,9 +265,11 @@ Deno.serve(async (req) => {
       }
     }
 
-    // --- HANDOVER CONFIRMED BY ONE PARTY → nudge the other to confirm too ---
-    // Without this, a booking can sit stuck (deposit/payout unreleased)
-    // simply because the other party has no idea they still need to act.
+    // --- PICKUP CONFIRMED BY ONE PARTY → nudge the other to confirm too ---
+    // Purely a "yes, the item changed hands" documentation step since
+    // 20260925210000_return_confirmation_step.sql — no money moves on
+    // this confirmation anymore, so the copy here must not claim it does
+    // (that's now true only of the return_confirmed branch below).
     if (event === "handover_confirmed") {
       const { data: booking } = await supabase
         .from("bookings")
@@ -296,8 +298,6 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Once both have confirmed the booking is complete and
-      // stripe-release-payout already emails the host — no nudge needed.
       const bothConfirmed = booking.host_confirmed_handover && booking.renter_confirmed_handover;
       if (!bothConfirmed) {
         const title = listing?.title ?? "utstyret";
@@ -308,7 +308,7 @@ Deno.serve(async (req) => {
               `Utleier har bekreftet overlevering — ${title}`,
               emailLayout(
                 "Bekreft overlevering du også",
-                `<p>Utleier har bekreftet at <strong>${escapeHtml(title)}</strong> er overlevert. Bekreft det samme fra din side for å frigi depositumet.</p>
+                `<p>Utleier har bekreftet at <strong>${escapeHtml(title)}</strong> er overlevert. Bekreft det samme fra din side.</p>
                 <a href="https://leieplattform.no/booking/${bookingId}" class="btn">Bekreft overlevering →</a>`,
               ),
             );
@@ -329,14 +329,93 @@ Deno.serve(async (req) => {
               `Leietaker har bekreftet overlevering — ${title}`,
               emailLayout(
                 "Bekreft overlevering du også",
-                `<p>Leietaker har bekreftet at <strong>${escapeHtml(title)}</strong> er hentet/levert. Bekreft det samme fra din side for å frigi utbetalingen.</p>
+                `<p>Leietaker har bekreftet at <strong>${escapeHtml(title)}</strong> er hentet/levert. Bekreft det samme fra din side.</p>
                 <a href="https://leieplattform.no/booking/${bookingId}" class="btn">Bekreft overlevering →</a>`,
               ),
             );
           }
           const t = "Bekreft overlevering";
-          const b = `Leietaker har bekreftet overlevering av ${title} — bekreft fra din side for å få utbetalt.`;
+          const b = `Leietaker har bekreftet overlevering av ${title} — bekreft fra din side.`;
           await insertNotification(supabase, listing.owner, "handover_confirmed", t, b,
+            { bookingId, listingTitle: listing?.title });
+          firePush(listing.owner, t, b);
+        }
+      }
+    }
+
+    // --- RETURN CONFIRMED BY ONE PARTY → nudge the other to confirm too ---
+    // This is the money-relevant confirmation now: without this nudge a
+    // booking can sit stuck (deposit/payout unreleased) simply because
+    // the other party has no idea they still need to act.
+    if (event === "return_confirmed") {
+      const { data: booking } = await supabase
+        .from("bookings")
+        .select("id, renter, renter_email, listing_id, host_confirmed_return, renter_confirmed_return")
+        .eq("id", bookingId)
+        .single();
+      if (!booking) {
+        return new Response(JSON.stringify({ error: "Booking not found" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const { data: listing } = await supabase
+        .from("listings")
+        .select("title, owner")
+        .eq("id", booking.listing_id)
+        .single();
+
+      const callerId = userData.user.id;
+      const callerIsRenter = booking.renter === callerId;
+      const callerIsHost = listing?.owner === callerId;
+      if (!callerIsRenter && !callerIsHost) {
+        return new Response(JSON.stringify({ error: "Forbidden" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Once both have confirmed the booking is complete and
+      // stripe-release-payout already emails both parties — no nudge needed.
+      const bothConfirmed = booking.host_confirmed_return && booking.renter_confirmed_return;
+      if (!bothConfirmed) {
+        const title = listing?.title ?? "utstyret";
+        if (callerIsHost) {
+          if (booking.renter_email) {
+            await sendEmail(
+              booking.renter_email,
+              `Utleier har bekreftet retur — ${title}`,
+              emailLayout(
+                "Bekreft retur du også",
+                `<p>Utleier har bekreftet at <strong>${escapeHtml(title)}</strong> er returnert. Bekreft det samme fra din side for å frigi depositumet.</p>
+                <a href="https://leieplattform.no/booking/${bookingId}" class="btn">Bekreft retur →</a>`,
+              ),
+            );
+          }
+          if (booking.renter) {
+            const t = "Bekreft retur";
+            const b = `Utleier har bekreftet retur av ${title} — bekreft fra din side for å få tilbake depositumet.`;
+            await insertNotification(supabase, booking.renter, "return_confirmed", t, b,
+              { bookingId, listingTitle: listing?.title });
+            firePush(booking.renter, t, b);
+          }
+        } else if (listing?.owner) {
+          const hostAuth = await supabase.auth.admin.getUserById(listing.owner);
+          const hostEmail = hostAuth.data?.user?.email;
+          if (hostEmail) {
+            await sendEmail(
+              hostEmail,
+              `Leietaker har bekreftet retur — ${title}`,
+              emailLayout(
+                "Bekreft retur du også",
+                `<p>Leietaker har bekreftet at <strong>${escapeHtml(title)}</strong> er levert tilbake. Bekreft det samme fra din side for å frigi utbetalingen.</p>
+                <a href="https://leieplattform.no/booking/${bookingId}" class="btn">Bekreft retur →</a>`,
+              ),
+            );
+          }
+          const t = "Bekreft retur";
+          const b = `Leietaker har bekreftet retur av ${title} — bekreft fra din side for å få utbetalt.`;
+          await insertNotification(supabase, listing.owner, "return_confirmed", t, b,
             { bookingId, listingTitle: listing?.title });
           firePush(listing.owner, t, b);
         }

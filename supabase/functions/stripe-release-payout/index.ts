@@ -1,10 +1,12 @@
 // Releases the host's share of a paid booking to their connected Stripe
-// account, once BOTH host and renter have confirmed handover — and, in
-// the same step, refunds the renter's deposit back to them (deposit was
-// never the host's money to begin with; every renter-facing surface
-// promises it's "held by the platform" and refunded after a clean
-// handover — see 20260925200000_deposit_held_not_paid_to_host.sql for
-// the bug this fixes).
+// account, once BOTH host and renter have confirmed the RETURN (not the
+// earlier pickup/handover confirmation — see
+// 20260925210000_return_confirmation_step.sql) — and, in the same step,
+// refunds the renter's deposit back to them (deposit was never the
+// host's money to begin with; every renter-facing surface promises it's
+// "held by the platform" and refunded after a clean handover — see
+// 20260925200000_deposit_held_not_paid_to_host.sql for the bug this
+// fixes).
 //
 // The platform receives 100% of the payment at checkout time (see
 // stripe-checkout). Funds sit in the platform's Stripe balance until this
@@ -95,9 +97,13 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Nothing to do yet, or already handled.
+    // Nothing to do yet, or already handled. Gates on the RETURN
+    // confirmation pair, not the pickup one -- see
+    // 20260925210000_return_confirmation_step.sql. The pickup pair
+    // (host_confirmed_handover/renter_confirmed_handover) only documents
+    // that the item changed hands; it no longer releases any money.
     if (
-      !booking.host_confirmed_handover || !booking.renter_confirmed_handover
+      !booking.host_confirmed_return || !booking.renter_confirmed_return
     ) {
       return new Response(JSON.stringify({ released: false }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },

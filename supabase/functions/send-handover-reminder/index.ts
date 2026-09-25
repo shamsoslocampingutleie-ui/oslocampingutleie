@@ -1,4 +1,4 @@
-// Cron job: send handover confirmation reminders and auto-release payouts.
+// Cron job: send return-confirmation reminders and auto-release payouts.
 //
 // Run this daily via Supabase cron:
 //   select cron.schedule('handover-reminder', '0 9 * * *',
@@ -8,13 +8,18 @@
 //
 // Or call it from your Supabase dashboard → Edge Functions → Trigger manually.
 //
-// Logic:
+// Logic (see 20260925210000_return_confirmation_step.sql — payout release
+// and the deposit refund both gate on the RETURN pair now, not the
+// earlier pickup/handover pair):
 //   1. Booking is paid but payout not yet released.
 //   2. Rental end date has passed.
-//   3. If missing host confirmation → email host.
-//      If missing renter confirmation → email renter.
-//   4. If BOTH are unconfirmed and >7 days past end → auto-confirm both and release.
-//   5. If BOTH are confirmed but payout not released → release now (failsafe).
+//   3. If missing host return-confirmation → email host.
+//      If missing renter return-confirmation → email renter.
+//   4. If BOTH are unconfirmed and >7 days past end → auto-confirm both
+//      pickup AND return, and release (safety net so money never gets
+//      stuck forever on pure inaction).
+//   5. If BOTH are confirmed but payout not released → release now
+//      (failsafe for a client-side trigger that silently failed).
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { sendEmail, emailLayout, escapeHtml } from "../_shared/email.ts";
@@ -36,9 +41,6 @@ function firePush(userId: string, title: string, body: string, url = "/") {
     body: JSON.stringify({ userId, title, body, url }),
   }).catch((e) => console.warn("[push]", e));
 }
-
-const STRIPE_RELEASE_URL =
-  `${Deno.env.get("SUPABASE_URL")}/functions/v1/stripe-release-payout-internal`;
 
 function fmt(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString("nb-NO", {
@@ -105,7 +107,7 @@ Deno.serve(async (req) => {
     .select(`
       id, listing_id, renter,
       from_date, to_date,
-      host_confirmed_handover, renter_confirmed_handover,
+      host_confirmed_return, renter_confirmed_return,
       payout_released, paid, status,
       amount_total, platform_fee,
       listings!inner(owner)
@@ -133,7 +135,7 @@ Deno.serve(async (req) => {
 
   for (const rawB of bookings ?? []) {
     const b = { ...rawB, host_id: (rawB as any).listings?.owner ?? null };
-    const bothConfirmed = b.host_confirmed_handover && b.renter_confirmed_handover;
+    const bothConfirmed = b.host_confirmed_return && b.renter_confirmed_return;
 
     // Case 1: Both confirmed but payout not released (client-side trigger failed)
     if (bothConfirmed) {
@@ -144,7 +146,7 @@ Deno.serve(async (req) => {
     }
 
     // Case 2: Neither confirmed and >7 days past end date → auto-confirm and release
-    if (!b.host_confirmed_handover && !b.renter_confirmed_handover) {
+    if (!b.host_confirmed_return && !b.renter_confirmed_return) {
       const endDate = new Date(b.to_date);
       if (endDate < new Date(sevenDaysAgo)) {
         console.log(`[auto-confirm] Both unconfirmed 7d+ past end for booking ${b.id}`);
@@ -153,6 +155,8 @@ Deno.serve(async (req) => {
           .update({
             host_confirmed_handover: true,
             renter_confirmed_handover: true,
+            host_confirmed_return: true,
+            renter_confirmed_return: true,
             status: "completed",
           })
           .eq("id", b.id);
@@ -179,10 +183,10 @@ Deno.serve(async (req) => {
             "Utbetaling frigitt automatisk",
             emailLayout(
               "Utbetaling frigitt automatisk",
-              `<p>Leieperioden for <strong>${title}</strong> (${fmt(b.from_date)} – ${fmt(b.to_date)}) ble automatisk avsluttet fordi ingen av partene bekreftet overlevering innen 7 dager.</p>
+              `<p>Leieperioden for <strong>${title}</strong> (${fmt(b.from_date)} – ${fmt(b.to_date)}) ble automatisk avsluttet fordi ingen av partene bekreftet retur innen 7 dager.</p>
               <p>Vi har frigitt utbetalingen til din Stripe-konto. Beløpet vil vises innen 3–5 virkedager.</p>
               <a href="https://leieplattform.no/booking/${b.id}" class="btn">Gå til Mine bookinger</a>
-              <div class="info-box"><p>Fremover: husk å bekrefte «Utlevering» i appen etter at leietaker har hentet utstyret.</p></div>`,
+              <div class="info-box"><p>Fremover: husk å bekrefte «Bekreft retur» i appen etter at leietaker har levert tilbake utstyret.</p></div>`,
             ),
           );
         }
@@ -193,7 +197,7 @@ Deno.serve(async (req) => {
             emailLayout(
               "Leieperioden er avsluttet",
               `<p>Leieperioden for <strong>${title}</strong> (${fmt(b.from_date)} – ${fmt(b.to_date)}) ble automatisk avsluttet.</p>
-              <p>Fremover: husk å bekrefte «Mottak» i appen etter at du har returnert utstyret — dette sikrer at depositumet ditt frigjøres raskere.</p>
+              <p>Fremover: husk å bekrefte «Bekreft levert tilbake» i appen etter at du har returnert utstyret — dette sikrer at depositumet ditt refunderes raskere.</p>
               <a href="https://leieplattform.no/booking/${b.id}" class="btn">Se mine bookinger</a>`,
             ),
           );
@@ -203,7 +207,7 @@ Deno.serve(async (req) => {
     }
 
     // Case 3: One party confirmed, other hasn't, and >7 days past end → auto-confirm missing + release
-    const oneConfirmed = b.host_confirmed_handover !== b.renter_confirmed_handover;
+    const oneConfirmed = b.host_confirmed_return !== b.renter_confirmed_return;
     if (oneConfirmed) {
       const endDate = new Date(b.to_date);
       if (endDate < new Date(sevenDaysAgo)) {
@@ -213,6 +217,8 @@ Deno.serve(async (req) => {
           .update({
             host_confirmed_handover: true,
             renter_confirmed_handover: true,
+            host_confirmed_return: true,
+            renter_confirmed_return: true,
             status: "completed",
           })
           .eq("id", b.id);
@@ -250,19 +256,19 @@ Deno.serve(async (req) => {
       .single();
     const title = escapeHtml(listingRes.data?.title ?? "leieforholdet");
 
-    if (!b.host_confirmed_handover) {
+    if (!b.host_confirmed_return) {
       const hostEmail = await getUserEmail(b.host_id);
       if (hostEmail) {
         await sendEmail(
           hostEmail,
-          `Påminnelse: Bekreft utlevering for ${title}`,
+          `Påminnelse: Bekreft retur for ${title}`,
           emailLayout(
-            "Husk å bekrefte utlevering",
-            `<p>Leieperioden for <strong>${title}</strong> er avsluttet (${fmt(b.from_date)} – ${fmt(b.to_date)}), men du har ikke bekreftet utlevering ennå.</p>
+            "Husk å bekrefte retur",
+            `<p>Leieperioden for <strong>${title}</strong> er avsluttet (${fmt(b.from_date)} – ${fmt(b.to_date)}), men du har ikke bekreftet retur ennå.</p>
             <p><strong>Pengene kan ikke utbetales til deg før du bekrefter.</strong></p>
-            <a href="https://leieplattform.no/booking/${b.id}" class="btn">Bekreft utlevering nå →</a>
+            <a href="https://leieplattform.no/booking/${b.id}" class="btn">Bekreft retur nå →</a>
             <div class="info-box">
-              <p>Logg inn → Mine bookinger → <strong>Bekreft utlevering</strong></p>
+              <p>Logg inn → Mine bookinger → <strong>Bekreft retur</strong></p>
               <p>Hvis du ikke bekrefter innen 7 dager etter leieperiodens slutt, vil utbetalingen frigis automatisk.</p>
             </div>`,
           ),
@@ -270,34 +276,34 @@ Deno.serve(async (req) => {
         results.remindersHost++;
       }
       if (b.host_id) {
-        const ht = `Påminnelse: Bekreft utlevering`;
-        const hb = `Leieperioden for ${title} er ferdig — bekreft utlevering for å motta betaling.`;
+        const ht = `Påminnelse: Bekreft retur`;
+        const hb = `Leieperioden for ${title} er ferdig — bekreft retur for å motta betaling.`;
         await insertNotification(supabase, b.host_id, "reminder", ht, hb, { bookingId: b.id });
         firePush(b.host_id, ht, hb);
       }
     }
 
-    if (!b.renter_confirmed_handover) {
+    if (!b.renter_confirmed_return) {
       const renterEmail = await getUserEmail(b.renter);
       if (renterEmail) {
         await sendEmail(
           renterEmail,
-          `Påminnelse: Bekreft mottak for ${title}`,
+          `Påminnelse: Bekreft levert tilbake for ${title}`,
           emailLayout(
-            "Husk å bekrefte mottak",
-            `<p>Leieperioden for <strong>${title}</strong> er avsluttet (${fmt(b.from_date)} – ${fmt(b.to_date)}), men du har ikke bekreftet mottak og retur ennå.</p>
-            <a href="https://leieplattform.no/booking/${b.id}" class="btn">Bekreft mottak nå →</a>
+            "Husk å bekrefte at du har levert tilbake",
+            `<p>Leieperioden for <strong>${title}</strong> er avsluttet (${fmt(b.from_date)} – ${fmt(b.to_date)}), men du har ikke bekreftet at du har levert tilbake utstyret ennå.</p>
+            <a href="https://leieplattform.no/booking/${b.id}" class="btn">Bekreft nå →</a>
             <div class="info-box">
-              <p>Logg inn → Mine bookinger → <strong>Bekreft mottak</strong></p>
-              <p>Bekreftelsen er viktig for at depositumet ditt frigjøres og utleieren får betalt.</p>
+              <p>Logg inn → Mine bookinger → <strong>Bekreft levert tilbake</strong></p>
+              <p>Bekreftelsen er viktig for at depositumet ditt refunderes og utleieren får betalt.</p>
             </div>`,
           ),
         );
         results.remindersRenter++;
       }
       if (b.renter) {
-        const rt = `Påminnelse: Bekreft mottak`;
-        const rb = `Leieperioden for ${title} er ferdig — bekreft mottak for å frigjøre depositumet ditt.`;
+        const rt = `Påminnelse: Bekreft levert tilbake`;
+        const rb = `Leieperioden for ${title} er ferdig — bekreft at du har levert tilbake for å frigjøre depositumet ditt.`;
         await insertNotification(supabase, b.renter, "reminder", rt, rb, { bookingId: b.id });
         firePush(b.renter, rt, rb);
       }
