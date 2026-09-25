@@ -1962,3 +1962,24 @@ begin
   return new;
 end;
 $$;
+
+-- ============================================================
+-- CRITICAL: FIX PUBLIC PROFILES READ LEAK (2026-09-25)
+-- ============================================================
+-- See migrations/20260925220000_fix_profiles_public_read_leak.sql and
+-- 20260925220100_drop_untracked_profiles_read_all.sql. The original
+-- "Profiles are viewable by everyone" using (true) policy (defined
+-- earlier in this file, "5) Row Level Security (RLS)" section) plus an
+-- untracked duplicate "profiles_read_all" policy (created directly via
+-- the SQL editor at some point, never captured in a migration) together
+-- made the entire profiles table -- full_name, email, phone, address,
+-- stripe_account_id, drivers_license_front/back, org_number, everything
+-- -- readable by anyone on the internet with no login. Found live via a
+-- direct unauthenticated REST query during a routine RLS audit.
+drop policy if exists "Profiles are viewable by everyone" on public.profiles;
+drop policy if exists "profiles_read_all" on public.profiles;
+drop policy if exists "Users can view own profile" on public.profiles;
+drop policy if exists "profiles_update_own" on public.profiles;
+create policy "Users can view own profile, admins view all"
+  on public.profiles for select
+  using (auth.uid() = id or public.is_admin());
