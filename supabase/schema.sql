@@ -469,6 +469,11 @@ create policy "Users can update their own avatar"
   on storage.objects for update
   using (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
 
+drop policy if exists "Users can delete their own avatar" on storage.objects;
+create policy "Users can delete their own avatar"
+  on storage.objects for delete
+  using (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
+
 -- 8) Email notifications to hosts on new booking requests (via Resend)
 create extension if not exists pg_net;
 create extension if not exists supabase_vault;
