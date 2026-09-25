@@ -204,6 +204,20 @@ Deno.serve(async (req) => {
       }
     }
 
+    // A host can record damage/extra-cleaning/toll charges right when
+    // confirming the return (openHostReturnModal in src/app.html), which
+    // is explicitly presented to them as "registreres for admin, som
+    // kontakter leietaker/utleier manuelt ved dokumentert skade" -- but
+    // confirmReturn() calls releasePayout() synchronously in the same
+    // action, so without this check the deposit would already be fully
+    // auto-refunded to the renter before any human could ever review the
+    // claim, making that promise false. Any recorded extra_charges
+    // amount withholds the auto-refund entirely and instead logs to
+    // error_logs (Feillogg) for manual admin resolution via the
+    // admin-resolve-deposit function / adminBookings() UI.
+    const extraCharges = (booking.extra_charges ?? {}) as Record<string, unknown>;
+    const hasDamageClaim = ["damage", "cleaning", "toll"].some((k) => Number(extraCharges[k] ?? 0) > 0);
+
     // Deposit refund to the renter — independent of whether a host
     // transfer happened above (a platform-owned listing still owes the
     // renter their deposit back). Best-effort: a failure here is logged
@@ -211,7 +225,15 @@ Deno.serve(async (req) => {
     // rather than unwinding the payout_released claim or the host
     // transfer that may have already succeeded above, since those two
     // Stripe operations can't be rolled back together atomically anyway.
-    if (depositAmountOre > 0 && !booking.deposit_refunded) {
+    if (depositAmountOre > 0 && !booking.deposit_refunded && hasDamageClaim) {
+      console.log(`[payout] Deposit refund withheld for booking ${bookingId} -- extra_charges recorded, needs manual review`);
+      await supabase.from("error_logs").insert({
+        message: `[stripe-release-payout] Depositum-tvist venter på manuell gjennomgang for booking ${bookingId}`,
+        stack: JSON.stringify(extraCharges).slice(0, 4000),
+        url: "edge-function:stripe-release-payout",
+        user_agent: "server",
+      });
+    } else if (depositAmountOre > 0 && !booking.deposit_refunded) {
       try {
         const depositRefund = await stripe.refunds.create({
           payment_intent: booking.payment_intent_id,
@@ -262,7 +284,7 @@ Deno.serve(async (req) => {
             `Utbetaling frigitt — ${title}`,
             emailLayout(
               "Utbetaling er på vei til deg ✓",
-              `<p>Begge parter har bekreftet overlevering. Din utbetaling for <strong>${title}</strong> er nå frigitt og overføres til din Stripe-konto.</p>
+              `<p>Begge parter har bekreftet retur. Din utbetaling for <strong>${title}</strong> er nå frigitt og overføres til din Stripe-konto.</p>
               <div class="info-box">
                 <p><strong>Utstyr:</strong> ${title}</p>
                 <p><strong>Periode:</strong> ${fromFmt} – ${toFmt}</p>
@@ -274,7 +296,7 @@ Deno.serve(async (req) => {
           );
         }
 
-        if (depositAmountOre > 0) {
+        if (depositAmountOre > 0 && !hasDamageClaim) {
           // Guest bookings (renter is null) still owe a deposit refund --
           // fall back to renter_email (always populated) when there's no
           // linked Supabase user to look up.
