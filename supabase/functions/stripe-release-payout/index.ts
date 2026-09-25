@@ -100,6 +100,20 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+    // A cancelled booking must never pay out, even if both handover flags
+    // happen to be true (e.g. a same-day cancellation with a 0%-refund
+    // policy still marks status='cancelled', or a stray confirmation
+    // lands after stripe-refund already ran) -- protect_booking_fields()
+    // guards WHO can set the handover flags, not WHETHER the booking is
+    // still cancellable, and stripe-refund only checks payout_released
+    // (not the reverse). Without this, a refunded booking could still
+    // have its host share transferred out afterwards, paying out money
+    // that was already sent back to the renter.
+    if (booking.status === "cancelled") {
+      return new Response(JSON.stringify({ released: false, reason: "cancelled" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const { data: host, error: hostErr } = await supabase
       .from("profiles")
