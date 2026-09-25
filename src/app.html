@@ -1294,7 +1294,14 @@ const _needsLic=_vehicleCats.some(c=>t.cat&&t.cat.toLowerCase().includes(c));ran
 // fysisk ved oppmøte. Det valget erstatter aldri den digitale kontrollen
 // her (se guest-checkout/index.ts for samme prinsipp i gjesteflyten).
 const _showIdField=!session||session.licVerified!==true;
-if(_showIdField){const _idFld=el("div","field");_idFld.style.cssText="margin-top:8px;padding:12px 14px;background:#EFF6FF;border:1.5px solid #BFDBFE;border-radius:12px";const _idHead=el("div");_idHead.innerHTML='<b style="font-size:14px;display:block;margin-bottom:4px">🪪 Legitimasjon *</b><p style="font-size:12.5px;color:var(--ink-2);margin:0 0 8px">Last opp bilde av gyldig legitimasjon (pass, førerkort eller nasjonalt ID-kort). Bildet kontrolleres automatisk og navnet sammenlignes med navnet du har oppgitt.</p>';_idFld.appendChild(_idHead);const _idInp=document.createElement("input");_idInp.type="file";_idInp.id="bookingIdFile";_idInp.accept="image/*";_idInp.style.cssText="display:block;width:100%;font-size:14px;margin-bottom:4px";const _idPreview=document.createElement("img");_idPreview.alt="Forhåndsvisning av ID-dokument";_idPreview.style.cssText="display:none;max-width:100%;max-height:140px;border-radius:8px;margin-top:6px;object-fit:contain";const _idStatus=el("p",null,"");_idStatus.id="bookingIdStatus";_idStatus.style.cssText="font-size:12.5px;font-weight:600;margin:8px 0 0;display:none;padding:8px 10px;border-radius:10px";_idInp.addEventListener("change",function(){if(_idInp.files&&_idInp.files[0]){const reader=new FileReader();reader.onload=function(ev){_idPreview.src=ev.target.result;_idPreview.style.display="block";};reader.readAsDataURL(_idInp.files[0]);if(session)_verifyBookingIdFile(_idInp.files[0],_needsLic?"license":"identity",_idStatus,!!t.instantBook);}else{_idPreview.style.display="none";_idStatus.style.display="none";}});_idFld.append(_idInp,_idPreview,_idStatus);e.appendChild(_idFld);}
+if(_showIdField){const _idFld=el("div","field");_idFld.style.cssText="margin-top:8px;padding:12px 14px;background:#EFF6FF;border:1.5px solid #BFDBFE;border-radius:12px";const _idHead=el("div");_idHead.innerHTML='<b style="font-size:14px;display:block;margin-bottom:4px">🪪 Legitimasjon *</b><p style="font-size:12.5px;color:var(--ink-2);margin:0 0 8px">Last opp bilde av gyldig legitimasjon (pass, førerkort eller nasjonalt ID-kort). Bildet kontrolleres automatisk og navnet sammenlignes med navnet du har oppgitt.</p>';_idFld.appendChild(_idHead);const _idPreview=document.createElement("img");_idPreview.alt="Forhåndsvisning av ID-dokument";_idPreview.style.cssText="display:none;max-width:100%;max-height:140px;border-radius:8px;margin-top:6px;object-fit:contain";const _idStatus=el("p",null,"");_idStatus.id="bookingIdStatus";_idStatus.style.cssText="font-size:12.5px;font-weight:600;margin:8px 0 0;display:none;padding:8px 10px;border-radius:10px";
+// Desktop + logged in: offer the same "scan a QR with your phone, take
+// the photo there, it appears here automatically" convenience already
+// used for the dedicated profile-level ID/license verification modal
+// (openLicenseUploadModal) -- typing/uploading a photo of a physical
+// document from a laptop is awkward, most people's phone is right there.
+if(session&&window.innerWidth>=640){const qrBox=el("div");qrBox.style.cssText="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:14px;margin-bottom:10px;text-align:center";qrBox.innerHTML='<p style="font-size:13px;font-weight:700;color:#166534;margin:0 0 8px">📱 Enklere fra mobil — skann QR-koden</p><div id="_bkQrImg" style="display:flex;align-items:center;justify-content:center;height:130px"><div style="width:24px;height:24px;border:3px solid #16a34a;border-top-color:transparent;border-radius:50%;animation:spin 1s linear infinite"></div></div><p id="_bkQrHint" style="font-size:12px;color:#4b7a5c;margin:8px 0 0">Genererer QR-kode…</p>';_idFld.appendChild(qrBox);(async()=>{const{data:qsess,error:qErr}=await sb.from("upload_sessions").insert({user_id:session.id,expires_at:new Date(Date.now()+15*60*1000).toISOString()}).select().single();const qImgEl=document.getElementById("_bkQrImg");if(qErr||!qsess){if(qImgEl)qImgEl.innerHTML='<span style="font-size:12px;color:#888">QR utilgjengelig</span>';return;}const uploadUrl=location.origin+"/app.html#upload/"+qsess.token;const qrSrc="https://api.qrserver.com/v1/create-qr-code/?size=130x130&data="+encodeURIComponent(uploadUrl)+"&bgcolor=f0fdf4&color=0a3d1f&margin=2";if(qImgEl)qImgEl.innerHTML='<img src="'+qrSrc+'" style="border-radius:8px;width:130px;height:130px" alt="QR-kode for mobilopplasting">';const qHintEl=document.getElementById("_bkQrHint");if(qHintEl)qHintEl.textContent="Skann med mobilen → ta bilde → dukker opp her automatisk";if(window._bkIdQrPoll)clearInterval(window._bkIdQrPoll);window._bkIdQrPoll=setInterval(async()=>{const{data:upd}=await sb.from("upload_sessions").select("image_url").eq("id",qsess.id).single();if(upd&&upd.image_url){clearInterval(window._bkIdQrPoll);window._bkIdQrPoll=null;qrBox.style.background="#D1FAE5";qrBox.style.borderColor="#6EE7B7";const qHint2=document.getElementById("_bkQrHint");if(qHint2)qHint2.innerHTML='<b style="color:#065F46">✓ Bilde mottatt! Verifiserer…</b>';_idPreview.src=upd.image_url;_idPreview.style.display="block";await _verifyBookingIdUrl(upd.image_url,_needsLic?"license":"identity",_idStatus,!!t.instantBook);}},2500);})();const sep=el("p",null,"— eller last opp fra denne enheten —");sep.style.cssText="text-align:center;font-size:11.5px;color:var(--ink-3);margin:0 0 8px";_idFld.appendChild(sep);}
+const _idInp=document.createElement("input");_idInp.type="file";_idInp.id="bookingIdFile";_idInp.accept="image/*";_idInp.capture="environment";_idInp.style.cssText="display:block;width:100%;font-size:14px;margin-bottom:4px";_idInp.addEventListener("change",function(){if(_idInp.files&&_idInp.files[0]){const reader=new FileReader();reader.onload=function(ev){_idPreview.src=ev.target.result;_idPreview.style.display="block";};reader.readAsDataURL(_idInp.files[0]);if(session)_verifyBookingIdFile(_idInp.files[0],_needsLic?"license":"identity",_idStatus,!!t.instantBook);}else{_idPreview.style.display="none";_idStatus.style.display="none";}});_idFld.append(_idInp,_idPreview,_idStatus);e.appendChild(_idFld);}
 if("in_person"===_idCheckMode){const _idInfo=el("div","field");_idInfo.style.cssText="margin-top:8px;padding:12px 14px;background:#fff7ed;border:1.5px solid #fed7aa;border-radius:12px";_idInfo.innerHTML='<b style="font-size:14px;display:block;margin-bottom:4px">🪪 Utleier dobbeltsjekker også ved oppmøte</b><p style="font-size:12.5px;color:var(--ink-2);margin:0">Legitimasjonen din blir uansett kontrollert digitalt her og nå. Utleier vil i tillegg se den fysisk når dere møtes for utlevering — anbefalt i tilfelle det skulle oppstå en teknisk feil.</p>';e.appendChild(_idInfo);}
 const whN=el("div");whN.style.cssText="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:12px 14px;margin-top:12px;font-size:13px;color:#166534";whN.innerHTML=t.instantBook?'<b style="display:block;margin-bottom:4px">✅ Hva skjer nå?</b><ol style="margin:0;padding-left:18px;line-height:1.7"><li>Bookingen bekreftes <b>umiddelbart</b> uten ventetid</li><li>Du mottar en e-post med detaljer og kontraktlenke</li><li>Kontakt utleier i chatten for overleveringsdetaljer</li></ol>':'<b style="display:block;margin-bottom:4px">📬 Hva skjer nå?</b><ol style="margin:0;padding-left:18px;line-height:1.7"><li>Utleier får meldingen og svarer deg direkte i chatten</li><li>Godkjenner utleier, får du e-post med betalingslenke</li><li>Betaling og digital kontrakt sendes automatisk</li></ol>';e.appendChild(whN);// Discount info banner
 if(t.weeklyDiscount>=5||t.monthlyDiscount>=5){const _dBanner=el("div");_dBanner.style.cssText="background:#EDE9FE;border:1px solid #A78BFA;border-radius:10px;padding:10px 14px;font-size:13px;margin-bottom:8px;color:#5B21B6";let _dTxt='🏷️ ';if(t.monthlyDiscount>=5)_dTxt+='<b>'+t.monthlyDiscount+'% rabatt</b> ved 28+ dager';if(t.weeklyDiscount>=5&&t.monthlyDiscount>=5)_dTxt+=' · ';if(t.weeklyDiscount>=5)_dTxt+='<b>'+t.weeklyDiscount+'% rabatt</b> ved 7+ dager';_dBanner.innerHTML=_dTxt;e.appendChild(_dBanner);}
@@ -1588,11 +1595,36 @@ async function _verifyBookingIdFile(file,docType,statusEl,isInstant){
     const{error:upErr}=await sb.storage.from('drivers-license').upload(path,comp,{upsert:true,contentType:comp.type||'image/jpeg'});
     if(upErr){statusEl.textContent='⚠️ Opplasting feilet — prøv igjen.';statusEl.style.background='#FEF3C7';statusEl.style.color='#92400E';if(btn){btn.disabled=false;btn.textContent=origText;}return;}
     const{data:pu}=sb.storage.from('drivers-license').getPublicUrl(path);
-    session.licFront=pu.publicUrl;
-    sb.from('profiles').update({drivers_license_front:pu.publicUrl}).eq('id',session.id).then(()=>{},()=>{});
-    const{data:signed}=await sb.storage.from('drivers-license').createSignedUrl(path,300);
+    await _verifyBookingIdUrl(pu.publicUrl,docType,statusEl,isInstant,path);
+  }catch(ex){
+    statusEl.textContent='⚠️ Verifisering feilet — prøv igjen.';statusEl.style.background='#FEF3C7';statusEl.style.color='#92400E';
+    if(btn){btn.disabled=false;btn.textContent=origText;}
+  }
+}
+// Shared by both upload paths for the booking form's ID field: a local
+// file picked on this device (_verifyBookingIdFile, above -- already
+// uploaded by the time this runs) and a photo taken on the RENTER'S OWN
+// PHONE and scanned in via the QR flow below (mobile-upload already
+// wrote it to the same 'drivers-license' bucket/path convention). Either
+// way, by this point the image is already at `imageUrl` -- this just runs
+// the actual AI check and updates session state + the booking form's UI.
+async function _verifyBookingIdUrl(imageUrl,docType,statusEl,isInstant,storagePath){
+  const btn=document.querySelector('[onclick*="sendRequest"]');
+  const origText=btn?btn.textContent:'';
+  if(btn){btn.disabled=true;btn.textContent='Kontrollerer legitimasjon…';}
+  statusEl.style.display='block';statusEl.style.background='#F3F4F6';statusEl.style.color='var(--ink-2)';statusEl.style.border='1px solid var(--line)';
+  statusEl.textContent='🔍 Kontrollerer legitimasjon…';
+  try{
+    session.licFront=imageUrl;
+    sb.from('profiles').update({drivers_license_front:imageUrl}).eq('id',session.id).then(()=>{},()=>{});
+    let signedUrl=imageUrl;
+    try{
+      const p=storagePath||(session.id+'/front.'+((imageUrl.split('.').pop()||'jpg').split('?')[0]));
+      const{data:signed}=await sb.storage.from('drivers-license').createSignedUrl(p,300);
+      if(signed?.signedUrl)signedUrl=signed.signedUrl;
+    }catch(_sErr){/* fall back to imageUrl as-is */}
     const{data:{session:s}}=await sb.auth.getSession();
-    const res=await fetch(SUPABASE_URL+'/functions/v1/verify-license',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+s.access_token,apikey:SUPABASE_ANON_KEY},body:JSON.stringify({imageUrl:signed?.signedUrl||pu.publicUrl,type:docType})});
+    const res=await fetch(SUPABASE_URL+'/functions/v1/verify-license',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+s.access_token,apikey:SUPABASE_ANON_KEY},body:JSON.stringify({imageUrl:signedUrl,type:docType})});
     const json=await res.json();
     if(json.verified){
       session.licVerified=true;
@@ -2728,6 +2760,7 @@ const bi=BOOKINGS.findIndex(b=>b.id===e.id);if(bi>-1)BOOKINGS.splice(bi,1);admin
     sb.auth.signOut().catch(()=>{});
     toast("Passordet ble ikke endret, så du er logget ut. Be om en ny tilbakestillingslenke hvis du fortsatt trenger å bytte passord.","info");
   }
+  if(window._bkIdQrPoll){clearInterval(window._bkIdQrPoll);window._bkIdQrPoll=null;}
   try{localStorage.removeItem("_ocu_open_edit");}catch(e){}if(_chatSub){try{_chatSub.unsubscribe();}catch(ex){}_chatSub=null;}if(document.querySelectorAll(".modal-bg.open").forEach(e=>e.classList.remove("open")),document.getElementById("drawer").classList.remove("open"),document.getElementById("scrim").classList.remove("open"),document.getElementById("hambBtn").setAttribute("aria-expanded","false"),document.body.style.overflow="",lastFocused&&lastFocused.focus)try{lastFocused.focus()}catch(e){}}function toast(e,t){const n=document.getElementById("toasts"),i=el("div","toast"+(t?" "+t:""),e);return n.appendChild(i),applyLang(),setTimeout(()=>{i.style.opacity="0",i.style.transition="opacity .3s",setTimeout(()=>i.remove(),320)},2800),!1}
 function _updateHeroStats(){
   var el_=document.getElementById('heroStats');if(!el_)return;
