@@ -128,14 +128,17 @@ Deno.serve(async (req) => {
       .eq("id", bookingId);
 
     try {
-      const { data: listing } = await supabase.from("listings").select("title").eq("id", booking.listing_id).single();
+      const { data: listing } = await supabase.from("listings").select("title, owner").eq("id", booking.listing_id).single();
       const title = listing?.title ?? "leieforholdet";
+      const refundKr = (refundOre / 100).toLocaleString("nb-NO") + " kr";
+      const depositKr = (depositAmountOre / 100).toLocaleString("nb-NO") + " kr";
+      const withheldOre = depositAmountOre - refundOre;
+      const withheldKr = (withheldOre / 100).toLocaleString("nb-NO") + " kr";
+
       const renterEmail = booking.renter
         ? (await supabase.auth.admin.getUserById(booking.renter)).data?.user?.email
         : booking.renter_email;
       if (renterEmail) {
-        const refundKr = (refundOre / 100).toLocaleString("nb-NO") + " kr";
-        const depositKr = (depositAmountOre / 100).toLocaleString("nb-NO") + " kr";
         await sendEmail(
           renterEmail,
           `Depositum behandlet — ${title}`,
@@ -146,6 +149,30 @@ Deno.serve(async (req) => {
               : `<p>Etter gjennomgang av utleiers rapport er depositumet for <strong>${title}</strong> (${depositKr}) delvis eller ikke refundert.</p><div class="info-box"><p><strong>Refundert:</strong> ${refundKr} av ${depositKr}</p></div><p>Kontakt oss på kundeservice@oslocampingutleie.no hvis du har spørsmål om dette.</p>`,
           ),
         );
+      }
+
+      // The host reported the damage/cleaning/toll charges in the first
+      // place (openHostReturnModal) -- they deserve to hear back on the
+      // outcome too, not just silently see the dispute badge disappear
+      // from adminBookings(). No automated payout of the withheld amount
+      // to the host happens here (see this function's header comment);
+      // this is purely informational so they know their report was acted
+      // on and can follow up if they expected compensation.
+      if (listing?.owner) {
+        const hostAuth = await supabase.auth.admin.getUserById(listing.owner);
+        const hostEmail = hostAuth.data?.user?.email;
+        if (hostEmail) {
+          await sendEmail(
+            hostEmail,
+            `Depositum-tvist løst — ${title}`,
+            emailLayout(
+              "Depositum-rapporten din er gjennomgått",
+              withheldOre > 0
+                ? `<p>Vi har gjennomgått skaderapporten din for <strong>${title}</strong>. ${withheldKr} av depositumet (${depositKr}) er holdt tilbake fra leietakers refusjon.</p><div class="info-box"><p>Eventuell kompensasjon til deg for dette beløpet håndteres manuelt — kontakt oss på kundeservice@oslocampingutleie.no for å avtale utbetaling.</p></div>`
+                : `<p>Vi har gjennomgått rapporten din for <strong>${title}</strong>. Etter vurdering er hele depositumet (${depositKr}) refundert til leietaker.</p><p>Har du spørsmål om vurderingen, kontakt oss på kundeservice@oslocampingutleie.no.</p>`,
+            ),
+          );
+        }
       }
     } catch (emailErr) {
       console.error("[admin-resolve-deposit] Email send failed:", emailErr);
