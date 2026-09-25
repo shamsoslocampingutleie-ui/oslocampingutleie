@@ -229,6 +229,11 @@ Deno.serve(async (req) => {
         discount_code: discountCode ?? "",
         discount_pct: String(discountPct),
         transport_fee_ore: String(Math.round(transportFeeAmount * 100)),
+        // Snapshotted now (like platform_fee_ore) so stripe-release-payout
+        // can keep this out of the host's transfer and refund it back to
+        // the renter later, instead of it silently going to the host --
+        // see 20260925200000_deposit_held_not_paid_to_host.sql.
+        deposit_ore: String(Math.round(deposit * 100)),
       },
       success_url: safeRedirect(successUrl),
       cancel_url: safeRedirect(cancelUrl),

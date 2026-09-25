@@ -355,6 +355,9 @@ Svar KUN med gyldig JSON:
         metadata: {
           booking_id: bookingId,
           platform_fee_ore: String(platformFeeOre),
+          // See 20260925200000_deposit_held_not_paid_to_host.sql -- kept
+          // out of the host's payout, refunded to the renter later.
+          deposit_ore: String(Math.round(deposit * 100)),
         },
         success_url: safeRedirect(success_url),
         cancel_url: safeRedirect(cancel_url),

@@ -179,6 +179,11 @@ Deno.serve(async (req) => {
         const platformFee =
           Number(session.metadata?.platform_fee_ore ?? session.amount_total ?? 0) /
           100;
+        // See 20260925200000_deposit_held_not_paid_to_host.sql -- must be
+        // persisted here so stripe-release-payout can keep it out of the
+        // host's transfer and refund it to the renter later instead of it
+        // silently going to the host along with the rent.
+        const depositAmount = Number(session.metadata?.deposit_ore ?? 0) / 100;
 
         // Check if already paid to prevent duplicate email sends on webhook replay
         const { data: existingBooking } = await supabase
@@ -201,6 +206,7 @@ Deno.serve(async (req) => {
             payment_intent_id: piId || "",
             amount_total: amountTotal,
             platform_fee: platformFee,
+            deposit_amount: depositAmount,
             stripe_customer_details: session.customer_details ?? null,
           })
           .eq("id", bookingId)

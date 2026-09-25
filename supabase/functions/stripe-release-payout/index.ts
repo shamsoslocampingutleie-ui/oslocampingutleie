@@ -1,12 +1,20 @@
 // Releases the host's share of a paid booking to their connected Stripe
-// account, once BOTH host and renter have confirmed handover.
+// account, once BOTH host and renter have confirmed handover — and, in
+// the same step, refunds the renter's deposit back to them (deposit was
+// never the host's money to begin with; every renter-facing surface
+// promises it's "held by the platform" and refunded after a clean
+// handover — see 20260925200000_deposit_held_not_paid_to_host.sql for
+// the bug this fixes).
 //
 // The platform receives 100% of the payment at checkout time (see
 // stripe-checkout). Funds sit in the platform's Stripe balance until this
-// function transfers the host's share (amount_total - platform_fee) out to
-// the host's connected account. Listings without a connected account
-// (platform-owned listings) never trigger a transfer — the platform keeps
-// the full amount.
+// function:
+//   1. transfers the host's share (amount_total - platform_fee -
+//      deposit_amount) out to the host's connected account. Listings
+//      without a connected account (platform-owned listings) never
+//      trigger a transfer — the platform keeps that portion.
+//   2. refunds deposit_amount back to the renter's original payment
+//      method, if any was collected and it hasn't been refunded yet.
 import Stripe from "npm:stripe@17";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
@@ -129,7 +137,9 @@ Deno.serve(async (req) => {
 
     const amountTotal = Number(booking.amount_total || 0);
     const platformFee = Number(booking.platform_fee || 0);
-    const payoutAmount = Math.round((amountTotal - platformFee) * 100);
+    const depositAmount = Number(booking.deposit_amount || 0);
+    const payoutAmount = Math.round((amountTotal - platformFee - depositAmount) * 100);
+    const depositAmountOre = Math.round(depositAmount * 100);
 
     // Atomically claim this payout before doing anything irreversible. The
     // earlier "if (!booking.paid || booking.payout_released) return" check
@@ -152,48 +162,79 @@ Deno.serve(async (req) => {
       });
     }
 
-    if (!host.stripe_account_id || payoutAmount <= 0) {
-      // Platform-owned listing or nothing left to pay out -- claim is
-      // already recorded above, nothing else to do.
-      return new Response(JSON.stringify({ released: true, transferred: 0 }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    // Host transfer (rent + fees, deposit already excluded above) — only
+    // when there's a connected account and something left to send.
+    if (host.stripe_account_id && payoutAmount > 0) {
+      try {
+        const pi = await stripe.paymentIntents.retrieve(booking.payment_intent_id);
+        const transfer = await stripe.transfers.create({
+          amount: payoutAmount,
+          currency: "nok",
+          destination: host.stripe_account_id,
+          source_transaction: pi.latest_charge as string,
+          metadata: { booking_id: bookingId },
+        }, {
+          // Extra safety net beyond the DB claim above: if this exact
+          // transfer is somehow submitted twice, Stripe itself dedupes it.
+          idempotencyKey: `payout-${bookingId}`,
+        });
+
+        await supabase
+          .from("bookings")
+          .update({ transfer_id: transfer.id })
+          .eq("id", bookingId);
+      } catch (transferErr) {
+        // The Stripe transfer itself failed -- release our claim so the
+        // daily cron failsafe (or a manual retry) can try again instead of
+        // the booking being stuck marked "released" with no actual transfer.
+        // Deliberately return here rather than falling through to the
+        // deposit refund below: retrying the whole function is simpler and
+        // safer than reasoning about a half-done release.
+        await supabase
+          .from("bookings")
+          .update({ payout_released: false })
+          .eq("id", bookingId);
+        throw transferErr;
+      }
     }
 
-    try {
-      const pi = await stripe.paymentIntents.retrieve(booking.payment_intent_id);
-      const transfer = await stripe.transfers.create({
-        amount: payoutAmount,
-        currency: "nok",
-        destination: host.stripe_account_id,
-        source_transaction: pi.latest_charge as string,
-        metadata: { booking_id: bookingId },
-      }, {
-        // Extra safety net beyond the DB claim above: if this exact
-        // transfer is somehow submitted twice, Stripe itself dedupes it.
-        idempotencyKey: `payout-${bookingId}`,
-      });
-
-      await supabase
-        .from("bookings")
-        .update({ transfer_id: transfer.id })
-        .eq("id", bookingId);
-    } catch (transferErr) {
-      // The Stripe transfer itself failed -- release our claim so the
-      // daily cron failsafe (or a manual retry) can try again instead of
-      // the booking being stuck marked "released" with no actual transfer.
-      await supabase
-        .from("bookings")
-        .update({ payout_released: false })
-        .eq("id", bookingId);
-      throw transferErr;
+    // Deposit refund to the renter — independent of whether a host
+    // transfer happened above (a platform-owned listing still owes the
+    // renter their deposit back). Best-effort: a failure here is logged
+    // to error_logs (same table/panel admin already reads as Feillogg)
+    // rather than unwinding the payout_released claim or the host
+    // transfer that may have already succeeded above, since those two
+    // Stripe operations can't be rolled back together atomically anyway.
+    if (depositAmountOre > 0 && !booking.deposit_refunded) {
+      try {
+        const depositRefund = await stripe.refunds.create({
+          payment_intent: booking.payment_intent_id,
+          amount: depositAmountOre,
+          reason: "requested_by_customer",
+          metadata: { booking_id: bookingId, type: "deposit_release" },
+        }, {
+          idempotencyKey: `deposit-refund-${bookingId}`,
+        });
+        await supabase
+          .from("bookings")
+          .update({ deposit_refunded: true, deposit_refund_id: depositRefund.id })
+          .eq("id", bookingId);
+      } catch (depositErr) {
+        console.error("[payout] Deposit refund failed:", depositErr);
+        await supabase.from("error_logs").insert({
+          message: `[stripe-release-payout] Deposit refund failed for booking ${bookingId}`,
+          stack: String(depositErr).slice(0, 4000),
+          url: "edge-function:stripe-release-payout",
+          user_agent: "server",
+        });
+      }
     }
 
-    // Send payout confirmation email to host
+    // Send confirmation emails to host (payout) and renter (deposit refund)
     try {
       const { data: bookingFull } = await supabase
         .from("bookings")
-        .select("renter, listing_id, from_date, to_date")
+        .select("renter, renter_email, listing_id, from_date, to_date")
         .eq("id", bookingId)
         .single();
       if (bookingFull) {
@@ -209,7 +250,7 @@ Deno.serve(async (req) => {
         const fromFmt = new Date(bookingFull.from_date).toLocaleDateString("nb-NO", { day: "numeric", month: "long", year: "numeric" });
         const toFmt = new Date(bookingFull.to_date).toLocaleDateString("nb-NO", { day: "numeric", month: "long", year: "numeric" });
 
-        if (hostEmail) {
+        if (hostEmail && payoutAmount > 0) {
           await sendEmail(
             hostEmail,
             `Utbetaling frigitt — ${title}`,
@@ -226,13 +267,38 @@ Deno.serve(async (req) => {
             ),
           );
         }
+
+        if (depositAmountOre > 0) {
+          // Guest bookings (renter is null) still owe a deposit refund --
+          // fall back to renter_email (always populated) when there's no
+          // linked Supabase user to look up.
+          const renterEmail = bookingFull.renter
+            ? (await supabase.auth.admin.getUserById(bookingFull.renter)).data?.user?.email
+            : bookingFull.renter_email;
+          const depositKr = (depositAmountOre / 100).toLocaleString("nb-NO") + " kr";
+          if (renterEmail) {
+            await sendEmail(
+              renterEmail,
+              `Depositum refundert — ${title}`,
+              emailLayout(
+                "Depositumet ditt er refundert ✓",
+                `<p>Begge parter har bekreftet overlevering uten registrerte skader. Depositumet for <strong>${title}</strong> (${fromFmt} – ${toFmt}) er nå refundert til betalingskortet ditt.</p>
+                <div class="info-box">
+                  <p><strong>Refundert depositum:</strong> <strong style="color:#14512E">${depositKr}</strong></p>
+                </div>
+                <p>Beløpet vises på kontoen din innen 5–10 virkedager via Stripe.</p>
+                <a href="https://leieplattform.no/booking/${bookingId}" class="btn">Gå til Mine bookinger →</a>`,
+              ),
+            );
+          }
+        }
       }
     } catch (emailErr) {
       console.error("[payout] Email send failed:", emailErr);
     }
 
     return new Response(
-      JSON.stringify({ released: true, transferred: payoutAmount }),
+      JSON.stringify({ released: true, transferred: payoutAmount, depositRefunded: depositAmountOre }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (err) {
