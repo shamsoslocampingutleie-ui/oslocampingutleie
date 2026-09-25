@@ -1059,7 +1059,7 @@ inp.addEventListener("blur",function(){setTimeout(function(){drop.style.display=
 }
 function renderGrid(){
 _rvRender();
-const e=document.getElementById("grid");e.innerHTML="";
+const e=document.getElementById("grid");if(!e)return;e.innerHTML="";
 let _raw=publicListings();
 if(_filterIB)_raw=_raw.filter(function(x){return x.instantBook;});
 const _isBoosted=x=>(x.featured)||(x.boostedUntil&&new Date(x.boostedUntil)>new Date());let t=[..._raw.filter(x=>_isBoosted(x)),..._raw.filter(x=>!_isBoosted(x))];
