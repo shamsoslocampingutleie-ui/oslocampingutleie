@@ -1470,3 +1470,191 @@ drop trigger if exists protect_listing_approval_gate_trigger on public.listings;
 create trigger protect_listing_approval_gate_trigger
   before update on public.listings
   for each row execute function public.protect_listing_approval_gate();
+
+-- ============================================================
+-- COMPANY (FIRMA) ACCOUNTS (2026-09-24)
+-- ============================================================
+-- See migrations/20260924140000_company_accounts.sql for the full
+-- explanation. This block was missing from schema.sql until now --
+-- appended late, during a sync pass, not at time of migration.
+alter table public.profiles
+  add column if not exists account_type text not null default 'private',
+  add column if not exists company_name text not null default '',
+  add column if not exists org_number text default null,
+  add column if not exists org_verified boolean not null default false;
+
+do $$ begin
+  alter table public.profiles
+    add constraint profiles_account_type_check check (account_type in ('private','company'));
+exception when duplicate_object then null; end $$;
+
+do $$ begin
+  alter table public.profiles
+    add constraint profiles_org_number_format_check check (org_number is null or org_number ~ '^[0-9]{9}$');
+exception when duplicate_object then null; end $$;
+
+create or replace function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer set search_path = public
+as $$
+begin
+  insert into public.profiles (id, email, full_name, phone, account_type, company_name, org_number)
+  values (
+    new.id,
+    new.email,
+    coalesce(new.raw_user_meta_data->>'full_name', new.email),
+    coalesce(new.raw_user_meta_data->>'phone', ''),
+    case when new.raw_user_meta_data->>'account_type' = 'company' then 'company' else 'private' end,
+    coalesce(new.raw_user_meta_data->>'company_name', ''),
+    nullif(new.raw_user_meta_data->>'org_number', '')
+  )
+  on conflict (id) do nothing;
+
+  insert into public.registration_log (user_id, email, full_name, phone)
+  values (
+    new.id,
+    new.email,
+    new.raw_user_meta_data->>'full_name',
+    new.raw_user_meta_data->>'phone'
+  );
+
+  return new;
+end;
+$$;
+
+create or replace function public.protect_profile_fields()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  is_privileged boolean;
+begin
+  is_privileged := auth.role() = 'service_role'
+    or exists (select 1 from public.profiles where id = auth.uid() and role = 'admin');
+
+  if not is_privileged then
+    new.role := old.role;
+    new.suspended := old.suspended;
+    new.stripe_account_id := old.stripe_account_id;
+    new.stripe_charges_enabled := old.stripe_charges_enabled;
+
+    new.drivers_license_verified := old.drivers_license_verified;
+    new.drivers_license_admin_reviewed := old.drivers_license_admin_reviewed;
+    new.host_id_reviewed_at := old.host_id_reviewed_at;
+    new.host_id_reject_reason := old.host_id_reject_reason;
+
+    if new.host_approved is distinct from old.host_approved then
+      if new.host_approved is distinct from false then
+        new.host_approved := old.host_approved;
+      end if;
+    end if;
+
+    if new.host_id_status is distinct from old.host_id_status then
+      if new.host_id_status is distinct from 'pending' then
+        new.host_id_status := old.host_id_status;
+      end if;
+    end if;
+
+    if new.org_verified is distinct from old.org_verified then
+      if new.org_verified is distinct from false then
+        new.org_verified := old.org_verified;
+      end if;
+    end if;
+
+    new.fee_waiver_until := old.fee_waiver_until;
+  end if;
+
+  if new.host_approved is true and old.host_approved is distinct from true then
+    new.fee_waiver_until := now() + interval '1 year';
+  end if;
+
+  if new.org_number is distinct from old.org_number
+     and new.org_verified is not distinct from old.org_verified then
+    new.org_verified := false;
+  end if;
+
+  return new;
+end;
+$$;
+
+create or replace view public.profiles_public
+  with (security_invoker = false) as
+  select id, full_name, avatar_url, bio,
+    (account_type = 'company' and org_verified) as is_company,
+    case when account_type = 'company' and org_verified then company_name else null end as company_name
+  from public.profiles;
+
+-- ============================================================
+-- CHAT IMAGES + REALTIME PUBLICATION (2026-09-25)
+-- ============================================================
+-- See migrations/20260925090000_chat_images_and_realtime.sql.
+alter table public.messages
+  add column if not exists image_url text default null;
+
+do $$ begin
+  alter publication supabase_realtime add table public.messages;
+exception when duplicate_object then null; end $$;
+
+do $$ begin
+  alter publication supabase_realtime add table public.bookings;
+exception when duplicate_object then null; end $$;
+
+do $$ begin
+  alter publication supabase_realtime add table public.listings;
+exception when duplicate_object then null; end $$;
+
+-- ============================================================
+-- WISHLISTS + UPLOAD_SESSIONS RLS (2026-09-25)
+-- ============================================================
+-- See migrations/20260925140000_track_wishlists_table.sql and
+-- 20260925150000_track_upload_sessions_table.sql -- both tables existed
+-- in production before being captured here; only the RLS state (verified
+-- live) is asserted, not a full `create table`.
+alter table public.wishlists enable row level security;
+
+drop policy if exists "wishlists_all" on public.wishlists;
+create policy "wishlists_all" on public.wishlists for all
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid());
+
+alter table public.upload_sessions enable row level security;
+
+drop policy if exists "owner_all" on public.upload_sessions;
+create policy "owner_all" on public.upload_sessions for all
+  using (auth.uid() = user_id);
+
+-- ============================================================
+-- CAR/BOBIL KM TERMS (2026-09-25)
+-- ============================================================
+-- See migrations/20260925160000_car_km_terms.sql.
+alter table public.listings
+  add column if not exists included_km_per_day integer default null,
+  add column if not exists extra_km_price numeric default null;
+
+do $$ begin
+  alter table public.listings
+    add constraint listings_included_km_per_day_check check (included_km_per_day is null or included_km_per_day >= 0);
+exception when duplicate_object then null; end $$;
+
+do $$ begin
+  alter table public.listings
+    add constraint listings_extra_km_price_check check (extra_km_price is null or extra_km_price >= 0);
+exception when duplicate_object then null; end $$;
+
+-- ============================================================
+-- LISTING ID-CHECK MODE (2026-09-25)
+-- ============================================================
+-- See migrations/20260925180000_listing_id_check_mode.sql. Hosts choose,
+-- per listing, whether renters must upload ID through the platform
+-- ('upload', the existing default) or whether the host checks it
+-- themselves in person at handover ('in_person').
+alter table public.listings
+  add column if not exists id_check_mode text not null default 'upload';
+
+do $$ begin
+  alter table public.listings
+    add constraint listings_id_check_mode_check check (id_check_mode in ('upload','in_person'));
+exception when duplicate_object then null; end $$;

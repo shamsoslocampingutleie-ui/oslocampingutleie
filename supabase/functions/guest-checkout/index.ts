@@ -64,7 +64,7 @@ Deno.serve(async (req) => {
   const {
     listing_id, from_date, to_date,
     renter_name, renter_email, renter_phone, renter_address,
-    wants_transport, needs_license,
+    wants_transport, id_check_mode,
     success_url, cancel_url,
   } = body as Record<string, string | boolean | null>;
 
@@ -171,9 +171,14 @@ Deno.serve(async (req) => {
     }
   }
 
+  // A signed upload URL is created whenever the host's listing wants ID
+  // checked digitally (the default) -- previously this only happened when
+  // needs_license (vehicle driver's-license requirement) was true, which
+  // silently discarded the identity document a guest was required to pick
+  // on non-vehicle listings: the client asked for it, then threw it away.
   let idUploadUrl: string | null = null;
   let idUploadPath: string | null = null;
-  if (needs_license) {
+  if (id_check_mode !== "in_person") {
     const path = `${bookingId}/renter_id/${Date.now()}.jpg`;
     const { data: signed } = await sb.storage
       .from("booking-photos")
