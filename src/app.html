@@ -2241,7 +2241,52 @@ if(session.stripeAccountId&&!session.stripeChargesEnabled){
   };
   st.appendChild(syncBtn);
 }
-e.appendChild(st)}async function connectStripe(){const{data:cs}=await sb.auth.getSession(),tok=cs?.session?.access_token;if(!tok)return;try{const r=await fetch(SUPABASE_URL+"/functions/v1/stripe-connect-onboarding",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+tok,apikey:SUPABASE_ANON_KEY},body:JSON.stringify({returnUrl:parentHref().split("?")[0]+"?stripe=done",refreshUrl:parentHref().split("?")[0]+"?stripe=refresh"})}),j=await r.json().catch(()=>({}));r.ok&&j.url?(window.parent||window).location.href=j.url:toast((j.error&&j.error.includes('signed up for Connect'))?'Stripe Connect er ikke aktivert på kontoen din. Gå til dashboard.stripe.com/connect og aktiver det.':j.error||'Kunne ikke starte Stripe-oppsettet. Prøv igjen.','warn')}catch(e){toast("Kunne ikke starte Stripe-oppsettet. Prøv igjen.","warn")}}async function saveHostProfile(){const e=document.getElementById("pfErr"),t=val("pfName").trim(),i=val("pfPhone").trim(),adr=val("pfAddress").trim(),o=val("pfBio").trim(),n=null!==PENDING_AVATAR?PENDING_AVATAR:session.avatar;if(!t)return void(e.textContent="Skriv inn et navn.");if(!i)return void(e.textContent="Telefonnummer er påkrevd.");if(!adr)return void(e.textContent="Adresse er påkrevd.");if(!i)return void(e.textContent="Telefonnummer er påkrevd.");if(!adr)return void(e.textContent="Adresse er påkrevd.");const{error:a}=await sb.from("profiles").update({full_name:t,avatar_url:n,phone:i,address:adr,bio:o}).eq("id",session.id);if(a)return void(e.textContent="Kunne ikke lagre profilen. Prøv igjen.");session.fullName=t;session.name=("company"===session.accountType&&session.orgVerified&&session.companyName)?session.companyName:t,session.avatar=n,session.phone=i,session.address=adr,session.bio=o,PENDING_AVATAR=null,HOSTS[session.id]={id:session.id,name:session.name,email:session.email,avatar:n,bio:o,verified:!0,isCompany:"company"===session.accountType&&session.orgVerified,companyName:session.companyName},buildNav(),renderHost(),renderGrid(),toast("Profil lagret ✓","success")}function adminKampanje(){var c=document.getElementById('ap-kampanje');c.innerHTML='';var wrap=el('div','surface');wrap.style.cssText='text-align:center;padding:40px 24px';var ico=el('div',null,'⚽');ico.style.cssText='font-size:52px;margin-bottom:16px';var h=el('h3',null,'Brasil vs Norge — Tippekonkurranse');h.style.marginBottom='8px';var p=el('p','sub','Søndag 5. juli kl. 22:00 · NRK1 · Åttendedelsfinale');p.style.marginBottom='24px';var btn=el('button','btn btn-primary','Åpne kampanje-admin →');btn.style.cssText='font-size:15px;padding:12px 28px';btn.onclick=function(){var panel=document.getElementById('campaignAdminPanel');if(panel){panel.style.display='flex';if(!_cpgAdminPw){var loginEl=document.getElementById('cpgAdminLogin');var mainEl=document.getElementById('cpgAdminMain');if(loginEl)loginEl.style.display='block';if(mainEl)mainEl.style.display='none';setTimeout(function(){var pw=document.getElementById('cpgAdminPw');if(pw)pw.focus();},80);}}};wrap.append(ico,h,p,btn);c.appendChild(wrap);}
+e.appendChild(st);
+if("admin"!==session.role){
+  const dz=el("div","surface");
+  dz.style.cssText="margin-top:24px;border-color:#F5C6C0";
+  dz.appendChild(el("h3",null,"Farlig sone"));
+  dz.appendChild(el("p","sub","Sletting av kontoen din kan ikke angres. Du kan ikke slette kontoen mens du har en aktiv eller ikke-utbetalt booking."));
+  const delBtn=el("button","btn btn-danger btn-sm","Slett kontoen min");
+  delBtn.onclick=confirmDeleteAccount;
+  dz.appendChild(delBtn);
+  e.appendChild(dz);
+}
+}
+function confirmDeleteAccount(){
+  const m=document.getElementById("genModal");m.innerHTML="";
+  const top=el("div","modal-top"),h2=el("h2",null,"Slett kontoen din");
+  const cx=el("button","x","✕");cx.setAttribute("aria-label","Lukk");cx.onclick=closeAll;
+  top.append(h2,cx);m.appendChild(top);
+  const body=el("div");body.style.cssText="padding:0 24px 24px";
+  body.appendChild(el("p",null,"Dette anonymiserer profilen din (navn, telefon, adresse, bilder og legitimasjon fjernes) og logger deg ut for godt. Du kan ikke logge inn igjen med denne kontoen."));
+  body.appendChild(el("p","muted","Bookinger og annonser med reell historikk slettes ikke helt — de beholdes anonymisert av hensyn til bokføringsplikt og andre parters egen historikk."));
+  const lbl=el("label",null,'Skriv "SLETT" for å bekrefte');lbl.style.cssText="display:block;margin:14px 0 6px;font-weight:600;font-size:14px";
+  const inp=document.createElement("input");inp.type="text";inp.id="delAccConfirm";inp.autocomplete="off";
+  body.appendChild(lbl);body.appendChild(inp);
+  const err=el("p","field err");err.id="delAccErr";err.setAttribute("role","alert");err.style.marginTop="8px";
+  body.appendChild(err);
+  const btn=el("button","btn btn-danger btn-block btn-lg","Slett kontoen for godt");btn.style.marginTop="16px";
+  btn.onclick=async()=>{
+    if(inp.value.trim().toUpperCase()!=="SLETT"){err.textContent='Skriv "SLETT" (store bokstaver) for å bekrefte.';return;}
+    btn.disabled=true;btn.textContent="Sletter…";
+    try{
+      const{data:cs}=await sb.auth.getSession();const tok=cs?.session?.access_token;
+      if(!tok){err.textContent="Fant ingen aktiv økt. Logg inn på nytt og prøv igjen.";btn.disabled=false;btn.textContent="Slett kontoen for godt";return;}
+      const r=await fetch(SUPABASE_URL+"/functions/v1/delete-account",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+tok,apikey:SUPABASE_ANON_KEY}});
+      const j=await r.json().catch(()=>({}));
+      if(!r.ok){err.textContent=j.error||"Kunne ikke slette kontoen. Prøv igjen.";btn.disabled=false;btn.textContent="Slett kontoen for godt";return;}
+      await sb.auth.signOut();
+      session=null;
+      closeAll();
+      toast("Kontoen din er slettet.","success");
+      route("home");
+    }catch(ex){err.textContent="Noe gikk galt. Prøv igjen.";btn.disabled=false;btn.textContent="Slett kontoen for godt";}
+  };
+  body.appendChild(btn);
+  m.appendChild(body);openGen();
+}
+async function connectStripe(){const{data:cs}=await sb.auth.getSession(),tok=cs?.session?.access_token;if(!tok)return;try{const r=await fetch(SUPABASE_URL+"/functions/v1/stripe-connect-onboarding",{method:"POST",headers:{"Content-Type":"application/json",Authorization:"Bearer "+tok,apikey:SUPABASE_ANON_KEY},body:JSON.stringify({returnUrl:parentHref().split("?")[0]+"?stripe=done",refreshUrl:parentHref().split("?")[0]+"?stripe=refresh"})}),j=await r.json().catch(()=>({}));r.ok&&j.url?(window.parent||window).location.href=j.url:toast((j.error&&j.error.includes('signed up for Connect'))?'Stripe Connect er ikke aktivert på kontoen din. Gå til dashboard.stripe.com/connect og aktiver det.':j.error||'Kunne ikke starte Stripe-oppsettet. Prøv igjen.','warn')}catch(e){toast("Kunne ikke starte Stripe-oppsettet. Prøv igjen.","warn")}}async function saveHostProfile(){const e=document.getElementById("pfErr"),t=val("pfName").trim(),i=val("pfPhone").trim(),adr=val("pfAddress").trim(),o=val("pfBio").trim(),n=null!==PENDING_AVATAR?PENDING_AVATAR:session.avatar;if(!t)return void(e.textContent="Skriv inn et navn.");if(!i)return void(e.textContent="Telefonnummer er påkrevd.");if(!adr)return void(e.textContent="Adresse er påkrevd.");if(!i)return void(e.textContent="Telefonnummer er påkrevd.");if(!adr)return void(e.textContent="Adresse er påkrevd.");const{error:a}=await sb.from("profiles").update({full_name:t,avatar_url:n,phone:i,address:adr,bio:o}).eq("id",session.id);if(a)return void(e.textContent="Kunne ikke lagre profilen. Prøv igjen.");session.fullName=t;session.name=("company"===session.accountType&&session.orgVerified&&session.companyName)?session.companyName:t,session.avatar=n,session.phone=i,session.address=adr,session.bio=o,PENDING_AVATAR=null,HOSTS[session.id]={id:session.id,name:session.name,email:session.email,avatar:n,bio:o,verified:!0,isCompany:"company"===session.accountType&&session.orgVerified,companyName:session.companyName},buildNav(),renderHost(),renderGrid(),toast("Profil lagret ✓","success")}function adminKampanje(){var c=document.getElementById('ap-kampanje');c.innerHTML='';var wrap=el('div','surface');wrap.style.cssText='text-align:center;padding:40px 24px';var ico=el('div',null,'⚽');ico.style.cssText='font-size:52px;margin-bottom:16px';var h=el('h3',null,'Brasil vs Norge — Tippekonkurranse');h.style.marginBottom='8px';var p=el('p','sub','Søndag 5. juli kl. 22:00 · NRK1 · Åttendedelsfinale');p.style.marginBottom='24px';var btn=el('button','btn btn-primary','Åpne kampanje-admin →');btn.style.cssText='font-size:15px;padding:12px 28px';btn.onclick=function(){var panel=document.getElementById('campaignAdminPanel');if(panel){panel.style.display='flex';if(!_cpgAdminPw){var loginEl=document.getElementById('cpgAdminLogin');var mainEl=document.getElementById('cpgAdminMain');if(loginEl)loginEl.style.display='block';if(mainEl)mainEl.style.display='none';setTimeout(function(){var pw=document.getElementById('cpgAdminPw');if(pw)pw.focus();},80);}}};wrap.append(ico,h,p,btn);c.appendChild(wrap);}
 let currentAdminTab="overview";function renderAdmin(){adminTab(currentAdminTab||"overview");if(session&&session.role==='admin'){stopFootballRain();sb.from("profiles").select("id",{count:"exact",head:true}).eq("host_approved",false).then(({count})=>{const dot=document.getElementById("hostApprovalDot");if(dot)dot.style.display=(count&&count>0)?"inline-block":"none";});_checkAdminUnreadMsgs();if(!_adminMsgSub){_adminMsgSub=sb.channel("admin-unread-msgs").on("postgres_changes",{event:"INSERT",schema:"public",table:"messages",filter:"booking_id=like.direct-%"},function(){_checkAdminUnreadMsgs();}).subscribe();}}}
 var _adminMsgSub=null;
 function _urlB64ToUint8Array(base64String){const padding="=".repeat((4-base64String.length%4)%4);const base64=(base64String+padding).replace(/-/g,"+").replace(/_/g,"/");const rawData=atob(base64);const outputArray=new Uint8Array(rawData.length);for(let i=0;i<rawData.length;++i)outputArray[i]=rawData.charCodeAt(i);return outputArray}
