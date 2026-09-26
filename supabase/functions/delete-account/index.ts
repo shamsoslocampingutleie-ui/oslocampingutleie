@@ -152,6 +152,12 @@ Deno.serve(async (req) => {
     });
   } catch (err) {
     console.error("[delete-account]", err);
+    await supabase.from("error_logs").insert({
+      message: "[delete-account] Unhandled failure",
+      stack: String(err).slice(0, 4000),
+      url: "edge-function:delete-account",
+      user_agent: "server",
+    }).catch(() => {});
     return new Response(JSON.stringify({ error: String(err) }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
