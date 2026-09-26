@@ -2158,3 +2158,11 @@ drop trigger if exists reward_referral_on_first_listing_trigger on public.listin
 create trigger reward_referral_on_first_listing_trigger
   after insert on public.listings
   for each row execute function public.reward_referral_on_first_listing();
+
+-- Backs the weekly remind-stripe-connect-incomplete cron job: last time
+-- a given host was emailed about an unfinished Stripe Connect setup, so
+-- the job only re-sends every 7 days (see
+-- 20260926090000_stripe_connect_reminder_cron.sql for why the actual
+-- cron.schedule() call itself is not in a migration file).
+alter table public.profiles
+  add column if not exists stripe_reminder_sent_at timestamptz;
