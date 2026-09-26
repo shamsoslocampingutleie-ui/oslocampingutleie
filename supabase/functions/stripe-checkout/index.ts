@@ -267,6 +267,22 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
+    // The renter sees this as an immediate error (unlike the silent
+    // guest-checkout gap fixed alongside this), but a failure here still
+    // blocks the core paid-booking flow -- worth a record in Feillogg,
+    // not just a one-off 500 nobody connects to a pattern.
+    try {
+      const supabase = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      );
+      await supabase.from("error_logs").insert({
+        message: "[stripe-checkout] Unhandled failure",
+        stack: String(err).slice(0, 4000),
+        url: "edge-function:stripe-checkout",
+        user_agent: "server",
+      });
+    } catch { /* never let logging the failure become its own unhandled failure */ }
     return new Response(JSON.stringify({ error: String(err) }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
