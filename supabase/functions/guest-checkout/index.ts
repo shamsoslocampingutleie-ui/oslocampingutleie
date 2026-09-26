@@ -225,6 +225,16 @@ Svar KUN med gyldig JSON:
     };
   } catch (aiErr) {
     console.error("[guest-checkout] AI verification failed:", aiErr);
+    // The guest already sees a clear retry message -- logged too so a
+    // systemic issue (e.g. the AI provider having trouble) shows up as a
+    // pattern in Feillogg instead of only ever being scattered individual
+    // "prøv igjen" moments nobody connects.
+    await sb.from("error_logs").insert({
+      message: "[guest-checkout] AI verification failed",
+      stack: String(aiErr).slice(0, 4000),
+      url: "edge-function:guest-checkout",
+      user_agent: "server",
+    }).catch(() => {});
     return err(500, "Kunne ikke kontrollere legitimasjonen akkurat nå. Prøv igjen om litt, eller logg inn for å booke.");
   }
 
@@ -391,7 +401,18 @@ Svar KUN med gyldig JSON:
       });
       stripeUrl = stripeSession.url;
     } catch (stripeErr) {
-      console.error("Stripe error:", stripeErr);
+      // Worst case on this whole path: this is the INSTANT-BOOK branch, so
+      // the caller's UI expects a stripe_url to redirect the guest to pay
+      // right away. A booking row already exists at this point (created
+      // above) but with no way to pay for it and nothing telling the
+      // guest why -- previously invisible anywhere but this console.error.
+      console.error("[guest-checkout] Stripe session creation failed for instant-book listing:", stripeErr);
+      await sb.from("error_logs").insert({
+        message: `[guest-checkout] Stripe session creation failed for booking ${bookingId} (instant-book) -- guest has no way to pay`,
+        stack: String(stripeErr).slice(0, 4000),
+        url: "edge-function:guest-checkout",
+        user_agent: "server",
+      }).catch(() => {});
     }
   }
 

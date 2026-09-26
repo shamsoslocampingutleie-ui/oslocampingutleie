@@ -1,5 +1,21 @@
 import { Webhook } from "npm:standardwebhooks@1.0.0";
+import { createClient } from "npm:@supabase/supabase-js@2";
 import { sendEmail, emailLayout } from "../_shared/email.ts";
+
+async function logFailure(message: string, detail: string) {
+  try {
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+    await supabase.from("error_logs").insert({
+      message: `[auth-email-hook] ${message}`,
+      stack: detail.slice(0, 4000),
+      url: "edge-function:auth-email-hook",
+      user_agent: "server",
+    });
+  } catch { /* never let logging the failure become its own unhandled failure */ }
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -32,6 +48,11 @@ Deno.serve(async (req) => {
       new Webhook(hookSecret).verify(rawBody, Object.fromEntries(req.headers));
     } catch (e) {
       console.error("[auth-email-hook] signature verification failed:", e);
+      // Not necessarily an attack every time (could be a genuine config
+      // drift, e.g. the hook secret rotated on one side only) -- but
+      // either way, worth being visible instead of only ever showing up
+      // as "why didn't my email arrive" with no clue why.
+      await logFailure("Signature verification failed", String(e));
       return hookError(401, "Invalid signature");
     }
   } else {
@@ -108,6 +129,13 @@ Deno.serve(async (req) => {
     await sendEmail(to, subject, html);
   } catch (e) {
     console.error("[auth-email-hook] sendEmail error:", e);
+    // If this hook is the active Send Email path (Authentication -> Hooks
+    // in the Supabase dashboard), a failure here means signup
+    // confirmations / password resets / invites stop working entirely --
+    // exactly the outage this session found and fixed once already on the
+    // SMTP side. sendEmail() already self-logs ordinary Resend failures,
+    // so this only fires for something else going wrong first.
+    await logFailure(`sendEmail failed for actionType=${actionType}`, String(e));
     return hookError(500, "Email send failed");
   }
 
