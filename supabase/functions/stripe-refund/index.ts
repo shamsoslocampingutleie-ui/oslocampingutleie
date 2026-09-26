@@ -241,7 +241,16 @@ Deno.serve(async (req) => {
         });
       } catch (refundErr) {
         // Stripe call failed -- roll back our claim so the booking isn't
-        // left marked cancelled with no actual refund issued.
+        // left marked cancelled with no actual refund issued. Logged (not
+        // just returned to the caller) so a recurring pattern here -- e.g.
+        // Stripe API trouble -- shows up in Feillogg even though each
+        // individual renter just sees "try again" in their browser.
+        await supabase.from("error_logs").insert({
+          message: `[stripe-refund] Refund failed for booking ${bookingId}`,
+          stack: String(refundErr).slice(0, 4000),
+          url: "edge-function:stripe-refund",
+          user_agent: "server",
+        }).catch(() => {});
         await supabase
           .from("bookings")
           .update({ status: booking.status, cancelled_by: null, cancelled_at: null })
@@ -308,6 +317,12 @@ Deno.serve(async (req) => {
       }
     } catch (emailErr) {
       console.error("[refund] Email send failed:", emailErr);
+      await supabase.from("error_logs").insert({
+        message: `[stripe-refund] Confirmation email send failed for booking ${bookingId}`,
+        stack: String(emailErr).slice(0, 4000),
+        url: "edge-function:stripe-refund",
+        user_agent: "server",
+      }).catch(() => {});
     }
 
     return new Response(
@@ -315,6 +330,18 @@ Deno.serve(async (req) => {
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (err) {
+    try {
+      const supabase = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      );
+      await supabase.from("error_logs").insert({
+        message: "[stripe-refund] Unhandled failure",
+        stack: String(err).slice(0, 4000),
+        url: "edge-function:stripe-refund",
+        user_agent: "server",
+      });
+    } catch { /* never let logging the failure become its own unhandled failure */ }
     return new Response(JSON.stringify({ error: String(err) }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
