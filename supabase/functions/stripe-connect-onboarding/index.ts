@@ -43,7 +43,7 @@ Deno.serve(async (req) => {
 
     const { data: profile, error: profileErr } = await supabase
       .from("profiles")
-      .select("stripe_account_id, email")
+      .select("stripe_account_id, email, account_type, org_verified, company_name, org_number")
       .eq("id", userId)
       .single();
     if (profileErr || !profile) {
@@ -55,6 +55,12 @@ Deno.serve(async (req) => {
 
     let accountId = profile.stripe_account_id;
     if (!accountId) {
+      // A verified company (real, Brønnøysund-checked -- see
+      // verify-org-number) should onboard to Stripe as a company too,
+      // not be asked for individual/personal tax details that don't
+      // match what they already told us. org_verified is never client-
+      // settable (protect_profile_fields()), so this is trustworthy.
+      const isVerifiedCompany = profile.account_type === "company" && profile.org_verified;
       const account = await stripe.accounts.create({
         type: "express",
         country: "NO",
@@ -63,7 +69,13 @@ Deno.serve(async (req) => {
           card_payments: { requested: true },
           transfers: { requested: true },
         },
-        business_type: "individual",
+        business_type: isVerifiedCompany ? "company" : "individual",
+        ...(isVerifiedCompany ? {
+          company: {
+            name: profile.company_name || undefined,
+            tax_id: profile.org_number || undefined,
+          },
+        } : {}),
       });
       accountId = account.id;
       await supabase
