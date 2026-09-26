@@ -1112,6 +1112,35 @@ if(!t.length){
       _emEl.innerHTML='<div style="font-size:48px;margin-bottom:12px">&#127991;</div><p style="font-weight:700;font-size:17px;margin-bottom:6px">Ingen '+_catTxtNo+_locTxt+' ute til leie ennå</p><p style="color:var(--ink-3);margin-bottom:20px;max-width:420px;margin-left:auto;margin-right:auto">Har du '+_catTxtNo+' som mest står ubrukt? Vær den første til å legge den ut'+_locTxt+' — gratis, og 0 % i plattformgebyr det første året.</p>';
       var _emPrimary=document.createElement('button');_emPrimary.className='btn btn-primary';_emPrimary.style.marginRight='8px';_emPrimary.textContent='Legg ut '+_catTxtNo+_locTxt+' →';_emPrimary.addEventListener('click',function(){startNewListing();});_emEl.appendChild(_emPrimary);
     }
+    // Real demand signal instead of a guess: capture the searcher's
+    // interest (category + location + email) so admin can see actual
+    // geographic/category demand with nothing to rent yet, rather than
+    // only ever seeing the supply side of this gap. See demand_signals.
+    (function(){
+      var _dsWrap=document.createElement('div');
+      _dsWrap.style.cssText='margin-top:18px;padding-top:18px;border-top:1px solid var(--line);max-width:380px;margin-left:auto;margin-right:auto';
+      var _dsLbl=document.createElement('p');
+      _dsLbl.style.cssText='font-size:13px;color:var(--ink-3);margin-bottom:8px';
+      _dsLbl.textContent="en"===LANG?'Or get notified when something matching shows up:':'Eller få beskjed når noe som matcher dukker opp:';
+      var _dsRow=document.createElement('div');
+      _dsRow.style.cssText='display:flex;gap:8px;flex-wrap:wrap;justify-content:center';
+      var _dsInp=document.createElement('input');
+      _dsInp.type='email';_dsInp.placeholder="en"===LANG?'you@email.com':'din@epost.no';
+      _dsInp.style.cssText='flex:1;min-width:180px;padding:9px 12px;border:1.5px solid var(--line-2);border-radius:10px;font-size:14px;font-family:inherit';
+      var _dsBtn=document.createElement('button');_dsBtn.className='btn btn-ghost btn-sm';
+      _dsBtn.textContent="en"===LANG?'Notify me':'Varsle meg';
+      _dsBtn.addEventListener('click',function(){
+        var _dsEmail=(_dsInp.value||'').trim();
+        if(!validEmail(_dsEmail)){toast("en"===LANG?'Enter a valid email':'Skriv inn en gyldig e-postadresse','warn');return;}
+        _dsBtn.disabled=true;_dsBtn.textContent="en"===LANG?'Saving…':'Lagrer…';
+        sb.from('demand_signals').insert({email:_dsEmail,category:'all'===activeCat?null:activeCat,location:searchLoc||null}).then(function(res){
+          if(res.error){_dsBtn.disabled=false;_dsBtn.textContent="en"===LANG?'Notify me':'Varsle meg';toast("en"===LANG?'Could not save. Try again.':'Kunne ikke lagre. Prøv igjen.','warn');return;}
+          _dsInp.value='';_dsBtn.textContent="en"===LANG?'✓ Saved':'✓ Lagret';
+          toast("en"===LANG?'We will email you when something matches 🎉':'Vi sier fra på e-post når noe matcher 🎉','success');
+        });
+      });
+      _dsRow.append(_dsInp,_dsBtn);_dsWrap.append(_dsLbl,_dsRow);_emEl.appendChild(_dsWrap);
+    })();
   }else{
     _emEl.innerHTML='<div style="font-size:48px;margin-bottom:12px">&#128269;</div><p style="font-weight:700;font-size:17px;margin-bottom:6px">Ingen treff</p><p style="color:var(--ink-3);margin-bottom:20px">Prøv en annen kategori, sted eller periode.</p>';
   }

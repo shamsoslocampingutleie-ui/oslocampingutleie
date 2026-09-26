@@ -2204,3 +2204,51 @@ create trigger reward_referral_on_first_listing_trigger
 -- cron.schedule() call itself is not in a migration file).
 alter table public.profiles
   add column if not exists stripe_reminder_sent_at timestamptz;
+
+-- CONTACT_REQUESTS (found live, untracked -- same pattern as wishlists,
+-- upload_sessions, profiles_read_all and the listings_* duplicates
+-- found earlier this session; asserted here to match the live table)
+create table if not exists public.contact_requests (
+  id bigint generated always as identity primary key,
+  created_at timestamptz not null default now(),
+  name text not null,
+  email text not null,
+  phone text not null default '',
+  subject text not null default '',
+  message text not null,
+  user_id uuid references public.profiles(id) on delete set null,
+  status text not null default 'new',
+  admin_note text not null default ''
+);
+alter table public.contact_requests enable row level security;
+drop policy if exists "contact_requests_insert" on public.contact_requests;
+create policy "contact_requests_insert" on public.contact_requests
+  for insert with check (true);
+drop policy if exists "contact_requests_select" on public.contact_requests;
+create policy "contact_requests_select" on public.contact_requests
+  for select using (public.is_admin());
+drop policy if exists "contact_requests_update" on public.contact_requests;
+create policy "contact_requests_update" on public.contact_requests
+  for update using (public.is_admin()) with check (public.is_admin());
+
+-- DEMAND_SIGNALS: "notify me" capture on zero-result searches (see
+-- renderGrid() in src/app.html). Real, quantified geographic/category
+-- demand data for the admin, instead of a guess about where to focus
+-- host-recruitment effort -- see the differentiation/liquidity
+-- strategy doc from this session for why this matters more than
+-- inflating any numbers shown on the site.
+create table if not exists public.demand_signals (
+  id bigint generated always as identity primary key,
+  created_at timestamptz not null default now(),
+  email text not null,
+  category text,
+  location text,
+  notified boolean not null default false
+);
+alter table public.demand_signals enable row level security;
+drop policy if exists "demand_signals_insert" on public.demand_signals;
+create policy "demand_signals_insert" on public.demand_signals
+  for insert with check (true);
+drop policy if exists "demand_signals_select" on public.demand_signals;
+create policy "demand_signals_select" on public.demand_signals
+  for select using (public.is_admin());
