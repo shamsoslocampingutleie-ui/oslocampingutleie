@@ -3,3 +3,4 @@ Allow: /
 Disallow: /admin
 
 Sitemap: https://leieplattform.no/sitemap.xml
+Sitemap: https://leieplattform.no/sitemap-listings.xml
