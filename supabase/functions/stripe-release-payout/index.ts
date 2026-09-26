@@ -196,6 +196,18 @@ Deno.serve(async (req) => {
         // Deliberately return here rather than falling through to the
         // deposit refund below: retrying the whole function is simpler and
         // safer than reasoning about a half-done release.
+        //
+        // Logged here (not just re-thrown to the outer catch) because a
+        // transfer that keeps failing every retry (e.g. the host's Stripe
+        // account got restricted after the booking was made) would
+        // otherwise just retry silently forever with no record anywhere
+        // that a real payout is stuck.
+        await supabase.from("error_logs").insert({
+          message: `[stripe-release-payout] Stripe transfer failed for booking ${bookingId} -- will retry via the daily cron failsafe`,
+          stack: String(transferErr).slice(0, 4000),
+          url: "edge-function:stripe-release-payout",
+          user_agent: "server",
+        }).catch(() => {});
         await supabase
           .from("bookings")
           .update({ payout_released: false })
@@ -323,6 +335,12 @@ Deno.serve(async (req) => {
       }
     } catch (emailErr) {
       console.error("[payout] Email send failed:", emailErr);
+      await supabase.from("error_logs").insert({
+        message: `[stripe-release-payout] Confirmation email send failed for booking ${bookingId}`,
+        stack: String(emailErr).slice(0, 4000),
+        url: "edge-function:stripe-release-payout",
+        user_agent: "server",
+      }).catch(() => {});
     }
 
     return new Response(
@@ -330,6 +348,24 @@ Deno.serve(async (req) => {
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (err) {
+    // Catch-all safety net for anything not already logged above (e.g. a
+    // transfer failure IS already logged at the point it happened, with
+    // the booking id -- this just makes sure nothing that reaches this
+    // function ever fails with literally no record anywhere but a 500
+    // response nobody reads, especially since the daily cron failsafe
+    // calls this without checking the response body).
+    try {
+      const supabase = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      );
+      await supabase.from("error_logs").insert({
+        message: "[stripe-release-payout] Unhandled failure",
+        stack: String(err).slice(0, 4000),
+        url: "edge-function:stripe-release-payout",
+        user_agent: "server",
+      });
+    } catch { /* never let logging the failure become its own unhandled failure */ }
     return new Response(JSON.stringify({ error: String(err) }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
