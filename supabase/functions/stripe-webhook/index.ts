@@ -128,6 +128,14 @@ async function sendPaymentConfirmationEmails(bookingId: string, amountTotal: num
     }
   } catch (e) {
     console.error("[webhook] Email send failed:", e);
+    try {
+      await supabase.from("error_logs").insert({
+        message: `[stripe-webhook] sendPaymentConfirmationEmails failed for booking ${bookingId}`,
+        stack: String((e as Error)?.message ?? e).slice(0, 4000),
+        url: "edge-function:stripe-webhook",
+        user_agent: "server",
+      });
+    } catch { /* never let logging the failure become its own unhandled failure */ }
   }
 }
 
@@ -275,7 +283,35 @@ Deno.serve(async (req) => {
               );
             }
           } catch (refundErr) {
+            // Worst case in this whole function: the renter was charged, the
+            // booking couldn't be confirmed, AND the auto-refund itself just
+            // failed -- money is now stuck with literally nothing to show
+            // for it, and until this point nothing surfaced that anywhere
+            // except Supabase's own function logs, which nobody routinely
+            // checks (the same blind spot that let the SMTP outage run
+            // undetected). Mirror the admin-alert pattern already used a
+            // few lines up for the successful-refund case, and also log it
+            // like every other server-side failure in this codebase does.
             console.error("[webhook] Auto-refund after failed booking update also failed:", refundErr);
+            try {
+              await supabase.from("error_logs").insert({
+                message: `[stripe-webhook] Payment succeeded, booking could not be confirmed, AND auto-refund failed for booking ${bookingId} -- renter is charged with no booking and no refund. Needs manual refund immediately.`,
+                stack: String((refundErr as Error)?.message ?? refundErr).slice(0, 4000),
+                url: "edge-function:stripe-webhook",
+                user_agent: "server",
+              });
+            } catch { /* never let logging the failure become its own unhandled failure */ }
+            if (ADMIN_EMAIL) {
+              await sendEmail(
+                ADMIN_EMAIL,
+                "🚨 Refundering feilet — manuell handling nødvendig",
+                emailLayout(
+                  "Haster: refundering feilet",
+                  `<p>Booking <code>${escapeHtml(bookingId)}</code> ble betalt, kunne ikke bekreftes, og det automatiske refunderingsforsøket feilet også.</p>
+                  <p><strong>Leietaker er belastet ${nok(amountTotal)} med ingen booking og ingen refusjon ennå.</strong> Refunder manuelt i Stripe Dashboard så snart som mulig.</p>`,
+                ),
+              ).catch(() => {});
+            }
           }
         } else if (!alreadyPaid) {
           // Only send emails once — guard against webhook replay
@@ -286,10 +322,26 @@ Deno.serve(async (req) => {
     }
     case "account.updated": {
       const account = event.data.object as Stripe.Account;
-      await supabase
+      const { error: acctErr } = await supabase
         .from("profiles")
         .update({ stripe_charges_enabled: !!account.charges_enabled })
         .eq("stripe_account_id", account.id);
+      // Silent failure here would desync stripe_charges_enabled from
+      // reality -- exactly the class of bug already found and fixed once
+      // this session (stripe-checkout/guest-checkout blocking or allowing
+      // payment based on a stale flag). Log it like every other
+      // server-side failure in this codebase.
+      if (acctErr) {
+        console.error("[webhook] account.updated profile sync failed:", acctErr);
+        try {
+          await supabase.from("error_logs").insert({
+            message: `[stripe-webhook] Failed to sync stripe_charges_enabled for Stripe account ${account.id}`,
+            stack: acctErr.message.slice(0, 4000),
+            url: "edge-function:stripe-webhook",
+            user_agent: "server",
+          });
+        } catch { /* never let logging the failure become its own unhandled failure */ }
+      }
       break;
     }
     default:
