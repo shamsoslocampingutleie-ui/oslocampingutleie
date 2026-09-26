@@ -203,6 +203,15 @@ Respond ONLY with valid JSON:
     );
   } catch (err) {
     console.error("[verify-license]", err);
+    // A recurring failure here directly blocks renters from completing
+    // ID verification -- worth being visible in Feillogg, not just
+    // scattered "prøv igjen" retries nobody connects to each other.
+    await supabase.from("error_logs").insert({
+      message: "[verify-license] Unhandled failure",
+      stack: String(err).slice(0, 4000),
+      url: "edge-function:verify-license",
+      user_agent: "server",
+    }).catch(() => {});
     return new Response(JSON.stringify({ error: "Intern feil, prøv igjen." }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });

@@ -80,6 +80,20 @@ Deno.serve(async (req) => {
     brreg = await r.json();
   } catch (e) {
     console.error("[verify-org-number] brreg lookup failed:", e);
+    // A recurring pattern here (vs. one-off network blips) means company
+    // verification is broadly broken -- worth being visible in Feillogg.
+    try {
+      const sb = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      );
+      await sb.from("error_logs").insert({
+        message: "[verify-org-number] Brreg lookup failed",
+        stack: String(e).slice(0, 4000),
+        url: "edge-function:verify-org-number",
+        user_agent: "server",
+      });
+    } catch { /* never let logging the failure become its own unhandled failure */ }
     return err(502, "Kunne ikke slå opp organisasjonsnummeret akkurat nå. Prøv igjen.");
   }
 

@@ -95,6 +95,22 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
+    // User-initiated (a host clicking "Koble til Stripe") so they see an
+    // immediate error toast -- but a recurring pattern here directly
+    // blocks new hosts from ever being payable, so it's worth being
+    // visible in Feillogg too, not just scattered individual complaints.
+    try {
+      const supabase = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      );
+      await supabase.from("error_logs").insert({
+        message: "[stripe-connect-onboarding] Unhandled failure",
+        stack: String(err).slice(0, 4000),
+        url: "edge-function:stripe-connect-onboarding",
+        user_agent: "server",
+      });
+    } catch { /* never let logging the failure become its own unhandled failure */ }
     return new Response(JSON.stringify({ error: String(err) }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
