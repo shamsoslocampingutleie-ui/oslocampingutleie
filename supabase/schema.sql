@@ -2112,8 +2112,10 @@ end;
 $$;
 
 -- Reward: the first time a referred user's FIRST-EVER listing is
--- created, extend the REFERRER's fee_waiver_until by 60 days (stacks on
--- top of whatever they already have, e.g. their own new-host year).
+-- created, extend the REFERRER's fee_waiver_until by 30 days (stacks on
+-- top of whatever they already have, e.g. their own new-host year;
+-- originally 60 days, reduced per user feedback -- see
+-- 20260926100000_referral_reward_30_days.sql).
 -- Gated on the referred user already being an approved host at that
 -- moment (host_approved = true) -- a listing can be created while an
 -- application is still pending (see 20260924090000), and rewarding a
@@ -2145,7 +2147,7 @@ begin
   end if;
 
   update public.profiles
-    set fee_waiver_until = greatest(coalesce(fee_waiver_until, now()), now()) + interval '60 days'
+    set fee_waiver_until = greatest(coalesce(fee_waiver_until, now()), now()) + interval '30 days'
     where id = ref_id;
 
   update public.profiles set referral_rewarded = true where id = new.owner;

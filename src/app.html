@@ -1956,7 +1956,7 @@ if(myListings().some(_l=>"active"===_l.status)&&!session.stripeChargesEnabled){
   const _refBanner=el("div");
   _refBanner.style.cssText="border:1.5px solid var(--line-2);border-radius:14px;padding:14px 20px;margin-bottom:16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap";
   const _rbText=el("div");_rbText.style.cssText="flex:1 1 240px";
-  _rbText.innerHTML='<b style="font-size:14.5px;display:block;margin-bottom:2px">💌 Kjenner du noen med utstyr som står ubrukt?</b><p style="font-size:13px;color:var(--ink-2);margin:0">Del lenken din — du får 60 dager gebyrfritt når de legger ut sin første annonse.</p>';
+  _rbText.innerHTML='<b style="font-size:14.5px;display:block;margin-bottom:2px">💌 Kjenner du noen med utstyr som står ubrukt?</b><p style="font-size:13px;color:var(--ink-2);margin:0">Del lenken din — du får 30 dager gebyrfritt når de legger ut sin første annonse.</p>';
   const _rbBtn=el("button","btn btn-outline btn-sm","Del & tjen");
   _rbBtn.onclick=()=>{var bt=document.querySelector("[data-tab='refer']");if(bt)bt.click();else hostTab("refer",null);};
   _refBanner.append(_rbText,_rbBtn);
@@ -2097,7 +2097,7 @@ function hostTerms(){const e=document.getElementById("hp-terms");e.innerHTML="";
   const e=document.getElementById("hp-refer");e.innerHTML="";
   const surf=el("div","surface");
   surf.appendChild(el("h3",null,"Del & tjen"));
-  surf.appendChild(el("p","sub","Inviter venner til å leie ut på plattformen. Når vennen din legger ut sin første annonse, får du 60 dager ekstra uten plattformgebyr — helt automatisk."));
+  surf.appendChild(el("p","sub","Inviter venner til å leie ut på plattformen. Når vennen din legger ut sin første annonse, får du 30 dager ekstra uten plattformgebyr — helt automatisk."));
   e.appendChild(surf);
   // Share link
   const refUrl="https://leieplattform.no/app.html?ref="+(session?.id||"");
@@ -2135,7 +2135,7 @@ function hostTerms(){const e=document.getElementById("hp-terms");e.innerHTML="";
   // How it works
   const how=el("div","surface");
   how.appendChild(el("h3",null,"Slik fungerer det"));
-  [["1. Del lenken","Send den til venner som har noe de kan leie ut."],["2. De registrerer seg og legger ut","Vennen din oppretter konto via lenken din og legger ut sin første annonse."],["3. Du får 60 dager ekstra gratis","Så snart annonsen er lagt ut, forlenges ditt eget gebyrfrie år automatisk med 60 dager — ingen søknad nødvendig."]].forEach(([t,d])=>{const row=el("div");row.style.cssText="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--line-2)";const icon=el("span");icon.style.cssText="font-size:20px;flex-shrink:0;margin-top:2px";icon.textContent=t[0];const info=el("div");info.appendChild(el("b",null,t.replace(/^. /,"")));info.appendChild(el("p","sub",d));row.append(icon,info);how.appendChild(row);});
+  [["1. Del lenken","Send den til venner som har noe de kan leie ut."],["2. De registrerer seg og legger ut","Vennen din oppretter konto via lenken din og legger ut sin første annonse."],["3. Du får 30 dager ekstra gratis","Så snart annonsen er lagt ut, forlenges ditt eget gebyrfrie år automatisk med 30 dager — ingen søknad nødvendig."]].forEach(([t,d])=>{const row=el("div");row.style.cssText="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--line-2)";const icon=el("span");icon.style.cssText="font-size:20px;flex-shrink:0;margin-top:2px";icon.textContent=t[0];const info=el("div");info.appendChild(el("b",null,t.replace(/^. /,"")));info.appendChild(el("p","sub",d));row.append(icon,info);how.appendChild(row);});
   e.appendChild(how);
 }
 function hostProfile(){PENDING_AVATAR=null;const e=document.getElementById("hp-profile");e.innerHTML="";const t=el("div","surface");t.appendChild(el("h3",null,"Min profil")),t.appendChild(el("p","sub","Denne informasjonen vises til leietakere på dine annonser."));const o=(e,t)=>{const n=el("div","field");return n.appendChild(el("label",null,e)),n.appendChild(t),n},a=mkInput("pfName","text","Ditt navn");a.value=session.fullName||session.name||"";const r=mkInput("pfPhone","tel","Telefonnummer *");r.value=session.phone||"";const adr=mkInput("pfAddress","text","Adresse (gate, postnr, sted)");adr.value=session.address||"";const s=document.createElement("textarea");s.id="pfBio",s.placeholder="Litt om deg eller utleien din…",s.value=session.bio||"";const d=el("div");d.style.cssText="display:flex;align-items:center;gap:12px;margin-bottom:14px";const pi=document.createElement("img");pi.id="pfAvatarPreview",pi.alt="Profilbilde forhåndsvisning",pi.style.cssText="width:56px;height:56px;border-radius:50%;object-fit:cover;flex-shrink:0";const pn=el("div","avatar");pn.id="pfAvatarInit",pn.textContent=session.name.split(" ").map(e=>e[0]).join("").slice(0,2),pn.style.cssText="width:56px;height:56px;font-size:18px";session.avatar?(pi.src=session.avatar,pn.style.display="none"):pi.style.display="none";d.append(pi,pn);const av=document.createElement("input");av.type="file",av.id="pfAvatarFile",av.accept="image/*";const ae=el("p","field err");ae.id="pfAvatarErr",ae.setAttribute("role","alert"),av.onchange=async()=>{let t=av.files[0];if(!t)return;ae.textContent="Laster opp bilde…";t=await compressImage(t,640,.85);const n=(t.name.split(".").pop()||"jpg").toLowerCase(),i=session.id+"/avatar."+n;
