@@ -3053,32 +3053,47 @@ function _fmtDesc(raw){
   let text=raw.replace(/\s*[▪•]\s*/g,'\n▪ ');
   text=text.replace(/\s+([A-ZÆØÅ][A-Za-zÆØÅæøå]{1,12}(?:[\s&][A-Za-zÆØÅæøå]{1,12}){0,3}:)\s+(?=[A-ZÆØÅ\d])/g,'\n\n$1\n');
   text=text.replace(/([.!?])\s+([A-ZÆØÅ][A-Za-zÆØÅæøå &]{3,25}:)\s/g,'$1\n\n$2\n');
-  const lines=text.split(/\n+/).map(l=>l.trim()).filter(Boolean);
+  // Split into paragraph BLOCKS on blank lines first, before splitting
+  // each block into its individual lines. A line can only be promoted
+  // to a bold section heading if it stands alone as its own paragraph
+  // (isolated by blank lines in the source text) -- without this, a
+  // plain tight list of short amenity lines (a host typing "Automatgir"
+  // / "Markise" / "Sykkelstativ" one per line, with no blank lines
+  // between them -- a completely normal, common way to write a feature
+  // list) had its short lines misread as headings for the unrelated
+  // line right after each one. Found on a real live listing: "AUTOMATGIR"
+  // rendered as if it headed "Ryggekamera gjør parkering enkelt", and
+  // "SYKKELSTATIV" as if it headed "Soveplass til hele familien" --
+  // neither pairing was ever intended by the host, who just wrote six
+  // separate one-line features.
+  const blocks=text.split(/\n\s*\n+/).map(b=>b.split(/\n+/).map(l=>l.trim()).filter(Boolean)).filter(b=>b.length);
   let curList=null;
   function flushList(){if(curList){wrap.appendChild(curList);curList=null;}}
-  lines.forEach(line=>{
-    const wordCount=(line.match(/\S+/g)||[]).length;
-    const isHeader=wordCount<=5&&/^[A-ZÆØÅ]/.test(line)&&/[A-Za-zÆØÅæøå]/.test(line)&&(line.endsWith(':')||wordCount<=3);
-    const isBullet=/^[▪•\-–]\s/.test(line);
-    if(isHeader){
-      flushList();
-      const h=document.createElement('div');
-      h.style.cssText='font-weight:700;font-size:13.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--green);margin-top:4px;padding-top:4px;border-top:1px solid var(--line)';
-      h.textContent=line.replace(/:$/,'');
-      wrap.appendChild(h);
-    } else if(isBullet){
-      if(!curList){curList=document.createElement('ul');curList.style.cssText='list-style:none;padding:0;margin:0;display:grid;gap:4px';}
-      const li=document.createElement('li');
-      li.style.cssText='display:flex;gap:8px;align-items:flex-start';
-      li.innerHTML='<span style="color:var(--green);flex:none;margin-top:2px;font-size:12px">▸</span><span>'+_escH(line.replace(/^[▪•\-–]\s*/,''))+'</span>';
-      curList.appendChild(li);
-    } else {
-      flushList();
-      const p=document.createElement('p');
-      p.style.margin='0';
-      p.textContent=line;
-      wrap.appendChild(p);
-    }
+  blocks.forEach(block=>{
+    block.forEach(line=>{
+      const wordCount=(line.match(/\S+/g)||[]).length;
+      const isHeader=block.length===1&&wordCount<=5&&/^[A-ZÆØÅ]/.test(line)&&/[A-Za-zÆØÅæøå]/.test(line)&&(line.endsWith(':')||wordCount<=3);
+      const isBullet=/^[▪•\-–]\s/.test(line);
+      if(isHeader){
+        flushList();
+        const h=document.createElement('div');
+        h.style.cssText='font-weight:700;font-size:13.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--green);margin-top:4px;padding-top:4px;border-top:1px solid var(--line)';
+        h.textContent=line.replace(/:$/,'');
+        wrap.appendChild(h);
+      } else if(isBullet){
+        if(!curList){curList=document.createElement('ul');curList.style.cssText='list-style:none;padding:0;margin:0;display:grid;gap:4px';}
+        const li=document.createElement('li');
+        li.style.cssText='display:flex;gap:8px;align-items:flex-start';
+        li.innerHTML='<span style="color:var(--green);flex:none;margin-top:2px;font-size:12px">▸</span><span>'+_escH(line.replace(/^[▪•\-–]\s*/,''))+'</span>';
+        curList.appendChild(li);
+      } else {
+        flushList();
+        const p=document.createElement('p');
+        p.style.margin='0';
+        p.textContent=line;
+        wrap.appendChild(p);
+      }
+    });
   });
   flushList();
   return wrap;
