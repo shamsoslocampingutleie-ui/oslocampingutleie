@@ -72,7 +72,18 @@ async function triggerRelease(bookingId: string): Promise<void> {
       },
     );
   } catch (e) {
+    // This IS the failsafe -- the daily cron's last line of defense for a
+    // booking whose client-side release trigger silently failed (see the
+    // file header). If the fetch call to stripe-release-payout can't even
+    // complete (network blip, timeout), the failsafe itself just failed
+    // silently too, previously invisible anywhere but this console.error.
     console.error(`[release] Failed for booking ${bookingId}:`, e);
+    await supabase.from("error_logs").insert({
+      message: `[send-handover-reminder] Failsafe payout-release call failed for booking ${bookingId}`,
+      stack: String(e).slice(0, 4000),
+      url: "edge-function:send-handover-reminder",
+      user_agent: "server",
+    }).catch(() => {});
   }
 }
 
