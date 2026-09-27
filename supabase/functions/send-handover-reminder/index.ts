@@ -290,7 +290,7 @@ Deno.serve(async (req) => {
         const ht = `Påminnelse: Bekreft retur`;
         const hb = `Leieperioden for ${title} er ferdig — bekreft retur for å motta betaling.`;
         await insertNotification(supabase, b.host_id, "reminder", ht, hb, { bookingId: b.id });
-        firePush(b.host_id, ht, hb);
+        firePush(b.host_id, ht, hb, "/booking/" + b.id);
       }
     }
 
@@ -316,7 +316,7 @@ Deno.serve(async (req) => {
         const rt = `Påminnelse: Bekreft levert tilbake`;
         const rb = `Leieperioden for ${title} er ferdig — bekreft at du har levert tilbake for å frigjøre depositumet ditt.`;
         await insertNotification(supabase, b.renter, "reminder", rt, rb, { bookingId: b.id });
-        firePush(b.renter, rt, rb);
+        firePush(b.renter, rt, rb, "/booking/" + b.id);
       }
     }
   }
