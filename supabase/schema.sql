@@ -2252,3 +2252,50 @@ create policy "demand_signals_insert" on public.demand_signals
 drop policy if exists "demand_signals_select" on public.demand_signals;
 create policy "demand_signals_select" on public.demand_signals
   for select using (public.is_admin());
+
+-- ============================================================
+-- RENTER REVIEWS (2026-09-27)
+-- ============================================================
+-- See migrations/20260927210000_renter_reviews.sql for the full
+-- rationale. Hosts rate/review renters after a completed booking --
+-- the missing other direction of trust, next to public.reviews
+-- (renters reviewing listings).
+create table if not exists public.renter_reviews (
+  id bigint generated always as identity primary key,
+  booking_id uuid not null references public.bookings(id) on delete cascade,
+  listing_id uuid not null references public.listings(id) on delete cascade,
+  host_id uuid not null references public.profiles(id) on delete cascade,
+  renter_id uuid references public.profiles(id) on delete cascade,
+  renter_name text not null default '',
+  rating smallint not null check (rating >= 1 and rating <= 5),
+  text text not null default '',
+  created_at timestamptz not null default now(),
+  unique (booking_id)
+);
+alter table public.renter_reviews enable row level security;
+
+drop policy if exists renter_reviews_insert on public.renter_reviews;
+create policy renter_reviews_insert on public.renter_reviews for insert
+  with check (
+    host_id = auth.uid()
+    and exists (
+      select 1 from public.bookings b
+      join public.listings l on l.id = b.listing_id
+      where b.id = booking_id and l.owner = auth.uid() and b.status = 'completed'
+    )
+  );
+
+-- Logged-in only, not fully public like listing reviews (using(true)) --
+-- reputation data about people, not marketing content for equipment.
+drop policy if exists renter_reviews_select on public.renter_reviews;
+create policy renter_reviews_select on public.renter_reviews for select
+  using (auth.uid() is not null);
+
+drop policy if exists renter_reviews_delete on public.renter_reviews;
+create policy renter_reviews_delete on public.renter_reviews for delete
+  using (public.is_admin());
+
+create index if not exists renter_reviews_renter_id_idx on public.renter_reviews (renter_id);
+create index if not exists renter_reviews_booking_id_idx on public.renter_reviews (booking_id);
+
+alter table public.bookings add column if not exists renter_reviewed boolean not null default false;
