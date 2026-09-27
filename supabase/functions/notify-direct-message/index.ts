@@ -3,6 +3,7 @@ import { corsHeaders } from "../_shared/cors.ts";
 import { sendEmail, emailLayout, escapeHtml } from "../_shared/email.ts";
 import { sendWebPush } from "../_shared/webpush.ts";
 import { checkRateLimit, rateLimitResponse } from "../_shared/rateLimit.ts";
+import { insertNotification } from "../_shared/notify.ts";
 
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL")!,
@@ -87,6 +88,11 @@ Deno.serve(async (req) => {
         );
       }
       await pushTo(hostUserId, "Ny melding fra Leieplattform", String(messageText).slice(0, 140));
+      // directUserId lets openNotifPanel() (src/app.html) open the right
+      // openDirectChat() thread on click -- this admin<->host channel has
+      // no bookings row either, same reason notify-inquiry-message needed
+      // its own inquiryId shape.
+      await insertNotification(supabase, hostUserId, "direct_message", "Ny melding fra Leieplattform", String(messageText).slice(0, 140), { directUserId: hostUserId });
     } else {
       // Utleier svarte → verify the caller is actually the host being represented
       if (userData.user.id !== hostUserId) {
@@ -121,6 +127,7 @@ Deno.serve(async (req) => {
         }
 
         await pushTo(admin.id, `Ny melding fra ${safeSenderName}`, String(messageText).slice(0, 140));
+        await insertNotification(supabase, admin.id, "direct_message", `Ny melding fra ${safeSenderName}`, String(messageText).slice(0, 140), { directUserId: hostUserId, directName: safeSenderName });
       }
     }
 

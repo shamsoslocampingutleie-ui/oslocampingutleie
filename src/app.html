@@ -2056,8 +2056,10 @@ async function openNotifPanel(){
     row.append(ttl,bd,tm);
     const bookingId=n.data&&n.data.bookingId;
     const inquiryId=n.data&&n.data.inquiryId;
+    const directUserId=n.data&&n.data.directUserId;
     if(bookingId){row.onclick=()=>{closeAll();openChat(bookingId);};}
     else if(inquiryId){row.onclick=()=>{closeAll();openInquiryChat(inquiryId,(n.data&&n.data.inquiryTitle)||"Spørsmål");};}
+    else if(directUserId){row.onclick=()=>{closeAll();"admin"===session.role?openDirectChat(directUserId,(n.data&&n.data.directName)||"Utleier"):openDirectChat(session.id,"Admin");};}
     list.appendChild(row);
   });
   if(unreadIds.length){await sb.from("notifications").update({read:true}).in("id",unreadIds);_refreshNotifBadge();}
