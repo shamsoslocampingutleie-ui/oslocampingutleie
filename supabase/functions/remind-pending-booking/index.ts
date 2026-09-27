@@ -26,6 +26,18 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { sendEmail, emailLayout, escapeHtml } from "../_shared/email.ts";
 import { corsHeaders } from "../_shared/cors.ts";
+import { insertNotification } from "../_shared/notify.ts";
+
+function firePush(userId: string, title: string, body: string, url = "/") {
+  fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-push`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+    },
+    body: JSON.stringify({ userId, title, body, url }),
+  }).catch((e) => console.warn("[push]", e));
+}
 
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL")!,
@@ -90,7 +102,6 @@ Deno.serve(async (req) => {
       const listing = listingById.get(b.listing_id);
       if (!listing) continue;
       const hostEmail = emailById.get(listing.owner);
-      if (!hostEmail) continue;
 
       const firstName = (nameById.get(listing.owner) || "").split(" ")[0] || "der";
       const waitingHours = Math.round((Date.now() - new Date(b.created_at).getTime()) / 3600_000);
@@ -98,22 +109,32 @@ Deno.serve(async (req) => {
         ? Math.round(waitingHours / 24) + " dager"
         : waitingHours + " timer";
 
-      await sendEmail(
-        hostEmail,
-        `Ubesvart forespørsel — ${listing.title}`,
-        emailLayout(
-          "En leietaker venter fortsatt på svar",
-          `<p>Hei ${escapeHtml(firstName)},</p>
-          <p><strong>${escapeHtml(b.renter_name || "En leietaker")}</strong> har ventet i ${waitingTxt} på svar på forespørselen om å leie <strong>${escapeHtml(listing.title)}</strong> (${b.from_date} → ${b.to_date}).</p>
-          <div class="info-box"><p>Rask respons betyr mer for om leietakere velger annonsen din igjen senere. Godta eller avslå så snart du kan.</p></div>
-          <a href="https://leieplattform.no/utleier" class="btn">Svar på forespørselen →</a>`,
-        ),
-      );
+      if (hostEmail) {
+        await sendEmail(
+          hostEmail,
+          `Ubesvart forespørsel — ${listing.title}`,
+          emailLayout(
+            "En leietaker venter fortsatt på svar",
+            `<p>Hei ${escapeHtml(firstName)},</p>
+            <p><strong>${escapeHtml(b.renter_name || "En leietaker")}</strong> har ventet i ${waitingTxt} på svar på forespørselen om å leie <strong>${escapeHtml(listing.title)}</strong> (${b.from_date} → ${b.to_date}).</p>
+            <div class="info-box"><p>Rask respons betyr mer for om leietakere velger annonsen din igjen senere. Godta eller avslå så snart du kan.</p></div>
+            <a href="https://leieplattform.no/utleier" class="btn">Svar på forespørselen →</a>`,
+          ),
+        );
+        emailed++;
+      }
+      // In-app + push, same "reminder" type/shape send-handover-reminder
+      // already uses -- independent of the email above (a host with no
+      // resolvable email still gets these) and, via openNotifPanel() in
+      // src/app.html, now actually visible somewhere for the first time.
+      const nt = "Ubesvart forespørsel";
+      const nb = `${b.renter_name || "En leietaker"} venter fortsatt på svar for ${listing.title}.`;
+      await insertNotification(supabase, listing.owner, "reminder", nt, nb, { bookingId: b.id });
+      firePush(listing.owner, nt, nb, "/booking/" + b.id);
       await supabase
         .from("bookings")
         .update({ host_reminder_sent_at: new Date().toISOString() })
         .eq("id", b.id);
-      emailed++;
     }
 
     return new Response(JSON.stringify({ ok: true, emailed }), {
