@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
+import { checkRateLimit, rateLimitResponse } from "../_shared/rateLimit.ts";
 
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL")!,
@@ -10,6 +11,15 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
+  // This is the one edge function in the project doing a lookup by an
+  // unauthenticated bearer-style token (the QR-code handoff session)
+  // with no rate limit at all -- every other token/password-gated
+  // function here (campaign-admin, mobile pairing flows elsewhere)
+  // rate-limits the lookup itself so the token's entropy is the real
+  // defense, not "nobody happened to guess it yet". Without this, the
+  // token match below could be brute-forced across its 15-minute
+  // validity window at whatever rate the caller wants.
+  if (!await checkRateLimit(req, 20, 60_000)) return rateLimitResponse(corsHeaders);
 
   try {
     const { token, imageData, mimeType } = await req.json();

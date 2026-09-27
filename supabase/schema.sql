@@ -2299,3 +2299,26 @@ create index if not exists renter_reviews_renter_id_idx on public.renter_reviews
 create index if not exists renter_reviews_booking_id_idx on public.renter_reviews (booking_id);
 
 alter table public.bookings add column if not exists renter_reviewed boolean not null default false;
+
+-- ============================================================
+-- STORAGE UPLOAD LIMITS (2026-09-27)
+-- ============================================================
+-- See migrations/20260927220000_storage_upload_limits.sql. No bucket
+-- had a file-size cap or MIME-type allowlist before this -- purely
+-- client-side accept="image/*" with zero server-side enforcement.
+update storage.buckets set
+  file_size_limit = 8388608,
+  allowed_mime_types = array['image/jpeg','image/png','image/webp','image/heic','image/heif','image/gif']
+where id = 'avatars';
+update storage.buckets set
+  file_size_limit = 15728640,
+  allowed_mime_types = array['image/jpeg','image/png','image/webp','image/heic','image/heif','image/gif']
+where id = 'listing-images';
+update storage.buckets set
+  file_size_limit = 15728640,
+  allowed_mime_types = array['image/jpeg','image/png','image/webp','image/heic','image/heif','image/gif']
+where id = 'drivers-license';
+update storage.buckets set
+  file_size_limit = 15728640,
+  allowed_mime_types = array['image/jpeg','image/png','image/webp','image/heic','image/heif','image/gif']
+where id = 'booking-photos';
