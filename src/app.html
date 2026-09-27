@@ -2055,7 +2055,9 @@ async function openNotifPanel(){
     const tm=el("div",null,fmtTime(n.created_at)+" · "+new Date(n.created_at).toLocaleDateString("nb-NO"));tm.style.cssText="font-size:11px;color:var(--ink-3);margin-top:4px";
     row.append(ttl,bd,tm);
     const bookingId=n.data&&n.data.bookingId;
+    const inquiryId=n.data&&n.data.inquiryId;
     if(bookingId){row.onclick=()=>{closeAll();openChat(bookingId);};}
+    else if(inquiryId){row.onclick=()=>{closeAll();openInquiryChat(inquiryId,(n.data&&n.data.inquiryTitle)||"Spørsmål");};}
     list.appendChild(row);
   });
   if(unreadIds.length){await sb.from("notifications").update({read:true}).in("id",unreadIds);_refreshNotifBadge();}

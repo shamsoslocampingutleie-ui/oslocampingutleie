@@ -8,6 +8,7 @@ import { corsHeaders } from "../_shared/cors.ts";
 import { sendEmail, emailLayout, escapeHtml } from "../_shared/email.ts";
 import { sendWebPush } from "../_shared/webpush.ts";
 import { checkRateLimit, rateLimitResponse } from "../_shared/rateLimit.ts";
+import { insertNotification } from "../_shared/notify.ts";
 
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL")!,
@@ -115,6 +116,19 @@ Deno.serve(async (req) => {
     }
 
     await pushTo(recipientId, title, String(messageText).slice(0, 140));
+    // In-app too -- this thread has no real bookings row (see file
+    // header), so nothing else in this project's notification system
+    // could show it; store the inquiry thread id so openNotifPanel()
+    // (src/app.html) can open the right thread on click, the same way
+    // it does bookingId for every other notification type.
+    await insertNotification(
+      supabase,
+      recipientId,
+      "inquiry_message",
+      title,
+      String(messageText).slice(0, 140),
+      { inquiryId: `inquiry:${listingId}:${renterId}`, inquiryTitle: listing.title },
+    );
 
     return new Response(JSON.stringify({ ok: true }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

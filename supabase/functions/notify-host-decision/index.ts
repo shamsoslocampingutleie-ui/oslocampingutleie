@@ -6,6 +6,18 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 import { sendEmail, emailLayout } from "../_shared/email.ts";
 import { checkRateLimit, rateLimitResponse } from "../_shared/rateLimit.ts";
+import { insertNotification } from "../_shared/notify.ts";
+
+function firePush(userId: string, title: string, body: string, url = "/") {
+  fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-push`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+    },
+    body: JSON.stringify({ userId, title, body, url }),
+  }).catch((e) => console.warn("[push]", e));
+}
 
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL")!,
@@ -74,6 +86,17 @@ Deno.serve(async (req) => {
           ),
       );
     }
+
+    // In-app + push, same as every other decision/reminder notification
+    // in this project now -- an applicant without a resolvable email (or
+    // who just doesn't see it) previously had no way to learn the
+    // outcome anywhere but by happening to check the app.
+    const nt = approved ? "Godkjent som utleier! 🎉" : "Om søknaden din som utleier";
+    const nb = approved
+      ? "Søknaden din om å bli utleier er godkjent. Du kan nå legge ut annonser."
+      : "Søknaden din om å bli utleier ble ikke godkjent. Kontakt oss i chatten hvis du har spørsmål.";
+    await insertNotification(supabase, userId, "host_decision", nt, nb, { approved });
+    firePush(userId, nt, nb, approved ? "/legg-ut" : "/");
 
     return new Response(JSON.stringify({ ok: true, emailed: !!applicantEmail }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
