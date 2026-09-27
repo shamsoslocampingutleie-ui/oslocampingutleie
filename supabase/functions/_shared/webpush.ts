@@ -10,7 +10,16 @@ function init() {
   if (_initialised) return;
   const pub = Deno.env.get("VAPID_PUBLIC_KEY");
   const priv = Deno.env.get("VAPID_PRIVATE_KEY");
-  const subj = Deno.env.get("VAPID_SUBJECT") ?? "mailto:kundeservice@oslocampingutleie.no";
+  // Same dead-domain bug fixed everywhere else in this project this
+  // session (kundeservice@oslocampingutleie.no is the old pre-rebrand
+  // domain -- see notify-host-application/index.ts's comment for the
+  // full history) -- this was the one remaining instance. VAPID_SUBJECT
+  // is confirmed set as a real secret in production, so this fallback
+  // should never actually fire; an https: URL (valid per the Web Push
+  // spec alongside mailto:) avoids guessing at a specific inbox that
+  // may not exist, the way the other fixes preferred omitting a guess
+  // entirely over a wrong one.
+  const subj = Deno.env.get("VAPID_SUBJECT") ?? "https://leieplattform.no";
   if (!pub || !priv) {
     console.warn("[webpush] VAPID keys not set — push disabled");
     return;
