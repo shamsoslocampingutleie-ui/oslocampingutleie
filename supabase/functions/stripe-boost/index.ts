@@ -9,6 +9,23 @@ const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY")!, {
   apiVersion: "2024-06-20",
 });
 
+// Same open-redirect guard as stripe-checkout/guest-checkout's
+// safeRedirect() -- missing here despite this function taking the exact
+// same client-suppliable successUrl/cancelUrl and passing it straight
+// to Stripe. A host boosting their own listing could be sent to an
+// external phishing page immediately after a real 90 NOK Stripe payment
+// if successUrl/cancelUrl were ever attacker-influenced (a crafted
+// link/bookmarklet triggering the request while the host is logged in).
+function safeRedirect(url: unknown): string {
+  const fallback = "https://leieplattform.no/";
+  if (typeof url !== "string") return fallback;
+  try {
+    const u = new URL(url);
+    if (u.origin === "https://leieplattform.no") return url;
+  } catch { /* fall through */ }
+  return fallback;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -61,7 +78,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    const fallback = "https://leieplattform.no/";
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       payment_method_types: ["card"],
@@ -83,8 +99,8 @@ Deno.serve(async (req) => {
         listing_id: listingId,
         boost_days: "7",
       },
-      success_url: successUrl || fallback,
-      cancel_url: cancelUrl || fallback,
+      success_url: safeRedirect(successUrl),
+      cancel_url: safeRedirect(cancelUrl),
     });
 
     return new Response(JSON.stringify({ url: session.url }), {

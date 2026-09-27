@@ -6,6 +6,24 @@ import { corsHeaders } from "../_shared/cors.ts";
 
 const STRIPE_SECRET_KEY = Deno.env.get("STRIPE_SECRET_KEY");
 
+// Same open-redirect guard as stripe-checkout/guest-checkout/stripe-boost
+// (see stripe-boost/index.ts for the full rationale) -- arguably more
+// sensitive here than anywhere else it's missing: Stripe redirects the
+// host's browser to return_url/refresh_url immediately after they
+// submit real bank account and KYC details in Stripe's own onboarding
+// flow. An attacker-influenced return_url could land a host, primed to
+// think they're back on leieplattform.no right after handing Stripe
+// their banking info, on a phishing page instead.
+function safeRedirect(url: unknown): string {
+  const fallback = "https://leieplattform.no/";
+  if (typeof url !== "string") return fallback;
+  try {
+    const u = new URL(url);
+    if (u.origin === "https://leieplattform.no") return url;
+  } catch { /* fall through */ }
+  return fallback;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -39,7 +57,6 @@ Deno.serve(async (req) => {
     const userId = userData.user.id;
 
     const { returnUrl, refreshUrl } = await req.json().catch(() => ({}));
-    const fallback = "https://leieplattform.no/";
 
     const { data: profile, error: profileErr } = await supabase
       .from("profiles")
@@ -86,8 +103,8 @@ Deno.serve(async (req) => {
 
     const accountLink = await stripe.accountLinks.create({
       account: accountId,
-      refresh_url: refreshUrl || fallback,
-      return_url: returnUrl || fallback,
+      refresh_url: safeRedirect(refreshUrl),
+      return_url: safeRedirect(returnUrl),
       type: "account_onboarding",
     });
 
