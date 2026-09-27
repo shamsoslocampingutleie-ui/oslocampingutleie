@@ -112,7 +112,7 @@ Deno.serve(async (req) => {
           const b = `"${preview.slice(0, 80)}"`;
           await insertNotification(supabase, listing.owner, "chat_message", t, b,
             { bookingId, listingTitle: listing.title });
-          firePush(listing.owner, t, b);
+          firePush(listing.owner, t, b, "/booking/" + bookingId);
         }
       } else {
         // Host sent → notify renter
@@ -137,7 +137,7 @@ Deno.serve(async (req) => {
           const b = `${listing?.title ?? "booking"}: "${preview.slice(0, 80)}"`;
           await insertNotification(supabase, booking.renter, "chat_message", t, b,
             { bookingId, listingTitle: listing?.title });
-          firePush(booking.renter, t, b);
+          firePush(booking.renter, t, b, "/booking/" + bookingId);
         }
       }
     }
@@ -184,7 +184,7 @@ Deno.serve(async (req) => {
         const b = `${booking?.renter_name} ønsker å leie ${listing?.title ?? "annonsen din"} (${from} → ${to})`;
         await insertNotification(supabase, listing.owner, "booking_request", t, b,
           { bookingId, listingTitle: listing.title });
-        firePush(listing.owner, t, b);
+        firePush(listing.owner, t, b, "/booking/" + bookingId);
       }
     }
 
@@ -223,7 +223,7 @@ Deno.serve(async (req) => {
         const b = `${listing?.title ?? "Booking"} er godkjent! (${booking.from_date} → ${booking.to_date})`;
         await insertNotification(supabase, booking.renter, "booking_accepted", t, b,
           { bookingId, listingTitle: listing?.title });
-        firePush(booking.renter, t, b);
+        firePush(booking.renter, t, b, "/booking/" + bookingId);
       }
     }
 
@@ -261,7 +261,7 @@ Deno.serve(async (req) => {
         const b = `Din forespørsel for ${listing?.title ?? "annonsen"} ble ikke godkjent. Se etter andre annonser.`;
         await insertNotification(supabase, booking.renter, "booking_rejected", t, b,
           { bookingId, listingTitle: listing?.title });
-        firePush(booking.renter, t, b);
+        firePush(booking.renter, t, b, "/booking/" + bookingId);
       }
     }
 
@@ -318,7 +318,7 @@ Deno.serve(async (req) => {
             const b = `Utleier har bekreftet overlevering av ${title} — bekreft fra din side.`;
             await insertNotification(supabase, booking.renter, "handover_confirmed", t, b,
               { bookingId, listingTitle: listing?.title });
-            firePush(booking.renter, t, b);
+            firePush(booking.renter, t, b, "/booking/" + bookingId);
           }
         } else if (listing?.owner) {
           const hostAuth = await supabase.auth.admin.getUserById(listing.owner);
@@ -338,7 +338,7 @@ Deno.serve(async (req) => {
           const b = `Leietaker har bekreftet overlevering av ${title} — bekreft fra din side.`;
           await insertNotification(supabase, listing.owner, "handover_confirmed", t, b,
             { bookingId, listingTitle: listing?.title });
-          firePush(listing.owner, t, b);
+          firePush(listing.owner, t, b, "/booking/" + bookingId);
         }
       }
     }
@@ -397,7 +397,7 @@ Deno.serve(async (req) => {
             const b = `Utleier har bekreftet retur av ${title} — bekreft fra din side for å få tilbake depositumet.`;
             await insertNotification(supabase, booking.renter, "return_confirmed", t, b,
               { bookingId, listingTitle: listing?.title });
-            firePush(booking.renter, t, b);
+            firePush(booking.renter, t, b, "/booking/" + bookingId);
           }
         } else if (listing?.owner) {
           const hostAuth = await supabase.auth.admin.getUserById(listing.owner);
@@ -417,7 +417,7 @@ Deno.serve(async (req) => {
           const b = `Leietaker har bekreftet retur av ${title} — bekreft fra din side for å få utbetalt.`;
           await insertNotification(supabase, listing.owner, "return_confirmed", t, b,
             { bookingId, listingTitle: listing?.title });
-          firePush(listing.owner, t, b);
+          firePush(listing.owner, t, b, "/booking/" + bookingId);
         }
       }
     }
