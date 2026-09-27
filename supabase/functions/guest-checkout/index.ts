@@ -109,7 +109,7 @@ Deno.serve(async (req) => {
 
   const { data: listing, error: listingErr } = await sb
     .from("listings")
-    .select("id,title,price_per_day,cleaning_fee,deposit,deposit_mode,instant_book,status,owner,category,weekly_discount,monthly_discount")
+    .select("id,title,price_per_day,cleaning_fee,deposit,deposit_mode,instant_book,status,owner,category,weekly_discount,monthly_discount,transport_fee")
     .eq("id", listing_id)
     .single();
   if (listingErr || !listing) return err(404, "Annonsen ble ikke funnet.");
@@ -373,7 +373,17 @@ Svar KUN med gyldig JSON:
       const serviceFee = Math.round(rent_after_discount * 0.10);
       const cleaningFee = Number(listing.cleaning_fee || 0);
       const deposit = listing.deposit_mode !== "incident" ? Number(listing.deposit || 0) : 0;
-      const amountTotal = rent_after_discount + serviceFee + cleaningFee + deposit;
+      // Same gap, same fee: transport/delivery was collected as a boolean
+      // (wants_transport, stored on the booking) but the actual
+      // transport_fee amount from the listing was never added to what a
+      // guest instant-book payment charged -- stripe-checkout (the
+      // logged-in flow) already did this correctly, this path just never
+      // had it. A host offering paid delivery got nothing for it on any
+      // guest booking that requested it.
+      const transportFeeAmount = wants_transport && Number(listing.transport_fee || 0) > 0
+        ? Math.round(Number(listing.transport_fee))
+        : 0;
+      const amountTotal = rent_after_discount + serviceFee + cleaningFee + deposit + transportFeeAmount;
       // Platform fee = 10% from renter + 10% from host (unless waived) = up to 20% of rent.
       const platformFee = serviceFee + (hostFeeWaived ? 0 : Math.round(rent_after_discount * 0.10));
       const amountTotalOre = Math.round(amountTotal * 100);
@@ -394,7 +404,11 @@ Svar KUN med gyldig JSON:
         line_items: [{
           price_data: {
             currency: "nok",
-            product_data: { name: lengthDiscountPct > 0 ? `${listing.title} (${lengthDiscountPct}% rabatt)` : listing.title },
+            product_data: { name:
+              lengthDiscountPct > 0 && transportFeeAmount > 0 ? `${listing.title} (${lengthDiscountPct}% rabatt + levering)` :
+              lengthDiscountPct > 0 ? `${listing.title} (${lengthDiscountPct}% rabatt)` :
+              transportFeeAmount > 0 ? `${listing.title} (inkl. levering)` :
+              listing.title },
             unit_amount: amountTotalOre,
           },
           quantity: 1,
@@ -404,6 +418,7 @@ Svar KUN med gyldig JSON:
           booking_id: bookingId,
           platform_fee_ore: String(platformFeeOre),
           length_discount_pct: String(lengthDiscountPct),
+          transport_fee_ore: String(Math.round(transportFeeAmount * 100)),
           // See 20260925200000_deposit_held_not_paid_to_host.sql -- kept
           // out of the host's payout, refunded to the renter later.
           deposit_ore: String(Math.round(deposit * 100)),
