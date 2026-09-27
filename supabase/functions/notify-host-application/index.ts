@@ -19,7 +19,11 @@ const supabase = createClient(
   Deno.env.get("SUPABASE_URL")!,
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
 );
-const ADMIN_EMAIL = Deno.env.get("ADMIN_EMAIL") ?? "kundeservice@oslocampingutleie.no";
+// No hardcoded fallback address -- ADMIN_EMAIL is a real configured
+// secret in production; a wrong guessed domain here (the old
+// kundeservice@oslocampingutleie.no this used to fall back to) would be
+// worse than just skipping the admin email if it's ever genuinely unset.
+const ADMIN_EMAIL = Deno.env.get("ADMIN_EMAIL") ?? "";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -62,7 +66,7 @@ Deno.serve(async (req) => {
     const name = profile?.full_name || profile?.email || userData.user.email || "Ukjent bruker";
     const email = profile?.email || userData.user.email || "";
 
-    await sendEmail(
+    if (ADMIN_EMAIL) await sendEmail(
       ADMIN_EMAIL,
       `Ny utleiersøknad: ${name}`,
       emailLayout(

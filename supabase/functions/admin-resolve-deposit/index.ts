@@ -146,7 +146,7 @@ Deno.serve(async (req) => {
             "Depositumet ditt er behandlet",
             refundOre === depositAmountOre
               ? `<p>Depositumet for <strong>${title}</strong> er refundert i sin helhet til betalingskortet ditt.</p><div class="info-box"><p><strong>Refundert:</strong> ${refundKr}</p></div>`
-              : `<p>Etter gjennomgang av utleiers rapport er depositumet for <strong>${title}</strong> (${depositKr}) delvis eller ikke refundert.</p><div class="info-box"><p><strong>Refundert:</strong> ${refundKr} av ${depositKr}</p></div><p>Kontakt oss på kundeservice@oslocampingutleie.no hvis du har spørsmål om dette.</p>`,
+              : `<p>Etter gjennomgang av utleiers rapport er depositumet for <strong>${title}</strong> (${depositKr}) delvis eller ikke refundert.</p><div class="info-box"><p><strong>Refundert:</strong> ${refundKr} av ${depositKr}</p></div><p>Kontakt oss i chatten på leieplattform.no eller ring 453 16 028 hvis du har spørsmål om dette.</p>`,
           ),
         );
       }
@@ -168,20 +168,41 @@ Deno.serve(async (req) => {
             emailLayout(
               "Depositum-rapporten din er gjennomgått",
               withheldOre > 0
-                ? `<p>Vi har gjennomgått skaderapporten din for <strong>${title}</strong>. ${withheldKr} av depositumet (${depositKr}) er holdt tilbake fra leietakers refusjon.</p><div class="info-box"><p>Eventuell kompensasjon til deg for dette beløpet håndteres manuelt — kontakt oss på kundeservice@oslocampingutleie.no for å avtale utbetaling.</p></div>`
-                : `<p>Vi har gjennomgått rapporten din for <strong>${title}</strong>. Etter vurdering er hele depositumet (${depositKr}) refundert til leietaker.</p><p>Har du spørsmål om vurderingen, kontakt oss på kundeservice@oslocampingutleie.no.</p>`,
+                ? `<p>Vi har gjennomgått skaderapporten din for <strong>${title}</strong>. ${withheldKr} av depositumet (${depositKr}) er holdt tilbake fra leietakers refusjon.</p><div class="info-box"><p>Eventuell kompensasjon til deg for dette beløpet håndteres manuelt — kontakt oss i chatten på leieplattform.no eller ring 453 16 028 for å avtale utbetaling.</p></div>`
+                : `<p>Vi har gjennomgått rapporten din for <strong>${title}</strong>. Etter vurdering er hele depositumet (${depositKr}) refundert til leietaker.</p><p>Har du spørsmål om vurderingen, kontakt oss i chatten på leieplattform.no eller ring 453 16 028.</p>`,
             ),
           );
         }
       }
     } catch (emailErr) {
       console.error("[admin-resolve-deposit] Email send failed:", emailErr);
+      await supabase.from("error_logs").insert({
+        message: `[admin-resolve-deposit] Confirmation email send failed for booking ${bookingId}`,
+        stack: String(emailErr).slice(0, 4000),
+        url: "edge-function:admin-resolve-deposit",
+        user_agent: "server",
+      }).catch(() => {});
     }
 
     return new Response(JSON.stringify({ resolved: true, refundedOre: refundOre }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
+    // Admin sees this as an immediate error in adminBookings(), but a
+    // deposit-dispute refund failing is real money in a situation that's
+    // already contentious -- worth a Feillogg record too.
+    try {
+      const supabase = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      );
+      await supabase.from("error_logs").insert({
+        message: "[admin-resolve-deposit] Unhandled failure",
+        stack: String(err).slice(0, 4000),
+        url: "edge-function:admin-resolve-deposit",
+        user_agent: "server",
+      });
+    } catch { /* never let logging the failure become its own unhandled failure */ }
     return new Response(JSON.stringify({ error: String(err) }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
