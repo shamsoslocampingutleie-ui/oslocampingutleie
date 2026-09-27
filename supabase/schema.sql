@@ -2322,3 +2322,28 @@ update storage.buckets set
   file_size_limit = 15728640,
   allowed_mime_types = array['image/jpeg','image/png','image/webp','image/heic','image/heif','image/gif']
 where id = 'booking-photos';
+
+-- ============================================================
+-- DOUBLE-BOOKING EXCLUSION CONSTRAINT (2026-09-27)
+-- ============================================================
+-- See migrations/20260927230000_double_booking_exclusion_constraint.sql.
+-- prevent_double_booking()'s trigger-level check-then-act has a real
+-- (if rare) race window; this is the atomic, index-enforced backstop.
+create extension if not exists btree_gist;
+alter table public.bookings
+  add constraint no_overlapping_accepted_bookings
+  exclude using gist (
+    listing_id with =,
+    daterange(from_date, to_date, '[)') with &&
+  )
+  where (status = 'accepted');
+
+-- ============================================================
+-- PENDING BOOKING REMINDER (2026-09-27)
+-- ============================================================
+-- See migrations/20260927240000_pending_booking_reminder.sql and
+-- functions/remind-pending-booking. Nothing previously reminded a host
+-- who simply never responded to a pending request -- the renter was
+-- just left waiting with no recourse.
+alter table public.bookings
+  add column if not exists host_reminder_sent_at timestamptz;
