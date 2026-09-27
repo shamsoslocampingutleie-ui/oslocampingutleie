@@ -2347,3 +2347,13 @@ alter table public.bookings
 -- just left waiting with no recourse.
 alter table public.bookings
   add column if not exists host_reminder_sent_at timestamptz;
+
+-- ============================================================
+-- LENGTH-OF-STAY DISCOUNTS (originally migrations/20260624120000_discounts.sql,
+-- never carried into schema.sql until now)
+-- ============================================================
+alter table public.listings
+  add column if not exists weekly_discount  smallint not null default 0 check (weekly_discount  between 0 and 80),
+  add column if not exists monthly_discount smallint not null default 0 check (monthly_discount between 0 and 80);
+comment on column public.listings.weekly_discount  is 'Discount % applied when rental >= 7 days';
+comment on column public.listings.monthly_discount is 'Discount % applied when rental >= 28 days';

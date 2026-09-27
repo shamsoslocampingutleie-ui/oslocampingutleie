@@ -181,13 +181,31 @@ Deno.serve(async (req) => {
     const n = nights(booking.from_date, booking.to_date);
     const rent = Number(listing.price_per_day) * n;
 
-    // Discount codes are disabled: they were validated purely by a
-    // client-suppliable regex/percentage with no server-side issuance or
-    // redemption tracking, so any client could invent an arbitrary code
-    // (e.g. "OCU-AAAAAA-20") for a real discount. Re-enable only once codes
+    // Length-of-stay discount (listing.weekly_discount / monthly_discount,
+    // set by the host, shown to the renter before booking -- the purple
+    // "🏷️ 20% rabatt ved 28+ dager" banner and card badge in
+    // updateBookingSummary()/renderGrid() in src/app.html) was never
+    // actually applied here or in guest-checkout: every booking long
+    // enough to qualify was silently charged full price at payment time
+    // despite a discount being advertised for it. Mirrors the exact same
+    // threshold logic the client already uses for the estimate it shows
+    // (monthly >= 28 days takes priority over weekly >= 7 days) so the
+    // real charge matches what the renter was shown.
+    const lengthDiscountPct = Number(listing.monthly_discount) > 0 && n >= 28
+      ? Number(listing.monthly_discount)
+      : Number(listing.weekly_discount) > 0 && n >= 7
+      ? Number(listing.weekly_discount)
+      : 0;
+    const rentAfterLengthDiscount = Math.round(rent * (1 - lengthDiscountPct / 100));
+
+    // Discount CODES (separate from the length-of-stay discount above)
+    // are disabled: they were validated purely by a client-suppliable
+    // regex/percentage with no server-side issuance or redemption
+    // tracking, so any client could invent an arbitrary code (e.g.
+    // "OCU-AAAAAA-20") for a real discount. Re-enable only once codes
     // are backed by a real table (code, pct, expiry, used state).
     const discountPct = 0;
-    const rentAfterDiscount = rent;
+    const rentAfterDiscount = rentAfterLengthDiscount;
     const discountAmount = 0;
 
     const serviceFee = Math.round(rentAfterDiscount * 0.10); // 10% from renter
@@ -222,11 +240,12 @@ Deno.serve(async (req) => {
         .eq("id", bookingId);
     }
 
+    const totalDiscountPct = discountPct + lengthDiscountPct;
     let productName = listing.title;
-    if (discountPct > 0 && transportFeeAmount > 0) {
-      productName = `${listing.title} (${discountPct}% rabatt + levering)`;
-    } else if (discountPct > 0) {
-      productName = `${listing.title} (${discountPct}% rabatt)`;
+    if (totalDiscountPct > 0 && transportFeeAmount > 0) {
+      productName = `${listing.title} (${totalDiscountPct}% rabatt + levering)`;
+    } else if (totalDiscountPct > 0) {
+      productName = `${listing.title} (${totalDiscountPct}% rabatt)`;
     } else if (transportFeeAmount > 0) {
       productName = `${listing.title} (inkl. levering)`;
     }
@@ -252,6 +271,7 @@ Deno.serve(async (req) => {
         platform_fee_ore: String(platformFeeOre),
         discount_code: discountCode ?? "",
         discount_pct: String(discountPct),
+        length_discount_pct: String(lengthDiscountPct),
         transport_fee_ore: String(Math.round(transportFeeAmount * 100)),
         // Snapshotted now (like platform_fee_ore) so stripe-release-payout
         // can keep this out of the host's transfer and refund it back to

@@ -109,7 +109,7 @@ Deno.serve(async (req) => {
 
   const { data: listing, error: listingErr } = await sb
     .from("listings")
-    .select("id,title,price_per_day,cleaning_fee,deposit,deposit_mode,instant_book,status,owner,category")
+    .select("id,title,price_per_day,cleaning_fee,deposit,deposit_mode,instant_book,status,owner,category,weekly_discount,monthly_discount")
     .eq("id", listing_id)
     .single();
   if (listingErr || !listing) return err(404, "Annonsen ble ikke funnet.");
@@ -359,12 +359,23 @@ Svar KUN med gyldig JSON:
 
       const n = nights(from_date as string, to_date as string);
       const rent = Number(listing.price_per_day) * n;
-      const serviceFee = Math.round(rent * 0.10);
+      // Length-of-stay discount -- same real gap and same fix as
+      // stripe-checkout (the logged-in flow): the host-set weekly/monthly
+      // discount is shown to the renter before booking but was never
+      // actually applied at payment time. Same threshold logic as the
+      // client's own estimate (updateBookingSummary() in src/app.html).
+      const lengthDiscountPct = Number(listing.monthly_discount) > 0 && n >= 28
+        ? Number(listing.monthly_discount)
+        : Number(listing.weekly_discount) > 0 && n >= 7
+        ? Number(listing.weekly_discount)
+        : 0;
+      const rent_after_discount = Math.round(rent * (1 - lengthDiscountPct / 100));
+      const serviceFee = Math.round(rent_after_discount * 0.10);
       const cleaningFee = Number(listing.cleaning_fee || 0);
       const deposit = listing.deposit_mode !== "incident" ? Number(listing.deposit || 0) : 0;
-      const amountTotal = rent + serviceFee + cleaningFee + deposit;
+      const amountTotal = rent_after_discount + serviceFee + cleaningFee + deposit;
       // Platform fee = 10% from renter + 10% from host (unless waived) = up to 20% of rent.
-      const platformFee = serviceFee + (hostFeeWaived ? 0 : Math.round(rent * 0.10));
+      const platformFee = serviceFee + (hostFeeWaived ? 0 : Math.round(rent_after_discount * 0.10));
       const amountTotalOre = Math.round(amountTotal * 100);
       const platformFeeOre = Math.round(platformFee * 100);
 
@@ -383,7 +394,7 @@ Svar KUN med gyldig JSON:
         line_items: [{
           price_data: {
             currency: "nok",
-            product_data: { name: listing.title },
+            product_data: { name: lengthDiscountPct > 0 ? `${listing.title} (${lengthDiscountPct}% rabatt)` : listing.title },
             unit_amount: amountTotalOre,
           },
           quantity: 1,
@@ -392,6 +403,7 @@ Svar KUN med gyldig JSON:
         metadata: {
           booking_id: bookingId,
           platform_fee_ore: String(platformFeeOre),
+          length_discount_pct: String(lengthDiscountPct),
           // See 20260925200000_deposit_held_not_paid_to_host.sql -- kept
           // out of the host's payout, refunded to the renter later.
           deposit_ore: String(Math.round(deposit * 100)),
