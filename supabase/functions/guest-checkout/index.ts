@@ -416,10 +416,24 @@ Svar KUN med gyldig JSON:
     }
   }
 
+  // Guests never see "status: accepted" as a promise anything actually
+  // happened -- it wasn't even accurate (a fresh booking here is
+  // 'pending_payment' or 'pending' in the DB, never 'accepted') and the
+  // frontend never reads it anyway. What it DOES need: an explicit
+  // signal for the case above where session.url creation failed for an
+  // instant-book listing -- a booking row exists, already-spent AI
+  // verification succeeded, but there is no stripe_url and never will
+  // be one for this response. Without stripe_error, the frontend fell
+  // through to the same "Forespørsel sendt! Utleier svarer deg i
+  // chatten" copy used for the non-instant request flow -- actively
+  // wrong here: an instant-book listing has no host-approval step, so
+  // that message told a guest to wait for something that would never
+  // happen, with no indication their booking was actually stuck.
+  const stripeError = listing.instant_book && !stripeUrl;
   return new Response(JSON.stringify({
     booking_id: bookingId,
-    status: listing.instant_book ? "accepted" : "pending",
     stripe_url: stripeUrl,
+    stripe_error: stripeError,
     instant_book: listing.instant_book,
   }), {
     headers: { ...corsHeaders, "Content-Type": "application/json" },
