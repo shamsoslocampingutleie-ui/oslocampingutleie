@@ -1,9 +1,15 @@
-// Hard-deletes a user account (auth.users row), which cascades to the
-// matching profiles/listings/bookings rows via FK "on delete cascade".
-// Requires the caller to be an authenticated admin (checked via the
-// profiles.role column using the service role client).
+// Admin-triggered account removal. Used to be a REAL hard delete
+// (supabase.auth.admin.deleteUser(userId), no soft flag) -- see
+// ../_shared/anonymizeAccount.ts's header comment for exactly why that
+// was dangerous: it cascades through listings/bookings and destroys
+// OTHER users' transaction history along with the target account's,
+// violating this platform's own 5-year bookkeeping retention policy.
+// Now shares the same anonymize-in-place logic as the self-service
+// delete-account function, so the two can never drift apart like this
+// again.
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
+import { anonymizeAccount } from "../_shared/anonymizeAccount.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -56,18 +62,19 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { error } = await supabase.auth.admin.deleteUser(userId);
-    if (error) {
-      return new Response(JSON.stringify({ error: error.message }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    const result = await anonymizeAccount(supabase, userId);
+    if (!result.ok) {
+      return new Response(
+        JSON.stringify({ error: result.error, blockedCount: result.blockedCount }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
     return new Response(JSON.stringify({ deleted: true }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
+    console.error("[admin-delete-user]", err);
     return new Response(JSON.stringify({ error: String(err) }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
