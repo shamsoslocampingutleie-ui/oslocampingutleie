@@ -1,125 +1,40 @@
 // Creates a Stripe Checkout Session for spin (29 NOK) or egg (19 NOK) game.
-// All revenue goes to the platform — no connected account transfer.
-import Stripe from "npm:stripe@17";
-import { createClient } from "npm:@supabase/supabase-js@2";
+//
+// DISABLED. The spin/egg feature itself was deliberately and completely
+// removed from the frontend in e8cc01e ("produksjon-overhaul — fjern
+// rabattspill" -- ~38KB of code and CSS taken out, June 2026) as part
+// of a production-readiness cleanup. This backend function was missed
+// in that cleanup and stayed deployed and callable, even though:
+//   1. Nothing in src/app.html links to it anymore (grepped: zero
+//      references to stripe-spin, spin_type, spin_enabled, egg_enabled,
+//      "Lykkehjul" anywhere in the live frontend).
+//   2. The reward this would need to grant -- a discount code applied
+//      at checkout -- was independently disabled in stripe-checkout
+//      for its own, separate, still-valid reason ("Discount codes are
+//      disabled: they were validated purely by a client-suppliable
+//      regex/percentage with no server-side issuance or redemption
+//      tracking... re-enable only once codes are backed by a real
+//      table"). Nothing on this codebase's current write path could
+//      have honored a win from this game even if someone reached it.
+// So anyone who found this endpoint directly (its URL was never secret)
+// could have paid 19-29 NOK real money via a real Stripe charge for a
+// reward that literally cannot be delivered anywhere in the app.
+// Deleting the function outright needs an irreversible-action approval
+// this session doesn't have; disabled it here instead -- refuses to
+// create a Stripe session at all, so no payment can ever be taken by
+// it, while the code stays in place if this feature is ever
+// deliberately rebuilt with a real discount-code backing (matching
+// stripe-checkout's own "re-enable only once..." condition).
 import { corsHeaders } from "../_shared/cors.ts";
 
-const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY")!, {
-  apiVersion: "2024-06-20",
-});
-
-// Same open-redirect guard as stripe-checkout/guest-checkout/stripe-boost --
-// see stripe-boost/index.ts for the full rationale. Without it, a
-// renter paying for a spin/egg could be redirected to an external page
-// right after a real Stripe payment.
-function safeRedirect(url: unknown): string {
-  const fallback = "https://leieplattform.no/";
-  if (typeof url !== "string") return fallback;
-  try {
-    const u = new URL(url);
-    if (u.origin === "https://leieplattform.no") return url;
-  } catch { /* fall through */ }
-  return fallback;
-}
-
-Deno.serve(async (req) => {
+Deno.serve((req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
-
-  try {
-    const authHeader = req.headers.get("Authorization") ?? "";
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
-
-    const { data: userData, error: userErr } = await supabase.auth.getUser(
-      authHeader.replace("Bearer ", ""),
-    );
-    if (userErr || !userData?.user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const { type, lid, successUrl, cancelUrl } = await req.json();
-    if (!type || !lid) {
-      return new Response(
-        JSON.stringify({ error: "type og lid er påkrevd" }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
-      );
-    }
-
-    // Validate that the listing has the game feature enabled by the host
-    const { data: listing, error: listingErr } = await supabase
-      .from("listings")
-      .select("spin_enabled, egg_enabled")
-      .eq("id", lid)
-      .single();
-    if (listingErr || !listing) {
-      return new Response(JSON.stringify({ error: "Annonse ikke funnet" }), {
-        status: 404,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    const isEgg = type === "egg";
-    if (isEgg && !listing.egg_enabled) {
-      return new Response(
-        JSON.stringify({ error: "Egg-spillet er ikke aktivert for denne annonsen" }),
-        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
-    if (!isEgg && !listing.spin_enabled) {
-      return new Response(
-        JSON.stringify({ error: "Lykkehjulet er ikke aktivert for denne annonsen" }),
-        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
-    const amountOre = isEgg ? 1900 : 2900;
-    const productName = isEgg
-      ? "🥚 Egg-knekking — bonus rabatt"
-      : "🎡 Lykkehjul-spinn — rabattkode";
-    const productDesc = isEgg
-      ? "Knekk et egg og vinn ekstra rabatt på leien din."
-      : "Spinn lykkehjulet og vinn opptil 20% rabatt på leien.";
-
-    const session = await stripe.checkout.sessions.create({
-      mode: "payment",
-      payment_method_types: ["card"],
-      line_items: [
-        {
-          price_data: {
-            currency: "nok",
-            product_data: {
-              name: productName,
-              description: productDesc,
-            },
-            unit_amount: amountOre,
-          },
-          quantity: 1,
-        },
-      ],
-      metadata: {
-        spin_type: type,
-        lid,
-        user_id: userData.user.id,
-      },
-      success_url: safeRedirect(successUrl),
-      cancel_url: safeRedirect(cancelUrl),
-    });
-
-    return new Response(JSON.stringify({ url: session.url }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  } catch (err) {
-    return new Response(JSON.stringify({ error: String(err) }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
+  return new Response(
+    JSON.stringify({
+      error: "Denne funksjonen er ikke lenger tilgjengelig.",
+    }),
+    { status: 410, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+  );
 });
