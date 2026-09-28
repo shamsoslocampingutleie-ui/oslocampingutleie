@@ -1030,6 +1030,11 @@ create policy reviews_insert on public.reviews for insert
 drop policy if exists reviews_select on public.reviews;
 create policy reviews_select on public.reviews for select using (true);
 
+-- See migrations/20260928100000_reviews_unique_booking.sql -- one
+-- review per booking, matching renter_reviews' own unique(booking_id).
+alter table public.reviews
+  add constraint reviews_booking_id_unique unique (booking_id);
+
 create index if not exists reviews_listing_id_idx2 on public.reviews (listing_id);
 create index if not exists reviews_booking_id_idx on public.reviews (booking_id);
 
