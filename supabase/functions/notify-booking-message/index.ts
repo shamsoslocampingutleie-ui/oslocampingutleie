@@ -146,7 +146,7 @@ Deno.serve(async (req) => {
     if (event === "booking_request") {
       const { data: booking } = await supabase
         .from("bookings")
-        .select("id, renter_name, renter_email, from_date, to_date, listing_id")
+        .select("id, renter, renter_name, renter_email, from_date, to_date, listing_id")
         .eq("id", bookingId)
         .single();
 
@@ -155,6 +155,18 @@ Deno.serve(async (req) => {
         .select("title, owner")
         .eq("id", booking?.listing_id ?? "")
         .single();
+
+      // Unlike chat_message/handover_confirmed/return_confirmed below,
+      // this branch had no check at all that the caller is the renter
+      // on this booking -- any authenticated user could pass an
+      // arbitrary bookingId and make the host get a real "new request"
+      // email/push for a request that was never actually made.
+      if (!booking || booking.renter !== userData.user.id) {
+        return new Response(JSON.stringify({ error: "Forbidden" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
 
       const { data: hostUser } = await supabase.auth.admin.getUserById(
         listing?.owner ?? "",
@@ -192,15 +204,24 @@ Deno.serve(async (req) => {
     if (event === "booking_accepted") {
       const { data: booking } = await supabase
         .from("bookings")
-        .select("id, renter_name, renter_email, from_date, to_date, listing_id")
+        .select("id, renter, renter_name, renter_email, from_date, to_date, listing_id")
         .eq("id", bookingId)
         .single();
 
       const { data: listing } = await supabase
         .from("listings")
-        .select("title, price_per_day")
+        .select("title, price_per_day, owner")
         .eq("id", booking?.listing_id ?? "")
         .single();
+
+      // Same gap as booking_request above -- only the host who actually
+      // owns this listing may trigger an "accepted" notification for it.
+      if (!booking || listing?.owner !== userData.user.id) {
+        return new Response(JSON.stringify({ error: "Forbidden" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
 
       if (booking?.renter_email) {
         await sendEmail(
@@ -237,9 +258,20 @@ Deno.serve(async (req) => {
 
       const { data: listing } = await supabase
         .from("listings")
-        .select("title")
+        .select("title, owner")
         .eq("id", booking?.listing_id ?? "")
         .single();
+
+      // Same gap as booking_request/booking_accepted above -- a
+      // "declined" notification for a real renter is genuinely harmful
+      // noise (they think a real request of theirs was rejected) if
+      // anyone but the actual host could trigger it.
+      if (!booking || listing?.owner !== userData.user.id) {
+        return new Response(JSON.stringify({ error: "Forbidden" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
 
       if (booking?.renter_email) {
         await sendEmail(
