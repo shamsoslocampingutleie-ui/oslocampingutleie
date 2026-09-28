@@ -2258,6 +2258,38 @@ drop policy if exists "demand_signals_select" on public.demand_signals;
 create policy "demand_signals_select" on public.demand_signals
   for select using (public.is_admin());
 
+-- See migrations/20260928110000_public_insert_length_caps.sql -- both
+-- this table and contact_requests allow a fully open, unauthenticated
+-- insert; Postgres RLS can't rate-limit, so length caps are the cheap
+-- mitigation available at this layer. Written idempotently there
+-- (contact_requests_name_len was found to already exist live).
+do $$ begin
+  if not exists (select 1 from pg_constraint where conname = 'demand_signals_email_len') then
+    alter table public.demand_signals add constraint demand_signals_email_len check (char_length(email) <= 320);
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'demand_signals_category_len') then
+    alter table public.demand_signals add constraint demand_signals_category_len check (category is null or char_length(category) <= 200);
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'demand_signals_location_len') then
+    alter table public.demand_signals add constraint demand_signals_location_len check (location is null or char_length(location) <= 200);
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'contact_requests_name_len') then
+    alter table public.contact_requests add constraint contact_requests_name_len check (char_length(name) <= 200);
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'contact_requests_email_len') then
+    alter table public.contact_requests add constraint contact_requests_email_len check (char_length(email) <= 320);
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'contact_requests_phone_len') then
+    alter table public.contact_requests add constraint contact_requests_phone_len check (char_length(phone) <= 50);
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'contact_requests_subject_len') then
+    alter table public.contact_requests add constraint contact_requests_subject_len check (char_length(subject) <= 300);
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'contact_requests_message_len') then
+    alter table public.contact_requests add constraint contact_requests_message_len check (char_length(message) <= 5000);
+  end if;
+end $$;
+
 -- ============================================================
 -- RENTER REVIEWS (2026-09-27)
 -- ============================================================
