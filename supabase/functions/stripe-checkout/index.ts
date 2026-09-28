@@ -217,7 +217,33 @@ Deno.serve(async (req) => {
     const transportFeeAmount = booking.wants_transport && Number(listing.transport_fee || 0) > 0
       ? Math.round(Number(listing.transport_fee))
       : 0;
-    const amountTotal = rentAfterDiscount + serviceFee + cleaningFee + deposit + transportFeeAmount;
+
+    // Extras (booking_extras) and the separate per-booking transport
+    // option (booking_transport) -- both selected during sendRequest()
+    // and shown, itemized, to the renter in openDiscountPayModal()
+    // (src/app.html) right before they click "Gå til betaling". That
+    // screen's total already includes them, but this function never
+    // read either table: the Stripe charge silently dropped every
+    // extra/add-on a renter had just seen and agreed to pay for. Same
+    // gap, same fix as the length-of-stay discount and guest-checkout's
+    // transport fee -- read from the DB, never trust a client-supplied
+    // amount, and match the client's own math exactly (extras priced
+    // "per_day" scale by night count, a flat extra or transport option
+    // charges once).
+    const [{ data: bookingExtras }, { data: bookingTransport }] = await Promise.all([
+      supabase.from("booking_extras").select("price_snapshot, pricing_type").eq("booking_id", bookingId),
+      supabase.from("booking_transport").select("price_snapshot").eq("booking_id", bookingId),
+    ]);
+    const extrasTotal = (bookingExtras ?? []).reduce((sum, ex) => {
+      const qty = ex.pricing_type === "per_day" ? n : 1;
+      return sum + Number(ex.price_snapshot || 0) * qty;
+    }, 0);
+    const bookingTransportTotal = (bookingTransport ?? []).reduce(
+      (sum, tr) => sum + (Number(tr.price_snapshot) > 0 ? Number(tr.price_snapshot) : 0),
+      0,
+    );
+
+    const amountTotal = rentAfterDiscount + serviceFee + cleaningFee + deposit + transportFeeAmount + extrasTotal + bookingTransportTotal;
     const hostFeeWaived = !!host.fee_waiver_until && new Date(host.fee_waiver_until) > new Date();
     // Platform fee = 10% from renter + 10% from host (unless waived) = up to 20% of rent.
     const platformFee = serviceFee + (hostFeeWaived ? 0 : Math.round(rentAfterDiscount * 0.10));
@@ -273,6 +299,8 @@ Deno.serve(async (req) => {
         discount_pct: String(discountPct),
         length_discount_pct: String(lengthDiscountPct),
         transport_fee_ore: String(Math.round(transportFeeAmount * 100)),
+        extras_ore: String(Math.round(extrasTotal * 100)),
+        booking_transport_ore: String(Math.round(bookingTransportTotal * 100)),
         // Snapshotted now (like platform_fee_ore) so stripe-release-payout
         // can keep this out of the host's transfer and refund it back to
         // the renter later, instead of it silently going to the host --
