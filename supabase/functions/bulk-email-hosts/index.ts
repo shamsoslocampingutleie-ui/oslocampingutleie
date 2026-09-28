@@ -1,9 +1,11 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 import { sendEmail } from "../_shared/email.ts";
+import { unsubToken, unsubUrl } from "../_shared/unsubToken.ts";
 
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const supabase = createClient(
-  Deno.env.get("SUPABASE_URL")!,
+  SUPABASE_URL,
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
 );
 
@@ -97,11 +99,19 @@ Deno.serve(async (req) => {
   // renter too. host_approved === true is how the rest of the app (e.g.
   // adminUsers()'s "🏠 Utleier" badge) determines someone is an actual,
   // approved host.
+  // marketing_consent didn't exist until this campaign tool already had
+  // hosts to email, so it couldn't have filtered on it before -- but
+  // this sends non-transactional campaign content (subject/body an
+  // admin composes freely), which is exactly what that opt-in flag
+  // exists to gate. Without this filter, every approved host would get
+  // marketing email regardless of consent, the same gap that motivated
+  // building the flag in the first place.
   const { data: hosts, error: hostErr } = await supabase
     .from("profiles")
     .select("id, full_name, email")
     .eq("role", "user")
     .eq("host_approved", true)
+    .eq("marketing_consent", true)
     .not("email", "is", null)
     .neq("email", "");
 
@@ -153,9 +163,16 @@ Deno.serve(async (req) => {
 
     await Promise.all(
       batch.map(async (host) => {
+        const token = await unsubToken(host.id);
+        const unsubLink = unsubUrl(SUPABASE_URL, host.id, token);
+        // Unsubscribe link is appended outside the admin-composed
+        // html_body, not something the admin can accidentally omit --
+        // every commercial email needs one regardless of what content
+        // gets typed into a campaign that day.
         const personalizedHtml = html_body
           .replace(/{{name}}/g, host.full_name || "Utleier")
-          .replace(/{{email}}/g, host.email);
+          .replace(/{{email}}/g, host.email)
+          + `<p style="font-size:12px;color:#888;margin-top:24px;border-top:1px solid #eee;padding-top:12px">Du mottar denne e-posten fra Leieplattform fordi du har samtykket til å motta e-post fra oss.<br><a href="${unsubLink}">Meld deg av</a></p>`;
 
         const result = await sendWithRetry(host.email, subject, personalizedHtml);
 
