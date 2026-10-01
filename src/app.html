@@ -874,10 +874,9 @@ function _priceBadgesHtml(t){
   var _boosted=t.boostedUntil&&new Date(t.boostedUntil)>new Date();
   var _recLabel=t.featured?(_en?'⭐ Recommended':'⭐ Anbefalt'):(_boosted?(_en?'🚀 Featured':'🚀 Fremhevet'):null);
   var _discPct=t.monthlyDiscount>=5?t.monthlyDiscount:(t.weeklyDiscount>=5?t.weeklyDiscount:0);
-  var pills='';
-  if(_recLabel)pills+='<span class="pcmp rec">'+_recLabel+'</span>';
-  if(_discPct)pills+='<span class="pcmp disc">'+_discPct+'% '+(_en?'off':'rabatt')+'</span>';
-  return pills;
+  if(_recLabel)return'<span class="pcmp rec">'+_recLabel+'</span>';
+  if(_discPct)return'<span class="pcmp disc">'+_discPct+'% '+(_en?'off':'rabatt')+'</span>';
+  return'';
 }
 // Wraps pill HTML (price badges, plus any other .pcmp like the "under
 // snitt" comparison) in its own block-level row below the price number
@@ -1250,7 +1249,14 @@ t.forEach((t,_gIdx)=>{
   var _avg=_catAvgPrice(t.cat);
   var _pctDiff=_avg>0?Math.round((t.price-_avg)/_avg*100):0;
   var _cmpBadge=(_pctDiff<=-10)?'<span class="pcmp low">'+Math.abs(_pctDiff)+'% under snitt</span>':'';
-  l.innerHTML="<b>"+nok(t.price)+" kr</b> <span>/dag</span>"+_priceBadgeRow(_cmpBadge+_priceBadgesHtml(t));
+  // Exactly one pill, never a stack of two or three -- a card that's
+  // featured AND discounted AND cheaper-than-average showed all three
+  // at once (reported: looked like "et sirkus" with the badges on the
+  // image overlay too). One clear reason to book beats three competing
+  // ones. Priority: Anbefalt/Fremhevet (the host paid for or earned
+  // this) > rabatt (a concrete price incentive) > under snitt (the
+  // weakest, most generic signal -- only shown if nothing else applies).
+  l.innerHTML="<b>"+nok(t.price)+" kr</b> <span>/dag</span>"+_priceBadgeRow(_priceBadgesHtml(t)||_cmpBadge);
   const r=el("span","rating");t.reviews>0&&t.rating?(r.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="#B65A12"><path d="M12 2l3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1z"/></svg>',r.appendChild(el("span","num",t.rating.toFixed(1)))):r.appendChild(el("span","spec","Ny")),a.appendChild(l),a.appendChild(r);
   const _bkCount=BOOKINGS.filter(b=>b.listingId===t.id&&(b.status==="accepted"||b.status==="completed")).length;
   if(_bkCount>0){const _bkBadge=el("span");_bkBadge.style.cssText="font-size:10px;color:var(--ink-3);margin-top:2px;display:block";_bkBadge.textContent=_bkCount>5?"🔥 "+_bkCount+" bookinger":_bkCount+" booking"+(t.reviews>1?"er":"");a.appendChild(_bkBadge);}
