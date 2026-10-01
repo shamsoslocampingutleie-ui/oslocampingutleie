@@ -79,6 +79,20 @@ export async function anonymizeAccount(
     }
   } catch { /* best-effort */ }
 
+  // push_subscriptions.user_id references profiles(id) ON DELETE
+  // CASCADE -- which never fires here, because this function
+  // deliberately never deletes the profiles row itself (see header
+  // comment). Without this, a "deleted" user's device keeps a live
+  // push subscription forever: their listings are only paused, not
+  // removed, so a stale bookmarked link to one could still trigger
+  // notify-inquiry-message's firePush(listing.owner, ...) and the
+  // push would land on a device belonging to someone who was told
+  // their account -- and the notifications that come with it -- was
+  // deleted.
+  try {
+    await supabase.from("push_subscriptions").delete().eq("user_id", userId);
+  } catch { /* best-effort */ }
+
   await supabase.from("profiles").update({
     full_name: "Slettet bruker",
     email: `slettet+${userId}@leieplattform.no`,
