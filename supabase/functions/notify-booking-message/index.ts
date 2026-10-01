@@ -4,6 +4,8 @@ import { sendEmail, emailLayout, escapeHtml } from "../_shared/email.ts";
 import { insertNotification } from "../_shared/notify.ts";
 import { checkRateLimit, rateLimitResponse } from "../_shared/rateLimit.ts";
 
+const ADMIN_EMAIL = Deno.env.get("ADMIN_EMAIL") ?? "";
+
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL")!,
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
@@ -382,7 +384,7 @@ Deno.serve(async (req) => {
     if (event === "return_confirmed") {
       const { data: booking } = await supabase
         .from("bookings")
-        .select("id, renter, renter_email, listing_id, host_confirmed_return, renter_confirmed_return")
+        .select("id, renter, renter_email, listing_id, host_confirmed_return, renter_confirmed_return, extra_charges")
         .eq("id", bookingId)
         .single();
       if (!booking) {
@@ -405,6 +407,39 @@ Deno.serve(async (req) => {
           status: 403,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
+      }
+
+      // openHostReturnModal (src/app.html) explicitly tells the host
+      // any damage/cleaning/toll charges entered here are "lagres for
+      // admin, som kontakter leietaker/utleier manuelt" -- saved for
+      // admin, who contacts you manually. Nothing ever actually told
+      // admin: stripe-release-payout only logs the dispute to
+      // error_logs once BOTH parties have confirmed return, which
+      // could be days after the host's claim if the renter is slow to
+      // confirm. Alert admin the moment the claim is actually filed,
+      // not whenever the other party eventually gets around to acting.
+      const extraCharges = (booking.extra_charges ?? {}) as Record<string, unknown>;
+      const hasDamageClaim = callerIsHost &&
+        ["damage", "cleaning", "toll"].some((k) => Number(extraCharges[k] ?? 0) > 0);
+      if (hasDamageClaim && ADMIN_EMAIL) {
+        const title = listing?.title ?? "utstyret";
+        const lines = (["damage", "cleaning", "toll"] as const)
+          .filter((k) => Number(extraCharges[k] ?? 0) > 0)
+          .map((k) => {
+            const label = k === "damage" ? "Skader" : k === "cleaning" ? "Ekstra rengjøring" : "Bompenger/transport";
+            return `<p><strong>${label}:</strong> ${Number(extraCharges[k])} kr</p>`;
+          }).join("");
+        await sendEmail(
+          ADMIN_EMAIL,
+          `Skadekrav registrert — ${title}`,
+          emailLayout(
+            "Ny tilleggsgebyr-/skaderapport venter på gjennomgang",
+            `<p>Utleier har registrert tilleggsgebyrer ved retur av <strong>${escapeHtml(title)}</strong> (booking <code>${escapeHtml(bookingId)}</code>).</p>
+            <div class="info-box">${lines}${extraCharges.note ? `<p><strong>Notat:</strong> ${escapeHtml(String(extraCharges.note))}</p>` : ""}</div>
+            <p>Depositumet holdes tilbake fra automatisk refusjon til dette er gjennomgått. Bruk admin-panelet for å avgjøre hvor mye som refunderes til leietaker.</p>
+            <a href="https://leieplattform.no/app.html#admin" class="btn">Gå til admin-panel →</a>`,
+          ),
+        ).catch((e) => console.warn("[notify-booking-message] admin damage-claim email failed:", e));
       }
 
       // Once both have confirmed the booking is complete and
