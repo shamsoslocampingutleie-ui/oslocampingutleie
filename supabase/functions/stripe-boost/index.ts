@@ -60,7 +60,7 @@ Deno.serve(async (req) => {
 
     const { data: listing, error: listingErr } = await supabase
       .from("listings")
-      .select("id, title, owner")
+      .select("id, title, owner, boosted_until")
       .eq("id", listingId)
       .single();
 
@@ -76,6 +76,20 @@ Deno.serve(async (req) => {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // hostListings() (src/app.html) already disables the boost button
+    // while boosted_until is in the future -- that's only a client-side
+    // safeguard, nothing stopped calling this function directly (or a
+    // double-click race before the button disables) and paying 90 kr
+    // again for a boost window that's already active. Not a fraud risk
+    // against the platform, but a real way for a host to accidentally
+    // pay themselves twice for the same thing.
+    if (listing.boosted_until && new Date(listing.boosted_until) > new Date()) {
+      return new Response(
+        JSON.stringify({ error: "Annonsen er allerede fremhevet. Vent til perioden er over før du fremhever på nytt." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
     const session = await stripe.checkout.sessions.create({
