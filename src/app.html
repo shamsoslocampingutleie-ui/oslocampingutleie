@@ -1980,7 +1980,23 @@ function renderRenter(){const e=document.getElementById("renterBody");e.innerHTM
 // above) -- once complete, a renter had no way back in to change their
 // avatar or details. Always offer it here too.
 const _editProfBtn=el("button","btn btn-ghost btn-sm","✎ Rediger profil");_editProfBtn.onclick=openRenterProfileModal;t.appendChild(_editProfBtn);
-if(session&&"user"===session.role){const e=el("button","btn btn-ghost btn-sm","↺ Bytt til utleie");e.onclick=switchMode,t.appendChild(e)}}const n=BOOKINGS.filter(e=>e.renterId===session.id||e.renterEmail===session.email),i=el("div","stat-cards"),o=n.filter(e=>"accepted"===e.status&&_pd(e.to)>=TODAY).length,a=n.filter(e=>"pending"===e.status).length;[["Totalt",n.length,""],["Venter",a,""],["Kommende",o,""],["Fullført",n.filter(e=>"completed"===e.status).length,""]].forEach(e=>{const t=el("div","stat");t.appendChild(el("div","lbl",e[0])),t.appendChild(el("div","val",e[1])),i.appendChild(t)}),e.appendChild(i);const licCard=el("div","surface");licCard.style.marginBottom="16px";
+if(session&&"user"===session.role){const e=el("button","btn btn-ghost btn-sm","↺ Bytt til utleie");e.onclick=switchMode,t.appendChild(e)}}const n=BOOKINGS.filter(e=>e.renterId===session.id||e.renterEmail===session.email),i=el("div","stat-cards"),o=n.filter(e=>"accepted"===e.status&&_pd(e.to)>=TODAY).length,a=n.filter(e=>"pending"===e.status).length;[["Totalt",n.length,""],["Venter",a,""],["Kommende",o,""],["Fullført",n.filter(e=>"completed"===e.status).length,""]].forEach(e=>{const t=el("div","stat");t.appendChild(el("div","lbl",e[0])),t.appendChild(el("div","val",e[1])),i.appendChild(t)}),e.appendChild(i);
+if(session&&"admin"!==session.role&&session.hostApproved!==true){
+  // The only other nudge toward hosting on this page was a small ghost
+  // button up in renterModeSwitch (easy to miss, tucked next to "Rediger
+  // profil") -- someone who already trusts the platform enough to have
+  // booked something is proven warm audience for becoming a host too,
+  // same logic as the listing-detail cross-sell. A real card here, not
+  // a secondary button, matches how much weight that audience deserves.
+  const _rhc=el("div");_rhc.style.cssText="margin-bottom:16px;padding:18px 20px;background:linear-gradient(135deg,#0a2e16,#14512E);border-radius:14px;color:#fff;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap";
+  const _rhcTxt=el("div");
+  const _rhcH=el("div",null,("en"===LANG)?"Earn money while you rent":"Tjen penger mens du leier");_rhcH.style.cssText="font-weight:700;font-size:15px;margin-bottom:3px";
+  const _rhcP=el("div",null,("en"===LANG)?"Got gear of your own sitting idle? List it free — 0% platform fee your first year.":"Har du selv utstyr som mest står ubrukt? Legg det ut gratis — 0 % gebyr første år.");_rhcP.style.cssText="font-size:13.5px;color:rgba(255,255,255,.8)";
+  _rhcTxt.append(_rhcH,_rhcP);
+  const _rhcBtn=el("button","btn btn-amber btn-sm",("en"===LANG)?"Become a host →":"Bli utleier →");_rhcBtn.style.flexShrink="0";_rhcBtn.onclick=switchMode;
+  _rhc.append(_rhcTxt,_rhcBtn);e.appendChild(_rhc);
+}
+const licCard=el("div","surface");licCard.style.marginBottom="16px";
   const licH=el("h3",null,"Legitimasjon");licCard.appendChild(licH);
   licCard.appendChild(el("p","sub","Opplasting av gyldig førerkort er påkrevd for å leie utstyr."));
   if(session&&session.licFront){
