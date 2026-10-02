@@ -37,7 +37,7 @@ async function sendPaymentConfirmationEmails(bookingId: string, amountTotal: num
   try {
     const { data: booking } = await supabase
       .from("bookings")
-      .select("renter, listing_id, from_date, to_date")
+      .select("renter, renter_email, listing_id, from_date, to_date")
       .eq("id", bookingId)
       .single();
     if (!booking) return;
@@ -48,12 +48,21 @@ async function sendPaymentConfirmationEmails(bookingId: string, amountTotal: num
       .eq("id", booking.listing_id)
       .single();
 
+    // booking.renter is null for a guest-checkout booking (no real
+    // Supabase Auth user, just name/email/phone stored on the booking
+    // row) -- calling getUserById(null) silently resolves to no user,
+    // so renterEmail ended up undefined and a real, paying guest never
+    // got their payment confirmation at all. Same gap already found
+    // and fixed in stripe-release-payout's deposit-refund email
+    // ("Guest bookings (renter is null) still owe a deposit refund --
+    // fall back to renter_email") but missed here.
+    const isGuest = !booking.renter;
     const [renterAuth, hostAuth] = await Promise.all([
-      supabase.auth.admin.getUserById(booking.renter),
+      booking.renter ? supabase.auth.admin.getUserById(booking.renter) : Promise.resolve(null),
       supabase.auth.admin.getUserById(listing?.owner ?? ""),
     ]);
 
-    const renterEmail = renterAuth.data?.user?.email;
+    const renterEmail = isGuest ? booking.renter_email : renterAuth?.data?.user?.email;
     const hostEmail = hostAuth.data?.user?.email;
     const title = escapeHtml(listing?.title ?? "leieforholdet");
     const hostPayout = nok(amountTotal - platformFee);
@@ -72,7 +81,12 @@ async function sendPaymentConfirmationEmails(bookingId: string, amountTotal: num
             <p><strong>Betalt totalt:</strong> ${nok(amountTotal)}</p>
           </div>
           <p><strong>Viktig:</strong> Etter at du har hentet og returnert utstyret må du bekrefte dette i appen. Depositumet frigjøres etter begge parters bekreftelse.</p>
-          <a href="https://leieplattform.no/booking/${bookingId}" class="btn">Gå til Mine bookinger →</a>
+          ${
+            isGuest
+              ? `<div class="info-box"><p><strong>Du booket som gjest, uten konto.</strong> For å bekrefte utlevering/retur og chatte med utleier, opprett en gratis konto med <strong>nøyaktig denne e-postadressen</strong> (${escapeHtml(renterEmail)}) — da kobles bookingen din automatisk til kontoen.</p></div>
+                 <a href="https://leieplattform.no" class="btn">Opprett konto →</a>`
+              : `<a href="https://leieplattform.no/booking/${bookingId}" class="btn">Gå til Mine bookinger →</a>`
+          }
           <div class="info-box">
             <p>Pengene overføres til utleier <strong>kun</strong> etter at dere begge har bekreftet overlevering i appen. Ingen betaling skjer uten din bekreftelse.</p>
           </div>`,
@@ -248,12 +262,19 @@ Deno.serve(async (req) => {
               .eq("status", "pending_payment");
             const { data: failedBooking } = await supabase
               .from("bookings")
-              .select("renter, listing_id, from_date, to_date")
+              .select("renter, renter_email, listing_id, from_date, to_date")
               .eq("id", bookingId)
               .single();
-            if (failedBooking?.renter) {
-              const renterAuth = await supabase.auth.admin.getUserById(failedBooking.renter);
-              const renterEmail = renterAuth.data?.user?.email;
+            // Same gap as sendPaymentConfirmationEmails above: gating
+            // this whole block on failedBooking?.renter meant a GUEST
+            // who lost a double-booking race got refunded (the actual
+            // Stripe refund above isn't gated on this) but never told
+            // why -- money just vanished from their statement with no
+            // explanation anywhere.
+            if (failedBooking?.renter || failedBooking?.renter_email) {
+              const renterEmail = failedBooking.renter
+                ? (await supabase.auth.admin.getUserById(failedBooking.renter)).data?.user?.email
+                : failedBooking.renter_email;
               const { data: listingRow } = await supabase
                 .from("listings")
                 .select("title")
