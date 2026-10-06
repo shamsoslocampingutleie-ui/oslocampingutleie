@@ -33,7 +33,7 @@ export default function handler(req) {
   <rect x="100" y="535" width="200" height="48" rx="24" fill="#ffffff" fill-opacity="0.15"/>
   <text x="200" y="566" font-family="system-ui,-apple-system,sans-serif" font-size="20" text-anchor="middle" fill="#ffffff" font-weight="600">✓ Trygt</text>
   <rect x="318" y="535" width="240" height="48" rx="24" fill="#ffffff" fill-opacity="0.15"/>
-  <text x="438" y="566" font-family="system-ui,-apple-system,sans-serif" font-size="20" text-anchor="middle" fill="#ffffff" font-weight="600">✓ Forsikret</text>
+  <text x="438" y="566" font-family="system-ui,-apple-system,sans-serif" font-size="20" text-anchor="middle" fill="#ffffff" font-weight="600">✓ Kontrakt</text>
   <rect x="576" y="535" width="260" height="48" rx="24" fill="#ffffff" fill-opacity="0.15"/>
   <text x="706" y="566" font-family="system-ui,-apple-system,sans-serif" font-size="20" text-anchor="middle" fill="#ffffff" font-weight="600">✓ Fra 290 kr/dag</text>
 </svg>`;
