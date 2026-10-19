@@ -100,7 +100,7 @@ Deno.serve(async (req) => {
             `Ny melding fra ${safeSenderName} — ${listing?.title ?? "booking"}`,
             emailLayout(
               "Du har fått en melding 📬",
-              `<p><strong>${safeSenderName}</strong> har sendt deg en melding angående <strong>${listing?.title ?? "annonsen din"}</strong>:</p>
+              `<p><strong>${safeSenderName}</strong> har sendt deg en melding angående <strong>${escapeHtml(listing?.title ?? "annonsen din")}</strong>:</p>
               <div class="info-box">
                 <p style="font-style:italic">"${preview}"</p>
               </div>
@@ -125,7 +125,7 @@ Deno.serve(async (req) => {
             `Ny melding fra utleier — ${listing?.title ?? "booking"}`,
             emailLayout(
               "Du har fått et svar 📬",
-              `<p>Utleier har svart på din booking-forespørsel for <strong>${listing?.title ?? "annonsen"}</strong>:</p>
+              `<p>Utleier har svart på din booking-forespørsel for <strong>${escapeHtml(listing?.title ?? "annonsen")}</strong>:</p>
               <div class="info-box">
                 <p style="font-style:italic">"${preview}"</p>
               </div>
@@ -183,10 +183,10 @@ Deno.serve(async (req) => {
           `Ny leieforespørsel — ${listing?.title ?? "annonsen din"}`,
           emailLayout(
             "Du har fått en leieforespørsel 🎉",
-            `<p><strong>${booking.renter_name}</strong> ønsker å leie <strong>${listing?.title ?? "annonsen din"}</strong>.</p>
+            `<p><strong>${escapeHtml(booking.renter_name)}</strong> ønsker å leie <strong>${escapeHtml(listing?.title ?? "annonsen din")}</strong>.</p>
             <div class="info-box">
               <p><strong>Periode:</strong> ${from} → ${to}</p>
-              <p><strong>Leietaker:</strong> ${booking.renter_name}</p>
+              <p><strong>Leietaker:</strong> ${escapeHtml(booking.renter_name)}</p>
             </div>
             <p>Logg inn og gå til <strong>Utleier-dashbord</strong> for å godkjenne eller avvise forespørselen.</p>
             <a href="https://leieplattform.no/booking/${bookingId}" class="btn">Se forespørsel →</a>`,
@@ -231,9 +231,9 @@ Deno.serve(async (req) => {
           `Bestillingen er godkjent — ${listing?.title ?? ""}`,
           emailLayout(
             "Forespørselen din er godkjent ✅",
-            `<p>Godt nytt, ${booking.renter_name}! Utleier har godkjent din leieforespørsel.</p>
+            `<p>Godt nytt, ${escapeHtml(booking.renter_name)}! Utleier har godkjent din leieforespørsel.</p>
             <div class="info-box">
-              <p><strong>Utstyr:</strong> ${listing?.title ?? ""}</p>
+              <p><strong>Utstyr:</strong> ${escapeHtml(listing?.title ?? "")}</p>
               <p><strong>Periode:</strong> ${booking.from_date} → ${booking.to_date}</p>
             </div>
             <p>Logg inn for å se detaljer, betale og sende meldinger til utleier.</p>
@@ -281,9 +281,9 @@ Deno.serve(async (req) => {
           `Forespørsel ikke godkjent — ${listing?.title ?? ""}`,
           emailLayout(
             "Forespørselen ble ikke godkjent",
-            `<p>Hei ${booking.renter_name}, dessverre ble ikke leieforespørselen din godkjent denne gangen.</p>
+            `<p>Hei ${escapeHtml(booking.renter_name)}, dessverre ble ikke leieforespørselen din godkjent denne gangen.</p>
             <div class="info-box">
-              <p><strong>Utstyr:</strong> ${listing?.title ?? ""}</p>
+              <p><strong>Utstyr:</strong> ${escapeHtml(listing?.title ?? "")}</p>
             </div>
             <p>Du kan søke etter lignende utstyr på Leieplattform.</p>
             <a href="https://leieplattform.no" class="btn">Se andre annonser →</a>`,

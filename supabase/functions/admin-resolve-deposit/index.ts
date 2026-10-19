@@ -17,7 +17,7 @@
 import Stripe from "npm:stripe@17";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
-import { sendEmail, emailLayout } from "../_shared/email.ts";
+import { sendEmail, emailLayout, escapeHtml } from "../_shared/email.ts";
 
 const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY")!, {
   apiVersion: "2024-06-20",
@@ -129,7 +129,8 @@ Deno.serve(async (req) => {
 
     try {
       const { data: listing } = await supabase.from("listings").select("title, owner").eq("id", booking.listing_id).single();
-      const title = listing?.title ?? "leieforholdet";
+      const rawTitle = listing?.title ?? "leieforholdet";
+      const title = escapeHtml(rawTitle);
       const refundKr = (refundOre / 100).toLocaleString("nb-NO") + " kr";
       const depositKr = (depositAmountOre / 100).toLocaleString("nb-NO") + " kr";
       const withheldOre = depositAmountOre - refundOre;
@@ -141,7 +142,7 @@ Deno.serve(async (req) => {
       if (renterEmail) {
         await sendEmail(
           renterEmail,
-          `Depositum behandlet — ${title}`,
+          `Depositum behandlet — ${rawTitle}`,
           emailLayout(
             "Depositumet ditt er behandlet",
             refundOre === depositAmountOre
@@ -164,7 +165,7 @@ Deno.serve(async (req) => {
         if (hostEmail) {
           await sendEmail(
             hostEmail,
-            `Depositum-tvist løst — ${title}`,
+            `Depositum-tvist løst — ${rawTitle}`,
             emailLayout(
               "Depositum-rapporten din er gjennomgått",
               withheldOre > 0

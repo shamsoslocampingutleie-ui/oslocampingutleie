@@ -20,7 +20,7 @@
 import Stripe from "npm:stripe@17";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
-import { sendEmail, emailLayout } from "../_shared/email.ts";
+import { sendEmail, emailLayout, escapeHtml } from "../_shared/email.ts";
 
 const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY")!, {
   apiVersion: "2024-06-20",
@@ -283,7 +283,8 @@ Deno.serve(async (req) => {
           .select("title")
           .eq("id", bookingFull.listing_id)
           .single();
-        const title = listingTitleRow?.title ?? "leieforholdet";
+        const rawTitle = listingTitleRow?.title ?? "leieforholdet";
+        const title = escapeHtml(rawTitle);
         const hostAuth = await supabase.auth.admin.getUserById(listing.owner);
         const hostEmail = hostAuth.data?.user?.email;
         const payoutKr = (payoutAmount / 100).toLocaleString("nb-NO") + " kr";
@@ -293,7 +294,7 @@ Deno.serve(async (req) => {
         if (hostEmail && payoutAmount > 0) {
           await sendEmail(
             hostEmail,
-            `Utbetaling frigitt — ${title}`,
+            `Utbetaling frigitt — ${rawTitle}`,
             emailLayout(
               "Utbetaling er på vei til deg ✓",
               `<p>Begge parter har bekreftet retur. Din utbetaling for <strong>${title}</strong> er nå frigitt og overføres til din Stripe-konto.</p>
@@ -319,7 +320,7 @@ Deno.serve(async (req) => {
           if (renterEmail) {
             await sendEmail(
               renterEmail,
-              `Depositum refundert — ${title}`,
+              `Depositum refundert — ${rawTitle}`,
               emailLayout(
                 "Depositumet ditt er refundert ✓",
                 `<p>Begge parter har bekreftet overlevering uten registrerte skader. Depositumet for <strong>${title}</strong> (${fromFmt} – ${toFmt}) er nå refundert til betalingskortet ditt.</p>
