@@ -232,14 +232,15 @@ Deno.serve(async (req) => {
     // charges once).
     const [{ data: bookingExtras }, { data: bookingTransport }] = await Promise.all([
       supabase.from("booking_extras").select("price_snapshot, pricing_type").eq("booking_id", bookingId),
-      supabase.from("booking_transport").select("price_snapshot").eq("booking_id", bookingId),
+      supabase.from("booking_transport").select("price_snapshot, pricing_mode").eq("booking_id", bookingId),
     ]);
     const extrasTotal = (bookingExtras ?? []).reduce((sum, ex) => {
       const qty = ex.pricing_type === "per_day" ? n : 1;
       return sum + Number(ex.price_snapshot || 0) * qty;
     }, 0);
     const bookingTransportTotal = (bookingTransport ?? []).reduce(
-      (sum, tr) => sum + (Number(tr.price_snapshot) > 0 ? Number(tr.price_snapshot) : 0),
+      (sum, tr) =>
+        sum + (Number(tr.price_snapshot) > 0 ? Number(tr.price_snapshot) : 0) * (tr.pricing_mode === "per_day" ? n : 1),
       0,
     );
 

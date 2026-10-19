@@ -70,6 +70,14 @@ Deno.serve(async (req) => {
     id_image_base64, id_image_content_type,
     success_url, cancel_url,
   } = body as Record<string, string | boolean | null>;
+  // Valgt ekstrautstyr/transport -- kun id-er. Navn og pris hentes fra
+  // annonsens egne tabeller av enforce_booking_*_price-triggerne.
+  const extraIds = Array.isArray((body as Record<string, unknown>).extra_ids)
+    ? ((body as Record<string, unknown>).extra_ids as unknown[]).filter((x): x is string => typeof x === "string").slice(0, 20)
+    : [];
+  const transportOptionId = typeof (body as Record<string, unknown>).transport_option_id === "string"
+    ? (body as Record<string, unknown>).transport_option_id as string
+    : null;
 
   if (!listing_id || !from_date || !to_date || !renter_name || !renter_email || !renter_phone) {
     return err(400, "Fullt navn, e-post, telefon og datoer er påkrevd.");
@@ -280,6 +288,24 @@ Svar KUN med gyldig JSON:
 
   const bookingId = booking.id as string;
 
+  // Placeholder-verdiene overskrives av triggerne (pris/navn fra annonsen).
+  if (transportOptionId) {
+    const { error: trErr } = await sb.from("booking_transport").insert({
+      booking_id: bookingId, transport_option_id: transportOptionId,
+      transport_name: "", price_snapshot: 0, pricing_mode: "fixed",
+    });
+    if (trErr) console.warn("[guest-checkout] transport save failed:", trErr.message);
+  }
+  if (extraIds.length) {
+    const { error: exErr } = await sb.from("booking_extras").insert(
+      [...new Set(extraIds)].map((id) => ({
+        booking_id: bookingId, extra_id: id,
+        extra_name: "", quantity: 1, price_snapshot: 0, pricing_type: "fixed",
+      })),
+    );
+    if (exErr) console.warn("[guest-checkout] extras save failed:", exErr.message);
+  }
+
   // Store the already-verified ID image server-side (service role, so no
   // RLS/schema issues like the old client-side post-hoc insert had) and
   // record the AI result for admin visibility in the samme oppslag som
@@ -383,7 +409,22 @@ Svar KUN med gyldig JSON:
       const transportFeeAmount = wants_transport && Number(listing.transport_fee || 0) > 0
         ? Math.round(Number(listing.transport_fee))
         : 0;
-      const amountTotal = rent_after_discount + serviceFee + cleaningFee + deposit + transportFeeAmount;
+      // Same as stripe-checkout: extras and the per-booking transport
+      // option are read back from the DB (prices set by trigger).
+      const [{ data: bookingExtras }, { data: bookingTransport }] = await Promise.all([
+        sb.from("booking_extras").select("price_snapshot, pricing_type").eq("booking_id", bookingId),
+        sb.from("booking_transport").select("price_snapshot, pricing_mode").eq("booking_id", bookingId),
+      ]);
+      const extrasTotal = (bookingExtras ?? []).reduce(
+        (sum, ex) => sum + Number(ex.price_snapshot || 0) * (ex.pricing_type === "per_day" ? n : 1),
+        0,
+      );
+      const bookingTransportTotal = (bookingTransport ?? []).reduce(
+        (sum, tr) =>
+          sum + (Number(tr.price_snapshot) > 0 ? Number(tr.price_snapshot) : 0) * (tr.pricing_mode === "per_day" ? n : 1),
+        0,
+      );
+      const amountTotal = rent_after_discount + serviceFee + cleaningFee + deposit + transportFeeAmount + extrasTotal + bookingTransportTotal;
       // Platform fee = 10% from renter + 10% from host (unless waived) = up to 20% of rent.
       const platformFee = serviceFee + (hostFeeWaived ? 0 : Math.round(rent_after_discount * 0.10));
       const amountTotalOre = Math.round(amountTotal * 100);
@@ -419,6 +460,8 @@ Svar KUN med gyldig JSON:
           platform_fee_ore: String(platformFeeOre),
           length_discount_pct: String(lengthDiscountPct),
           transport_fee_ore: String(Math.round(transportFeeAmount * 100)),
+          extras_ore: String(Math.round(extrasTotal * 100)),
+          booking_transport_ore: String(Math.round(bookingTransportTotal * 100)),
           // See 20260925200000_deposit_held_not_paid_to_host.sql -- kept
           // out of the host's payout, refunded to the renter later.
           deposit_ore: String(Math.round(deposit * 100)),
