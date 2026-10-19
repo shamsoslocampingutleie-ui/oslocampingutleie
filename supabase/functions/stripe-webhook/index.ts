@@ -299,7 +299,7 @@ Deno.serve(async (req) => {
                 "Dobbeltbooking forhindret — refundert automatisk",
                 emailLayout(
                   "Dobbeltbooking forhindret",
-                  `<p>Booking <code>${escapeHtml(bookingId)}</code> ble betalt men kunne ikke bekreftes (${escapeHtml(updateErr.message)}). Betalingen er automatisk refundert til leietaker.</p>`,
+                  `<p>Booking <code>${escapeHtml(bookingId)}</code> ble betalt men kunne ikke bekreftes (${escapeHtml(updateErr?.message ?? "bookingen var ikke lenger pending_payment")}). Betalingen er automatisk refundert til leietaker.</p>`,
                 ),
               );
             }

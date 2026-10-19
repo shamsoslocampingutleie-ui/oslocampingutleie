@@ -234,7 +234,7 @@ Svar KUN med gyldig JSON:
       stack: String(aiErr).slice(0, 4000),
       url: "edge-function:guest-checkout",
       user_agent: "server",
-    }).catch(() => {});
+    }).then(() => {}, () => {});
     return err(500, "Kunne ikke kontrollere legitimasjonen akkurat nå. Prøv igjen om litt, eller logg inn for å booke.");
   }
 
@@ -439,7 +439,7 @@ Svar KUN med gyldig JSON:
         stack: String(stripeErr).slice(0, 4000),
         url: "edge-function:guest-checkout",
         user_agent: "server",
-      }).catch(() => {});
+      }).then(() => {}, () => {});
     }
   }
 

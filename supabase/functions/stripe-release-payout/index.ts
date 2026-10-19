@@ -207,7 +207,7 @@ Deno.serve(async (req) => {
           stack: String(transferErr).slice(0, 4000),
           url: "edge-function:stripe-release-payout",
           user_agent: "server",
-        }).catch(() => {});
+        }).then(() => {}, () => {});
         await supabase
           .from("bookings")
           .update({ payout_released: false })
@@ -340,7 +340,7 @@ Deno.serve(async (req) => {
         stack: String(emailErr).slice(0, 4000),
         url: "edge-function:stripe-release-payout",
         user_agent: "server",
-      }).catch(() => {});
+      }).then(() => {}, () => {});
     }
 
     return new Response(

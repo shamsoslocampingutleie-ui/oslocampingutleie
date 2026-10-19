@@ -83,7 +83,7 @@ async function triggerRelease(bookingId: string): Promise<void> {
       stack: String(e).slice(0, 4000),
       url: "edge-function:send-handover-reminder",
       user_agent: "server",
-    }).catch(() => {});
+    }).then(() => {}, () => {});
   }
 }
 

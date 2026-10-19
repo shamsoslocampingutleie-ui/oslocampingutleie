@@ -66,7 +66,7 @@ Deno.serve(async (req) => {
       stack: String(err).slice(0, 4000),
       url: "edge-function:delete-account",
       user_agent: "server",
-    }).catch(() => {});
+    }).then(() => {}, () => {});
     return new Response(JSON.stringify({ error: String(err) }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },

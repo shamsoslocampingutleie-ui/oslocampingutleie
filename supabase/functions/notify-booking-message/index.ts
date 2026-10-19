@@ -254,7 +254,7 @@ Deno.serve(async (req) => {
     if (event === "booking_rejected") {
       const { data: booking } = await supabase
         .from("bookings")
-        .select("id, renter_name, renter_email, listing_id")
+        .select("id, renter, renter_name, renter_email, listing_id")
         .eq("id", bookingId)
         .single();
 

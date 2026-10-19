@@ -250,7 +250,7 @@ Deno.serve(async (req) => {
           stack: String(refundErr).slice(0, 4000),
           url: "edge-function:stripe-refund",
           user_agent: "server",
-        }).catch(() => {});
+        }).then(() => {}, () => {});
         await supabase
           .from("bookings")
           .update({ status: booking.status, cancelled_by: null, cancelled_at: null })
@@ -322,7 +322,7 @@ Deno.serve(async (req) => {
         stack: String(emailErr).slice(0, 4000),
         url: "edge-function:stripe-refund",
         user_agent: "server",
-      }).catch(() => {});
+      }).then(() => {}, () => {});
     }
 
     return new Response(

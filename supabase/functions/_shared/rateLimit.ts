@@ -17,7 +17,11 @@ export async function checkRateLimit(
 
   const windowSec = Math.floor(windowMs / 1000);
   const windowKey = Math.floor(Date.now() / windowMs);
-  const key = `${ip}:${windowKey}`;
+  // Scope the counter per function: without the function name every
+  // edge function shared one counter per IP, so e.g. a burst of chat
+  // notifications could lock the same user out of a 5/min checkout.
+  const fn = new URL(req.url).pathname.split("/").filter(Boolean).pop() ?? "";
+  const key = `${fn}:${ip}:${windowKey}`;
 
   const { data, error } = await supabase.rpc("increment_rate_limit", {
     p_key: key,

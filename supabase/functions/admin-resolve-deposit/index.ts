@@ -181,7 +181,7 @@ Deno.serve(async (req) => {
         stack: String(emailErr).slice(0, 4000),
         url: "edge-function:admin-resolve-deposit",
         user_agent: "server",
-      }).catch(() => {});
+      }).then(() => {}, () => {});
     }
 
     return new Response(JSON.stringify({ resolved: true, refundedOre: refundOre }), {

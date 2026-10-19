@@ -211,7 +211,7 @@ Respond ONLY with valid JSON:
       stack: String(err).slice(0, 4000),
       url: "edge-function:verify-license",
       user_agent: "server",
-    }).catch(() => {});
+    }).then(() => {}, () => {});
     return new Response(JSON.stringify({ error: "Intern feil, prøv igjen." }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });
