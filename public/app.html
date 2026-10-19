@@ -2951,7 +2951,7 @@ async function adminIdVerify(){
           sender_name:"Leieplattform",
           sender_role:"admin",
           text:"Gratulerer! Identiteten din er bekreftet og du kan nå publisere annonser på Leieplattform. 🎉"
-        }).catch(()=>{});
+        }).then(()=>{},()=>{});
         card.remove();
         toast("Utleier godkjent ✓","success");
         if(!hostGrid.children.length)hostGrid.parentElement?.appendChild(el("p","sub","Ingen ventende utleier-legitimasjoner."));
@@ -2976,7 +2976,7 @@ async function adminIdVerify(){
           sender_name:"Leieplattform",
           sender_role:"admin",
           text:`Beklager, legitimasjonen din ble ikke godkjent. Årsak: ${reason||"Ikke spesifisert."}\n\nLast opp ny legitimasjon og prøv igjen.`
-        }).catch(()=>{});
+        }).then(()=>{},()=>{});
         card.remove();
         toast("Avvist og slettet.","warn");
         if(!hostGrid.children.length)hostGrid.parentElement?.appendChild(el("p","sub","Ingen ventende utleier-legitimasjoner."));
