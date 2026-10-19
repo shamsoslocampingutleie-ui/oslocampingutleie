@@ -44,7 +44,7 @@ export default async function handler(req, res) {
       : `Lei for ${listing.price_per_day} kr/dag. Finn campingvogn, bobil, taktelt og mer på Leieplattform.`;
     const images = (listing.images || []).slice(0, 6);
     const image = images[0] || 'https://leieplattform.no/og-image.jpg';
-    const url = `https://leieplattform.no/listing/${id}`;
+    const url = `https://leieplattform.no/listing/${encodeURIComponent(listing.id)}`;
     const specs = [...(listing.specs || []), ...(listing.feats || [])];
 
     const jsonLd = {
@@ -92,7 +92,7 @@ export default async function handler(req, res) {
 <meta name="twitter:description" content="${esc(desc)}">
 <meta name="twitter:image" content="${esc(image)}">
 <link rel="canonical" href="${esc(url)}">
-<script type="application/ld+json">${JSON.stringify(jsonLd)}</script>
+<script type="application/ld+json">${JSON.stringify(jsonLd).replace(/</g, '\\u003c')}</script>
 <style>
 body{font-family:system-ui,sans-serif;max-width:720px;margin:0 auto;padding:20px;color:#1a2b20;line-height:1.5}
 a{color:#14512e}
@@ -114,13 +114,13 @@ ul{padding-left:20px}
 <p class="desc">${esc(listing.description || '')}</p>
 ${specs.length ? `<ul>${specs.map(s => `<li>${esc(s)}</li>`).join('')}</ul>` : ''}
 <a class="back" href="/">Se flere annonser på Leieplattform →</a>
-<script>window.location.replace("/?listing=${id}")</script>
+<script>window.location.replace("/?listing=${encodeURIComponent(listing.id)}")</script>
 </body></html>`;
 
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Cache-Control', 'public, max-age=300, s-maxage=300');
     return res.status(200).send(html);
   } catch {
-    return res.redirect(302, `/?listing=${id}`);
+    return res.redirect(302, `/?listing=${encodeURIComponent(id)}`);
   }
 }
